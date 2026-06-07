@@ -1,6 +1,6 @@
 ---
 name: to-issues
-description: Break a plan, spec, or PRD into independently-grabbable issues on the project issue tracker using tracer-bullet vertical slices. Use when user wants to convert a plan into issues, create implementation tickets, or break down work into issues.
+description: Break a plan, spec, or PRD into independently-grabbable issues using tracer-bullet vertical slices, request a version, write the approved result to issues/[version-title].md, and publish to the issue tracker when available. Use when user wants to convert a plan into issues, create implementation tickets, or break down work into issues.
 ---
 
 # To Issues
@@ -11,15 +11,22 @@ The issue tracker and triage label vocabulary should have been provided to you â
 
 ## Process
 
-### 1. Gather context
+### 1. Request version
 
-Work from whatever is already in the conversation context. If the user passes an issue reference (issue number, URL, or path) as an argument, fetch it from the issue tracker and read its full body and comments.
+Before drafting issues, ask the user for a numeric version string such as
+`0.0.1`. Do not infer the version from package metadata or Git tags.
 
-### 2. Explore the codebase (optional)
+Use this version when writing the final issues document.
+
+### 2. Gather context
+
+Work from whatever is already in the conversation context. If the user passes an issue reference (issue number, URL, or path), fetch it from the issue tracker and read its full body and comments. If the user passes local paths such as PRDs or ADRs, read those files.
+
+### 3. Explore the codebase (optional)
 
 If you have not already explored the codebase, do so to understand the current state of the code. Issue titles and descriptions should use the project's domain glossary vocabulary, and respect ADRs in the area you're touching.
 
-### 3. Draft vertical slices
+### 4. Draft vertical slices
 
 Break the plan into **tracer bullet** issues. Each issue is a thin vertical slice that cuts through ALL integration layers end-to-end, NOT a horizontal slice of one layer.
 
@@ -31,7 +38,7 @@ Slices may be 'HITL' or 'AFK'. HITL slices require human interaction, such as an
 - Prefer many thin slices over few thick ones
 </vertical-slice-rules>
 
-### 4. Quiz the user
+### 5. Quiz the user
 
 Present the proposed breakdown as a numbered list. For each slice, show:
 
@@ -49,7 +56,30 @@ Ask the user:
 
 Iterate until the user approves the breakdown.
 
-### 5. Publish the issues to the issue tracker
+### 6. Write the local issues document
+
+After the user approves the breakdown, write the final issue set to the local
+`issues/` folder.
+
+File name format:
+
+```text
+issues/[version]-[title].md
+```
+
+Rules:
+
+- `[version]` is the exact version string provided by the user, such as
+  `0.0.1`.
+- `[title]` is a short kebab-case title derived from the PRD, plan, or parent
+  issue title. Use lowercase ASCII letters, numbers, and hyphens.
+- Create the `issues/` folder if it does not exist.
+- The document should include the final approved issue bodies in dependency
+  order.
+- If issue tracker publishing is unavailable, still write this local document
+  and state that publishing was skipped.
+
+### 7. Publish the issues to the issue tracker
 
 For each approved slice, publish a new issue to the issue tracker. Use the issue body template below. These issues are considered ready for AFK agents, so publish them with the correct triage label unless instructed otherwise.
 
