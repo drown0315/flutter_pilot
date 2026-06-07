@@ -1,0 +1,69 @@
+# Flutter Pilot
+
+Flutter Pilot is a reproducible UI debugging context for Flutter apps. It defines the language for describing UI paths, diagnostic capture, and agent-ready debugging artifacts.
+
+## Language
+
+**Scenario**:
+A YAML-defined, reproducible UI path that Flutter Pilot can run against a Flutter app. It includes ordered actions, waits, and diagnostic capture points.
+_Avoid_: Flow, script, test case
+
+**Runtime Target**:
+The running Flutter app instance that a Scenario is executed against. Connection details for the Runtime Target are provided outside the Scenario.
+_Avoid_: Target configuration, environment block
+
+**Finder**:
+A rule for finding the widget that a Scenario step should interact with or wait for. A Finder may combine text, key, and widget type constraints in the same step; every configured constraint must match, each constraint has one string value, and there is no separate match option.
+_Avoid_: Selector, locator, query
+
+**Finder Match**:
+The widget result produced by applying a Finder during a Scenario run. A valid action requires exactly one Finder Match; zero matches or multiple matches fail the step.
+_Avoid_: First match, best match
+
+**Logical Key**:
+The string value used by a Scenario to refer to a Flutter widget key. It is written as the key value itself, not as a Dart key expression.
+_Avoid_: ValueKey expression, key constructor
+
+**Widget Type Name**:
+The simple Dart class name used by a Finder to refer to a widget type. It does not include package paths, library qualifiers, or generic type arguments.
+_Avoid_: Runtime type expression, qualified type name
+
+**Text Finder**:
+A Finder constraint that matches a widget by exact visible text.
+_Avoid_: Contains text, fuzzy text match
+
+**Step**:
+One ordered item in a Scenario. A Step may have a label and must have exactly one action.
+_Avoid_: Command, instruction
+
+**Step Label**:
+A human-readable identifier for a Step that can be referenced by CLI debugging controls and reports. The label belongs to the Step, not to the action.
+_Avoid_: Action label, marker
+
+**Type Action**:
+An action that replaces text in a widget found by a Finder. It clears existing text before entering the configured text, and is distinct from the `byType` Finder constraint.
+_Avoid_: Enter text, input action
+
+**WaitFor Action**:
+An action that waits until a Finder produces exactly one match. It does not wait for disappearance, enabled state, or disabled state in the first version.
+_Avoid_: Wait assertion, sleep
+
+**Scroll Action**:
+An action that moves a scrollable area by configured gesture drag deltas. It may target a specific scrollable with a Finder, or use the primary scrollable when no Finder is provided.
+_Avoid_: Swipe
+
+**Screenshot**:
+A visual image artifact captured during a Scenario run. It represents what a human user would see on screen.
+_Avoid_: Snapshot
+
+**Snapshot**:
+A structured UI state artifact captured during a Scenario run for programmatic and agent consumption. It summarizes what the app exposes through semantic or UI inspection, such as visible text, interactive elements, labels, roles, states, and useful identifiers.
+_Avoid_: Screenshot, raw widget tree, full dump
+
+**Widget Tree**:
+A raw or near-raw Flutter widget hierarchy artifact used for deeper debugging. It is separate from a Snapshot and is not the default agent-facing artifact.
+_Avoid_: Snapshot
+
+**Capture Action**:
+An action that records diagnostic artifacts at a specific Step in a Scenario. Its default bundle includes Screenshot, Snapshot, errors, and logs, but not Widget Tree.
+_Avoid_: Screenshot step, dump step
