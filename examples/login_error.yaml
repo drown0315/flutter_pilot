@@ -1,0 +1,28 @@
+scenario:
+  name: login_error
+  description: |
+    Reproduces the login validation error.
+
+steps:
+  - label: enter_email
+    type:
+      byKey: email_input
+      text: bad@example.com
+
+  - label: enter_password
+    type:
+      byKey: password_input
+      text: wrong
+
+  - label: submit_login
+    tap:
+      byText: 登录
+      byType: TextButton
+
+  - label: wait_for_error
+    waitFor:
+      byText: 密码错误
+      timeoutMs: 3000
+
+  - label: capture_error
+    capture: {}
