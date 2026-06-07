@@ -78,6 +78,8 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - The package and executable name is `flutter_pilot`.
 - Third-party Dart dependencies must be added with `dart pub add`, not by manually editing dependency entries in `pubspec.yaml`.
 - First-slice runtime dependencies are `args`, `yaml`, and `path`. First-slice dev dependencies are `test` and `lints`.
+- The first implementation slice has been scaffolded as a Dart CLI package with command entrypoint, Scenario model, Scenario parser, validation exception shape, parser tests, and CLI subprocess tests.
+- Code should follow the local Dart code conventions captured during review: important local variables use explicit types, stateless utility classes expose static methods with a private constructor, parser APIs return typed domain objects on success and throw domain validation exceptions on failure, boolean CLI flags avoid meaningless negative forms, and every code file contains useful doc comments.
 - Use `mcp_flutter` as the runtime bridge for Flutter interaction and inspection. Flutter Pilot does not reimplement low-level app driving, widget inspection, screenshot capture, log collection, or lifecycle controls.
 - The MVP command set includes:
   - `flutter_pilot validate <scenario.yaml>`
@@ -91,6 +93,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - The first version includes an example Scenario file that exercises the core schema, including `type`, combined Finders, `waitFor`, and `capture`.
 - First-version validation diagnostics include field paths but not YAML line or column numbers. The typed Scenario model does not carry source location metadata.
 - Validation should collect and report all schema-level errors when safe to continue. YAML parse errors may return a single parse error because the document cannot be traversed reliably.
+- Scenario parsing succeeds by returning a typed Scenario model. Validation failures are represented by a domain validation exception that carries structured validation errors. Callers such as the CLI decide whether to render those errors as human-readable lines or JSON.
 - Unknown fields are validation errors. The Scenario DSL uses a strict schema so typos and unsupported options fail clearly instead of being ignored.
 - `scenario.description` is optional metadata. When present, it must be a string and may use YAML multiline string syntax.
 - `scenario.name`, when present, must match `^[a-zA-Z0-9][a-zA-Z0-9_-]*$`. This keeps run directory names portable and prevents path-like values. Names derived from file names must be sanitized to the same safe form.
@@ -98,6 +101,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - Each Step is one item in the `steps` array. A Step may include a `label` field and must include exactly one action field. The `label` field is a sibling of the action field, not a nested action parameter.
 - The typed action model uses a sealed class hierarchy so each Step has exactly one strongly typed action and runner/report code can handle actions exhaustively.
 - Finder is a typed value object shared by actions. `tap`, `type`, and `waitFor` require at least one Finder field; `scroll` may omit Finder; `capture` does not use Finder.
+- The Scenario parser is stateless and should be exposed as static parsing functions rather than requiring callers to instantiate a parser object.
 - Step labels, when present, must use the same slug-like format as `scenario.name`: `^[a-zA-Z0-9][a-zA-Z0-9_-]*$`.
 - Step labels must be unique within a Scenario. Unlabeled Steps are allowed.
 - `--until <step-or-label>` executes through the target Step and stops after that Step completes.
@@ -181,6 +185,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 ## Testing Decisions
 
 - Tests should focus on external behavior and stable contracts, not private implementation details.
+- First-slice tests already establish the baseline testing style: parser tests call the public parser API and assert on typed Scenario output or structured validation exceptions; CLI tests execute the command through a real Dart subprocess and assert on exit codes and terminal output.
 - The scenario model and parser should have unit tests for valid YAML, invalid YAML, labels, capture directives, Finders, unsupported actions, combined Finder constraints, rejection of array-valued Finder fields, rejection of unlabeled Step items that only contain a label, and rejection of Steps with multiple action fields.
 - First-slice tests should be split between parser/model unit tests and a small number of CLI subprocess tests. Parser/model tests cover detailed schema behavior. CLI subprocess tests cover external command behavior such as `validate`, `validate --json`, `run` command-shell success, and CLI argument errors.
 - The runner engine should have tests using a fake `mcp_flutter` adapter. These tests should verify step ordering, failure handling, automatic capture, `--until`, `--print`, zero Finder matches, one Finder match, multiple Finder matches, `waitFor` success, `waitFor` timeout, `waitFor` multiple-match failure, `scroll` with a Finder, `scroll` without a Finder, and `scroll` delta validation.
@@ -205,8 +210,9 @@ The result is a reproducible bug report package that can be consumed by humans, 
 
 ## Further Notes
 
-- The project is currently an empty repository with only a README, so this PRD defines the initial product and architecture baseline.
+- The project now has the first Dart CLI slice in place. The next product risk is no longer YAML parsing; it is defining the narrow `mcp_flutter` adapter contract and keeping runner behavior testable without a live Flutter app.
 - The strongest product positioning is not "YAML UI automation"; it is "reproducible Flutter UI debugging artifacts for humans, CI, and AI agents."
 - Step screenshots are more useful than video for the initial AI-agent use case because they can be directly associated with step metadata, widget summaries, logs, and errors.
 - The tool should keep raw data available for advanced debugging, but default CLI and agent output should be compact and high signal.
 - The `ready-for-agent` label should be applied when this PRD is published to the issue tracker.
+- The issue tracker integration and triage label configuration are not present in the local workspace, so this PRD is maintained as a local document until publishing credentials and tracker conventions are available.
