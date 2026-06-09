@@ -27,7 +27,7 @@ void main() {
 steps:
   - tap:
       byText:
-        - 登录
+        - Log in
 ''');
 
     final ProcessResult result = await Process.run(
