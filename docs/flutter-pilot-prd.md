@@ -8,7 +8,7 @@ The project should provide a deterministic UI replay and diagnostics harness for
 
 ## Solution
 
-Flutter Pilot will be a CLI tool that executes YAML scenarios against a running Flutter app through `mcp_flutter`. A scenario describes user actions such as tapping, typing, scrolling, waiting for UI state, and capture checkpoints. Runtime connection details such as the VM service URI are supplied by CLI options, not embedded in the scenario. During a run, Flutter Pilot records step-level artifacts including screenshots, semantic snapshots, widget summaries, Flutter errors, logs, timing, and command results.
+Flutter Pilot will be a CLI tool that executes YAML scenarios against a running Flutter app through `mcp_flutter`. A scenario describes user actions such as tapping, typing, scrolling, waiting for UI state, and capture checkpoints. Runtime connection details such as the VM service URI are supplied by CLI options, not embedded in the scenario. During a run, Flutter Pilot records step-level artifacts including screenshots, semantic snapshots, widget summaries, logs that include runtime errors when available, timing, and command results.
 
 The `--target` CLI option accepts a Flutter VM service URI in the first version. The generic name is reserved for future Runtime Target forms such as discovered app IDs or device targets.
 
@@ -45,20 +45,20 @@ The result is a reproducible bug report package that can be consumed by humans, 
 16. As a Flutter developer, I want screenshots to be stored with step numbers and labels, so that artifacts are easy to navigate.
 17. As a Flutter developer, I want semantic snapshots to be stored with step numbers and labels, so that AI agents can reason about the visible UI.
 18. As a Flutter developer, I want widget summaries instead of only raw widget tree dumps, so that diagnostic output is readable and focused.
-19. As a Flutter developer, I want Flutter errors collected during the run, so that runtime failures are not missed.
-20. As a Flutter developer, I want logs collected during the run, so that assertions and debug output can be correlated with UI steps.
+19. As a Flutter developer, I want logs collected during the run, including runtime errors when available, so that assertions, debug output, and failures can be correlated with UI steps.
+20. As a Flutter developer, I want runtime failures represented in the same diagnostic stream as logs, so that I do not need to reason about overlapping artifact types in the first version.
 21. As a Flutter developer, I want the tool to automatically collect diagnostics when a step fails, so that I do not need to predict where to add captures.
 22. As a Flutter developer, I want a failure artifact bundle, so that I can attach a complete reproduction package to an issue.
-23. As a Flutter developer, I want the artifact bundle to include the scenario, screenshots, snapshots, logs, errors, device metadata, and run report, so that debugging context is portable.
+23. As a Flutter developer, I want the artifact bundle to include the scenario, screenshots, snapshots, logs, device metadata, and run report, so that debugging context is portable.
 24. As a Flutter developer, I want a structured run report, so that other tools and AI agents can parse the result.
 25. As a Flutter developer, I want an HTML timeline report, so that I can review a run visually without reading JSON.
 26. As a Flutter developer, I want each timeline entry to show the action, status, duration, screenshot, and diagnostics, so that failures are easy to inspect.
 27. As a Flutter developer, I want failed steps to be highlighted in the timeline report, so that I can quickly find the relevant state.
 28. As a Flutter developer, I want to run the same scenario before and after a code change, so that I can verify a bug fix.
-29. As a Flutter developer, I want to diff before and after runs, so that I can see whether screenshots, visible text, errors, or widget summaries changed.
-30. As a Flutter developer, I want the diff report to identify resolved errors, so that I can prove a runtime failure disappeared.
+29. As a Flutter developer, I want to diff before and after runs, so that I can see whether screenshots, visible text, logs, or widget summaries changed.
+30. As a Flutter developer, I want the diff report to identify resolved runtime failures from logs, so that I can prove a runtime failure disappeared.
 31. As a Flutter developer, I want the diff report to identify unexpected UI changes, so that I can catch regressions introduced by a fix.
-32. As an AI coding agent, I want a compact summary of the visible UI, interactive widgets, errors, and recent actions, so that I can locate likely source files more effectively.
+32. As an AI coding agent, I want a compact summary of the visible UI, interactive widgets, logs, and recent actions, so that I can locate likely source files more effectively.
 33. As an AI coding agent, I want a deterministic command to reproduce the current failure, so that I can iterate on a fix without manual interaction.
 34. As an AI coding agent, I want to run until a failing checkpoint and print the current UI context, so that I can inspect the state before editing code.
 35. As an AI coding agent, I want artifacts to be stable file paths with machine-readable metadata, so that I can consume them programmatically.
@@ -85,7 +85,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
   - `flutter_pilot validate <scenario.yaml>`
   - `flutter_pilot run <scenario.yaml> --target <runtime-target>`
   - `flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label>`
-  - `flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label> --print <widget-tree|snapshot|errors>`
+  - `flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label> --print <widget-tree|snapshot|logs>`
   - `flutter_pilot diff <before-run> <after-run>`
 - The `validate` command checks Scenario YAML and schema rules without connecting to a Runtime Target.
 - The `validate` command supports human-readable output by default and machine-readable JSON output with `--json`. Validation failures exit non-zero and include field paths such as `steps[2].tap.byText`.
@@ -107,8 +107,8 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - `--until <step-or-label>` executes through the target Step and stops after that Step completes.
 - Numeric `--until` values are 1-based Step numbers.
 - `--print` must be used with `--until` in the first version. It prints the requested artifact after the target Step completes.
-- First-version `--print` values are `snapshot`, `widget-tree`, and `errors`. Screenshots are file artifacts and are not printed to stdout.
-- `byKey` accepts a logical key string such as `login_button`, not a Dart expression such as `ValueKey('login_button')`. The `mcp_flutter` adapter is responsible for resolving that Finder using the capabilities available in the installed `mcp_flutter` version.
+- First-version `--print` values are `snapshot`, `widget-tree`, and `logs`. Screenshots are file artifacts and are not printed to stdout.
+- `byKey` accepts a logical key string such as `login_button`, not a Dart expression such as `ValueKey('login_button')`. The `mcp_flutter` adapter is responsible for resolving that Finder using the installed `mcp_flutter` API or CLI fallback.
 - `byType` accepts a simple Dart widget type name such as `TextButton`. It does not accept package-qualified names, library-qualified names, or generic type expressions.
 - `byText` matches exact visible text. It does not perform contains, fuzzy, or regular expression matching in the first version.
 - A Finder must resolve to exactly one widget before an action can execute. Zero matches fail the step as "Finder matched no widgets"; multiple matches fail the step as "Finder matched multiple widgets." Flutter Pilot does not automatically choose the first match.
@@ -117,7 +117,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - The `waitFor` action waits for a Finder to produce exactly one match before its timeout. Zero matches keep waiting until timeout, one match succeeds, and multiple matches fail the step. The first version does not support waiting for disappearance, enabled state, or disabled state.
 - `waitFor.timeoutMs` defaults to `3000` when omitted. The first version supports per-step timeout overrides but no global timeout defaults in the Scenario.
 - The `scroll` action accepts `deltaX` and `deltaY` as gesture drag deltas in logical pixels. Omitted deltas default to `0`. For example, `deltaY: -500` means dragging upward by 500 logical pixels, which usually reveals lower content. A Finder is optional for `scroll`; when omitted, Flutter Pilot scrolls the primary scrollable. When provided, the Finder must resolve to exactly one scrollable target. At least one of `deltaX` or `deltaY` must be non-zero, so `scroll: {}` and zero-delta scrolls are invalid.
-- Capture directives support screenshots, semantic snapshots, widget summaries, Flutter errors, logs, and labels.
+- Capture directives support screenshots, semantic snapshots, widget summaries, logs, and labels. Runtime errors are collected as part of logs in the first version.
 - Failed steps automatically trigger diagnostic capture even if the YAML did not request a capture at that point.
 - Scenario execution produces a run directory containing a structured run report and step-level artifacts.
 - `scenario.name` is metadata and does not need to be globally unique. Run directories use timestamp plus scenario name, such as `.runs/2026-06-06T12-30-00_login_error/`, to avoid overwrites and preserve chronological sorting.
@@ -126,18 +126,18 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - The run report is JSON and records scenario metadata, runtime target metadata, steps, command inputs, command outputs, status, duration, artifact paths, and failure diagnostics.
 - `run` generates `run_report.json` by default. The HTML timeline report is generated only when explicitly requested, such as with `--html`.
 - The HTML timeline report is generated from the run report and artifacts, not by rerunning the scenario.
-- The diff command compares two run directories. It reports changes in step status, screenshots, visible text, semantic snapshots, widget summaries, Flutter errors, and logs.
+- The diff command compares two run directories. It reports changes in step status, screenshots, visible text, semantic snapshots, widget summaries, and logs.
 - A Screenshot is a visual image artifact for human review. A Snapshot is a structured UI state artifact for programmatic and agent consumption. A Widget Tree is a raw or near-raw Flutter hierarchy artifact for deeper debugging.
 - Snapshot capture is enabled by default for capture checkpoints. Widget Tree capture is available but disabled by default because it can be large and noisy.
-- The `capture` action records diagnostic artifacts at a Step. `capture: {}` uses the default bundle: `screenshot: true`, `snapshot: true`, `widgetTree: false`, `errors: true`, and `logs: true`. Each option can be explicitly overridden.
+- The `capture` action records diagnostic artifacts at a Step. `capture: {}` uses the default bundle: `screenshot: true`, `snapshot: true`, `widgetTree: false`, and `logs: true`. Each option can be explicitly overridden.
 - Failed Steps automatically capture the same default bundle as `capture: {}`.
-- Raw Widget Tree dumps may be available, but agent-facing output should default to compact summaries of visible text, interactive widgets, routes, errors, and likely suspects.
+- Raw Widget Tree dumps may be available, but agent-facing output should default to compact summaries of visible text, interactive widgets, routes, logs, runtime failures, and likely suspects.
 - Video recording is out of the initial MVP. Step screenshots and timeline reports are the primary visual artifact.
 - The implementation should be organized around deep modules:
   - Scenario model and parser: validates YAML and produces a typed scenario.
   - Finder and action model: represents user intent independently from `mcp_flutter` command details.
   - Runner engine: executes steps, handles `--until`, applies waits, records status, and triggers captures.
-  - `mcp_flutter` adapter: maps high-level actions and capture requests to `mcp_flutter` CLI or MCP tool calls.
+  - `mcp_flutter` adapter: maps high-level actions and capture requests to `mcp_flutter`. Prefer an available API/SDK call path; use CLI subprocess execution only as a fallback when the API path is unavailable or insufficient.
   - Artifact store: owns run directory layout and artifact metadata.
   - Diagnostic reducer: turns large widget and semantic data into agent-friendly summaries.
   - Report generator: builds JSON and HTML reports from run results.
@@ -152,8 +152,9 @@ The result is a reproducible bug report package that can be consumed by humans, 
    - In the first slice, the `run` command shell exits `0` when arguments and Scenario validation succeed, even though UI execution is not implemented. It exits non-zero for validation or CLI argument errors.
    - This comes first because every later feature depends on a stable scenario contract and command surface.
 2. `mcp_flutter` adapter contract
-   - Define the narrow interface for tap, type, scroll, wait, screenshot, semantic snapshot, widget data, errors, and logs.
+   - Define the narrow interface for tap, type, scroll, wait, screenshot, semantic snapshot, widget data, and logs.
    - Add a fake adapter for tests before wiring real commands, so runner behavior can be developed without a live Flutter app.
+   - Manually calibrate `mcp_flutter` before locking the implementation path. Check whether API calls are available and whether they expose richer structured data than CLI output; use API shape as the primary reference while keeping runner-facing types inside Flutter Pilot's own model. The same calibration should verify discovery, screenshot, semantic snapshot, Logs, Finder by text/key/type, multiple Finder Match descriptions, WidgetBounds availability, and scroll without Finder.
 3. Runner engine with YAML replay
    - Execute ordered steps through the adapter, record step status, durations, command results, and exit codes.
    - Support the initial action set: `tap`, `type`, `scroll`, and `waitFor`.
@@ -164,19 +165,19 @@ The result is a reproducible bug report package that can be consumed by humans, 
    - Implement explicit `capture` steps and optional per-step capture configuration.
    - Store screenshots and semantic snapshots with step numbers and labels, referenced from the run report.
 6. Failure artifact bundle
-   - On failed steps, automatically collect screenshot, semantic snapshot, widget summary, errors, logs, and device or target metadata.
+   - On failed steps, automatically collect screenshot, semantic snapshot, widget summary, logs, and device or target metadata.
    - This is the first major user-facing debugging win and should be complete before report polish.
 7. `--until` and `--print`
-   - Support stopping at numeric or labeled steps and printing `widget-tree`, `snapshot`, or `errors`.
+   - Support stopping at numeric or labeled steps and printing `widget-tree`, `snapshot`, or `logs`.
    - This builds on the runner, capture, and diagnostic plumbing and makes the tool useful for iterative human and agent debugging.
 8. Diagnostic reducer
-   - Convert raw widget and semantic data into compact agent-friendly summaries of visible text, interactive widgets, routes, errors, and likely suspects.
+   - Convert raw widget and semantic data into compact agent-friendly summaries of visible text, interactive widgets, routes, logs, runtime failures, and likely suspects.
    - This should follow raw capture support because reducer tests need realistic captured fixtures.
 9. HTML timeline report
    - Generate a visual report from existing run artifacts, with step status, action descriptions, screenshots, diagnostics, and failure highlights.
    - This is high-value for sharing but should not block the core replay and artifact model.
 10. Before/after diff
-   - Compare two run directories for status changes, visible text changes, semantic/widget summary changes, screenshot differences, resolved errors, and regressions.
+   - Compare two run directories for status changes, visible text changes, semantic/widget summary changes, screenshot differences, resolved runtime failures from logs, and regressions.
    - This comes after reports and reducers because it depends on stable artifact formats and summary data.
 11. Real integration smoke test with a sample Flutter app
    - Add a minimal sample app and one end-to-end scenario to validate the real `mcp_flutter` path.
@@ -190,9 +191,9 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - First-slice tests should be split between parser/model unit tests and a small number of CLI subprocess tests. Parser/model tests cover detailed schema behavior. CLI subprocess tests cover external command behavior such as `validate`, `validate --json`, `run` command-shell success, and CLI argument errors.
 - The runner engine should have tests using a fake `mcp_flutter` adapter. These tests should verify step ordering, failure handling, automatic capture, `--until`, `--print`, zero Finder matches, one Finder match, multiple Finder matches, `waitFor` success, `waitFor` timeout, `waitFor` multiple-match failure, `scroll` with a Finder, `scroll` without a Finder, and `scroll` delta validation.
 - The artifact store should have tests verifying stable run directory layout, artifact naming, metadata references, and report paths.
-- The diagnostic reducer should have tests using representative widget and semantic data fixtures. Tests should verify that visible text, interactive widgets, errors, and route-like context are preserved while noisy details are removed.
+- The diagnostic reducer should have tests using representative widget and semantic data fixtures. Tests should verify that visible text, interactive widgets, logs, runtime failures, and route-like context are preserved while noisy details are removed.
 - The report generator should have tests verifying JSON report shape and HTML timeline content from fixed run fixtures.
-- The diff engine should have tests comparing fixed before/after fixtures for resolved errors, changed visible text, missing steps, changed screenshots, and unchanged runs.
+- The diff engine should have tests comparing fixed before/after fixtures for resolved runtime failures from logs, changed visible text, missing steps, changed screenshots, and unchanged runs.
 - The `mcp_flutter` adapter should be covered by contract tests where practical. Most behavior should be tested through mocked command responses to avoid requiring a live Flutter app in unit tests.
 - End-to-end tests with a sample Flutter app are valuable after the core CLI exists, but they are not required for the first parser and runner slices.
 - There is no prior test suite in the current repository, so test conventions should be established as part of the initial implementation.
@@ -212,7 +213,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 
 - The project now has the first Dart CLI slice in place. The next product risk is no longer YAML parsing; it is defining the narrow `mcp_flutter` adapter contract and keeping runner behavior testable without a live Flutter app.
 - The strongest product positioning is not "YAML UI automation"; it is "reproducible Flutter UI debugging artifacts for humans, CI, and AI agents."
-- Step screenshots are more useful than video for the initial AI-agent use case because they can be directly associated with step metadata, widget summaries, logs, and errors.
+- Step screenshots are more useful than video for the initial AI-agent use case because they can be directly associated with step metadata, widget summaries, logs, and runtime failures.
 - The tool should keep raw data available for advanced debugging, but default CLI and agent output should be compact and high signal.
 - The `ready-for-agent` label should be applied when this PRD is published to the issue tracker.
 - The issue tracker integration and triage label configuration are not present in the local workspace, so this PRD is maintained as a local document until publishing credentials and tracker conventions are available.

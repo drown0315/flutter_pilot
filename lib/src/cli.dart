@@ -129,7 +129,7 @@ class _RunCommand extends Command<int> {
       )
       ..addOption(
         'print',
-        allowed: ['snapshot', 'widget-tree', 'errors'],
+        allowed: ['snapshot', 'widget-tree', 'logs'],
         help: 'Print diagnostics after --until.',
       )
       ..addFlag(

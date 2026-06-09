@@ -6,8 +6,8 @@ Guidance for coding agents working in this repository.
 
 Flutter Pilot is a Dart CLI for reproducible Flutter UI debugging artifacts. It
 replays YAML Scenarios against a running Flutter app through `mcp_flutter`, then
-collects screenshots, Snapshots, Widget Tree data, errors, logs, run reports,
-and later diffs.
+collects screenshots, Snapshots, Widget Tree data, logs, run reports, and later
+diffs.
 
 The first implementation slice is a Dart CLI package with:
 
@@ -88,8 +88,8 @@ Current Scenario rules:
 - `waitFor.timeoutMs` defaults to `3000`.
 - `scroll` uses gesture drag deltas. At least one of `deltaX` or `deltaY` must
   be non-zero.
-- `capture: {}` defaults to screenshot, Snapshot, errors, and logs; Widget Tree
-  is off by default.
+- `capture: {}` defaults to screenshot, Snapshot, and logs; Widget Tree is off
+  by default. Runtime errors are part of logs in the first version.
 
 ## Testing Rules
 

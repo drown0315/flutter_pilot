@@ -12,12 +12,16 @@ _Avoid_: Flow, script, test case
 The running Flutter app instance that a Scenario is executed against. Connection details for the Runtime Target are provided outside the Scenario.
 _Avoid_: Target configuration, environment block
 
+**Runtime Adapter**:
+The narrow interface between the Flutter Pilot runner and a concrete Flutter runtime bridge. It maps Scenario Finders, actions, and capture requests to executable runtime operations, then converts runtime results back into Flutter Pilot types.
+_Avoid_: Runtime Target, driver, bridge
+
 **Finder**:
 A rule for finding the widget that a Scenario step should interact with or wait for. A Finder may combine text, key, and widget type constraints in the same step; every configured constraint must match, each constraint has one string value, and there is no separate match option.
 _Avoid_: Selector, locator, query
 
 **Finder Match**:
-The widget result produced by applying a Finder during a Scenario run. A valid action requires exactly one Finder Match; zero matches or multiple matches fail the step.
+The widget result produced by applying a Finder during a Scenario run. A valid action requires exactly one Finder Match; zero matches or multiple matches fail the step. Its runtime identifier is an opaque Runtime Adapter reference that may be recorded and passed back to the Runtime Adapter, but must not be parsed by the runner. A Finder Match is valid only for the action immediately following the Finder resolution that produced it; the runner must not cache it for later Steps.
 _Avoid_: First match, best match
 
 **Logical Key**:
@@ -65,5 +69,5 @@ A raw or near-raw Flutter widget hierarchy artifact used for deeper debugging. I
 _Avoid_: Snapshot
 
 **Capture Action**:
-An action that records diagnostic artifacts at a specific Step in a Scenario. Its default bundle includes Screenshot, Snapshot, errors, and logs, but not Widget Tree.
+An action that records diagnostic artifacts at a specific Step in a Scenario. Its default bundle includes Screenshot, Snapshot, and Logs, but not Widget Tree. Runtime errors are collected as part of Logs rather than as a separate first-version artifact.
 _Avoid_: Screenshot step, dump step
