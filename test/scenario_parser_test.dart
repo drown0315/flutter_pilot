@@ -41,7 +41,6 @@ steps:
       expect(capture.screenshot, isTrue);
       expect(capture.snapshot, isTrue);
       expect(capture.widgetTree, isFalse);
-      expect(capture.errors, isTrue);
       expect(capture.logs, isTrue);
     });
 
@@ -123,8 +122,8 @@ steps:
 
       final ScrollAction scroll = scenario.steps[1].action as ScrollAction;
       expect(scroll.finder!.byType, 'ListView');
-      expect(scroll.deltaX, 0);
-      expect(scroll.deltaY, -500);
+      expect(scroll.deltaX, 0.0);
+      expect(scroll.deltaY, -500.0);
     });
 
     test('rejects scroll with zero deltas', () {
@@ -135,6 +134,16 @@ steps:
 ''');
 
       expect(paths, contains('steps[0].scroll'));
+    });
+
+    test('rejects errors as a first-version capture field', () {
+      final List<String> paths = invalidPaths('''
+steps:
+  - capture:
+      errors: true
+''');
+
+      expect(paths, contains('steps[0].capture.errors'));
     });
   });
 }

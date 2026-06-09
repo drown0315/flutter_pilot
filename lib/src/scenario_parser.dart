@@ -332,10 +332,10 @@ class ScenarioParser {
       required: false,
       errors: errors,
     );
-    final num deltaX =
-        _optionalNumber(yaml, 'deltaX', '$path.deltaX', errors) ?? 0;
-    final num deltaY =
-        _optionalNumber(yaml, 'deltaY', '$path.deltaY', errors) ?? 0;
+    final double deltaX =
+        _optionalDouble(yaml, 'deltaX', '$path.deltaX', errors) ?? 0;
+    final double deltaY =
+        _optionalDouble(yaml, 'deltaY', '$path.deltaY', errors) ?? 0;
     if (deltaX == 0 && deltaY == 0) {
       errors.add(
         ScenarioValidationError(
@@ -374,7 +374,7 @@ class ScenarioParser {
     String path,
     List<ScenarioValidationError> errors,
   ) {
-    const keys = {'screenshot', 'snapshot', 'widgetTree', 'errors', 'logs'};
+    const keys = {'screenshot', 'snapshot', 'widgetTree', 'logs'};
     _rejectUnknownKeys(path, yaml, keys, errors);
     return CaptureAction(
       screenshot:
@@ -384,7 +384,6 @@ class ScenarioParser {
       widgetTree:
           _optionalBool(yaml, 'widgetTree', '$path.widgetTree', errors) ??
           false,
-      errors: _optionalBool(yaml, 'errors', '$path.errors', errors) ?? true,
       logs: _optionalBool(yaml, 'logs', '$path.logs', errors) ?? true,
     );
   }
@@ -475,7 +474,7 @@ class ScenarioParser {
   }
 
   /// Return an optional numeric YAML field or record a type error.
-  static num? _optionalNumber(
+  static double? _optionalDouble(
     YamlMap yaml,
     String key,
     String path,
@@ -486,7 +485,7 @@ class ScenarioParser {
     }
     final Object? value = yaml[key];
     if (value is num) {
-      return value;
+      return value.toDouble();
     }
     errors.add(ScenarioValidationError(path, 'Expected a number.'));
     return null;

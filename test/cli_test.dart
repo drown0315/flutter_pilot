@@ -70,7 +70,7 @@ steps:
           '--until',
           '1',
           '--print',
-          'snapshot',
+          'logs',
         ]);
 
     expect(result.exitCode, 0);

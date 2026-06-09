@@ -86,8 +86,8 @@ class ScrollAction extends StepAction {
   const ScrollAction({this.finder, required this.deltaX, required this.deltaY});
 
   final Finder? finder;
-  final num deltaX;
-  final num deltaY;
+  final double deltaX;
+  final double deltaY;
 }
 
 /// Wait action that succeeds when its Finder has one unique match.
@@ -104,20 +104,17 @@ class WaitForAction extends StepAction {
 /// - `screenshot`: visual image artifact
 /// - `snapshot`: structured UI state for programs and agents
 /// - `widgetTree`: raw Flutter widget hierarchy
-/// - `errors`: current Flutter errors
-/// - `logs`: recent Flutter logs
+/// - `logs`: structured runtime logs, including runtime errors when available
 class CaptureAction extends StepAction {
   const CaptureAction({
     required this.screenshot,
     required this.snapshot,
     required this.widgetTree,
-    required this.errors,
     required this.logs,
   });
 
   final bool screenshot;
   final bool snapshot;
   final bool widgetTree;
-  final bool errors;
   final bool logs;
 }
