@@ -6,5 +6,7 @@
 library;
 
 export 'src/cli.dart';
+export 'src/runtime/fake_runtime_adapter.dart';
+export 'src/runtime/runtime_contract.dart';
 export 'src/scenario.dart';
 export 'src/scenario_parser.dart';

@@ -17,11 +17,11 @@ scenario:
 steps:
   - label: submit_login
     tap:
-      byText: 登录
+      byText: Log in
       byType: TextButton
   - label: wait_for_error
     waitFor:
-      byText: 密码错误
+      byText: Invalid password
   - label: capture_error
     capture: {}
 ''');
@@ -31,7 +31,7 @@ steps:
       expect(scenario.steps, hasLength(3));
 
       final TapAction tap = scenario.steps[0].action as TapAction;
-      expect(tap.finder.byText, '登录');
+      expect(tap.finder.byText, 'Log in');
       expect(tap.finder.byType, 'TextButton');
 
       final WaitForAction waitFor = scenario.steps[1].action as WaitForAction;
@@ -52,7 +52,7 @@ extra: no
 steps:
   - label: submit_login
     tap:
-      byText: 登录
+      byText: Log in
       unknown: no
 ''');
 
@@ -64,7 +64,7 @@ steps:
 steps:
   - tap:
       byText:
-        - 登录
+        - Log in
 ''');
 
       expect(paths, contains('steps[0].tap.byText'));

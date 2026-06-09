@@ -51,7 +51,7 @@ class ScenarioStep {
 /// - `byType`: simple Flutter widget class name
 ///
 /// Example:
-/// `Finder(byText: '登录', byType: 'TextButton')` means both rules must match.
+/// `Finder(byText: 'Log in', byType: 'TextButton')` means both rules must match.
 class Finder {
   const Finder({this.byText, this.byKey, this.byType});
 
