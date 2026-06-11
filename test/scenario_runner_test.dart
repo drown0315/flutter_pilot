@@ -79,7 +79,7 @@ void main() {
         ],
       );
 
-      final File reportFile = File('${outputDirectory.path}/run_report.json');
+      final File reportFile = _runReportFile(report);
       expect(reportFile.existsSync(), isTrue);
       expect(reportFile.readAsStringSync(), contains('"name":"login_error"'));
       expect(
@@ -95,6 +95,68 @@ void main() {
           RuntimeOperation.resolveFinder,
           RuntimeOperation.dispose,
         ],
+      );
+    });
+  });
+
+  test('creates a stable run directory with scenario metadata', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('artifact_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter();
+      final Scenario scenario = Scenario(
+        name: 'capture_checkpoint',
+        description: 'Collect diagnostics at a checkpoint',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            label: 'checkpoint',
+            action: CaptureAction(
+              screenshot: false,
+              snapshot: false,
+              widgetTree: false,
+              logs: false,
+            ),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      final Directory runsDirectory = Directory(
+        '${outputDirectory.path}/.runs',
+      );
+      final List<Directory> runDirectories = runsDirectory
+          .listSync()
+          .whereType<Directory>()
+          .toList(growable: false);
+      expect(runDirectories, hasLength(1));
+
+      final Directory runDirectory = runDirectories.single;
+      expect(
+        runDirectory.path,
+        matches(
+          r'artifact_output/\.runs/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}_capture_checkpoint$',
+        ),
+      );
+      expect(report.runDirectoryPath, runDirectory.path);
+
+      final File scenarioFile = File('${runDirectory.path}/scenario.json');
+      final File stepFile = File(
+        '${runDirectory.path}/steps/0001_checkpoint.json',
+      );
+      final File reportFile = File('${runDirectory.path}/run_report.json');
+      expect(scenarioFile.existsSync(), isTrue);
+      expect(stepFile.existsSync(), isTrue);
+      expect(reportFile.existsSync(), isTrue);
+      expect(scenarioFile.readAsStringSync(), contains('"capture_checkpoint"'));
+      expect(stepFile.readAsStringSync(), contains('"label":"checkpoint"'));
+      expect(reportFile.readAsStringSync(), contains('"path":"scenario.json"'));
+      expect(
+        reportFile.readAsStringSync(),
+        contains('"path":"steps/0001_checkpoint.json"'),
       );
     });
   });
@@ -301,7 +363,7 @@ void main() {
         ],
       );
 
-      final File reportFile = File('${outputDirectory.path}/run_report.json');
+      final File reportFile = _runReportFile(report);
       expect(reportFile.readAsStringSync(), contains('"status":"failed"'));
       expect(
         reportFile.readAsStringSync(),
@@ -384,7 +446,7 @@ void main() {
       expect(report.status, ScenarioRunStatus.failed);
       expect(report.steps.single.failureReason, 'Finder matched no widgets.');
 
-      final File reportFile = File('${outputDirectory.path}/run_report.json');
+      final File reportFile = _runReportFile(report);
       expect(
         reportFile.readAsStringSync(),
         contains('Finder matched no widgets'),
@@ -425,7 +487,7 @@ void main() {
       expect(report.failureReason, 'Dispose failed.');
       expect(report.steps.single.status, StepStatus.passed);
 
-      final File reportFile = File('${outputDirectory.path}/run_report.json');
+      final File reportFile = _runReportFile(report);
       expect(
         reportFile.readAsStringSync(),
         contains('"failureReason":"Dispose failed."'),
@@ -484,7 +546,7 @@ void main() {
         ],
       );
 
-      final File reportFile = File('${outputDirectory.path}/run_report.json');
+      final File reportFile = _runReportFile(report);
       expect(reportFile.readAsStringSync(), contains('Tap RPC failed.'));
     });
   });
@@ -524,11 +586,16 @@ void main() {
       expect(report.failureReason, 'Initialize failed.');
       expect(report.steps, isEmpty);
 
-      final File reportFile = File('${outputDirectory.path}/run_report.json');
+      final File reportFile = _runReportFile(report);
       expect(
         reportFile.readAsStringSync(),
         contains('"failureReason":"Initialize failed."'),
       );
     });
   });
+}
+
+/// Return the report file written for a completed Scenario run.
+File _runReportFile(ScenarioRunReport report) {
+  return File('${report.runDirectoryPath}/run_report.json');
 }

@@ -1,19 +1,24 @@
-import 'dart:convert';
 import 'dart:io';
 
+import 'artifacts/artifact_store.dart';
 import 'runtime/runtime_contract.dart';
 import 'scenario.dart';
 
-/// Executes a Scenario against a Runtime Adapter and writes a basic report.
+/// Runner for replaying one Scenario through a Runtime Adapter.
 ///
-/// The runner owns Scenario control flow:
+/// It contains:
+/// - the Runtime Adapter used for UI operations and captures
+/// - the output directory where run artifacts are written
+///
+/// During `run`, it:
 /// - initialize the Runtime Adapter
 /// - execute ordered Steps
 /// - dispose the Runtime Adapter
-/// - write `run_report.json` into the configured output directory
+/// - write Scenario, Step metadata, and run report artifacts
 ///
-/// It does not create the final run directory or persist artifacts yet; those
-/// responsibilities belong to the later Artifact Store slice.
+/// Example:
+/// `ScenarioRunner(adapter: adapter, outputDirectory: Directory('build'))`
+/// writes under `build/.runs/<timestamp>_<scenario>/`.
 class ScenarioRunner {
   const ScenarioRunner({required this.adapter, required this.outputDirectory});
 
@@ -22,18 +27,26 @@ class ScenarioRunner {
   final RuntimeAdapter adapter;
   final Directory outputDirectory;
 
-  /// Execute every Step in `scenario` and write `run_report.json`.
+  /// Execute every Step in a Scenario and write a run report.
   ///
   /// Args:
   /// `scenario` is the parsed Scenario to replay through the Runtime Adapter.
+  /// Its name is used in the run directory name, and its Steps determine which
+  /// Runtime Adapter operations are called.
   ///
   /// Returns:
-  /// A `ScenarioRunReport` containing Scenario metadata, total status, and
-  /// ordered Step results.
+  /// A `ScenarioRunReport` containing Scenario metadata, run status, elapsed
+  /// time, the run directory path, artifact paths, and ordered Step results.
   Future<ScenarioRunReport> run(Scenario scenario) async {
     final DateTime startedAt = DateTime.now().toUtc();
+    final RunArtifactWriter runArtifactWriter = RunArtifactStore(
+      outputDirectory,
+    ).createRun(scenario: scenario, startedAt: startedAt);
     final Stopwatch stopwatch = Stopwatch()..start();
     final List<StepRunReport> steps = <StepRunReport>[];
+    final List<ArtifactReport> artifacts = <ArtifactReport>[
+      const ArtifactReport(type: ArtifactType.scenario, path: 'scenario.json'),
+    ];
 
     bool failed = false;
     String? failureReason;
@@ -48,9 +61,12 @@ class ScenarioRunner {
         startedAt: startedAt,
         durationMs: stopwatch.elapsedMilliseconds,
         steps: steps,
+        runDirectoryPath: runArtifactWriter.runDirectory.path,
+        artifacts: artifacts,
         failureReason: error.message,
       );
-      _writeReport(report);
+      _writeStepMetadataArtifacts(runArtifactWriter, steps, artifacts);
+      _writeReport(runArtifactWriter, report);
       return report;
     }
     ScenarioStep? activeStep;
@@ -101,6 +117,7 @@ class ScenarioRunner {
     }
 
     stopwatch.stop();
+    _writeStepMetadataArtifacts(runArtifactWriter, steps, artifacts);
     final ScenarioRunReport report = ScenarioRunReport(
       scenarioName: scenario.name,
       scenarioDescription: scenario.description,
@@ -108,9 +125,11 @@ class ScenarioRunner {
       startedAt: startedAt,
       durationMs: stopwatch.elapsedMilliseconds,
       steps: steps,
+      runDirectoryPath: runArtifactWriter.runDirectory.path,
+      artifacts: artifacts,
       failureReason: failureReason,
     );
-    _writeReport(report);
+    _writeReport(runArtifactWriter, report);
     return report;
   }
 
@@ -291,11 +310,42 @@ class ScenarioRunner {
     return 'capture';
   }
 
-  /// Write the JSON report for this first runner slice.
-  void _writeReport(ScenarioRunReport report) {
-    outputDirectory.createSync(recursive: true);
-    final File reportFile = File('${outputDirectory.path}/run_report.json');
-    reportFile.writeAsStringSync(jsonEncode(report.toJson()));
+  /// Write the JSON report artifact for this run.
+  ///
+  /// Args:
+  /// `runArtifactWriter` is the writer scoped to the run directory.
+  /// `report` is the final run report to serialize.
+  void _writeReport(
+    RunArtifactWriter runArtifactWriter,
+    ScenarioRunReport report,
+  ) {
+    runArtifactWriter.writeRunReport(report.toJson());
+  }
+
+  /// Write metadata artifacts for all executed Steps.
+  ///
+  /// Args:
+  /// `runArtifactWriter` is the writer scoped to the run directory.
+  /// `steps` are the Step reports that were executed before the run ended.
+  /// `artifacts` is the report artifact list that receives each Step metadata
+  /// path.
+  ///
+  /// Example:
+  /// A Step report with `index: 1` and `label: 'checkpoint'` writes
+  /// `steps/0001_checkpoint.json` and appends that path to `artifacts`.
+  void _writeStepMetadataArtifacts(
+    RunArtifactWriter runArtifactWriter,
+    List<StepRunReport> steps,
+    List<ArtifactReport> artifacts,
+  ) {
+    for (final StepRunReport step in steps) {
+      final ArtifactReport artifact = runArtifactWriter.writeStepMetadata(
+        index: step.index,
+        label: step.label,
+        metadata: step.toJson(),
+      );
+      artifacts.add(artifact);
+    }
   }
 }
 
@@ -305,10 +355,18 @@ enum ScenarioRunStatus { passed, failed }
 /// Status for one executed Step.
 enum StepStatus { passed, failed, skipped }
 
-/// JSON-serializable report for one Scenario run.
+/// Report returned after one Scenario run.
 ///
-/// It contains Scenario metadata, total status and duration, and one ordered
-/// entry for every executed Step.
+/// It contains:
+/// - Scenario metadata
+/// - total status, start time, and duration
+/// - the run directory path
+/// - artifact path records
+/// - one ordered entry for every executed Step
+///
+/// Example:
+/// A failed run can have `status: failed`, a `failureReason`, and artifact
+/// paths for `scenario.json`, Step metadata, and `run_report.json`.
 class ScenarioRunReport {
   const ScenarioRunReport({
     required this.scenarioName,
@@ -317,6 +375,8 @@ class ScenarioRunReport {
     required this.startedAt,
     required this.durationMs,
     required this.steps,
+    required this.runDirectoryPath,
+    required this.artifacts,
     this.failureReason,
   });
 
@@ -327,10 +387,20 @@ class ScenarioRunReport {
   final int durationMs;
   final List<StepRunReport> steps;
 
+  /// Path to the directory containing this run's artifacts.
+  final String runDirectoryPath;
+
+  /// File artifacts written relative to `runDirectoryPath`.
+  final List<ArtifactReport> artifacts;
+
   /// Human-readable run-level failure reason.
   final String? failureReason;
 
-  /// Convert this report to the first-version `run_report.json` shape.
+  /// Convert this report to the JSON stored in `run_report.json`.
+  ///
+  /// Returns:
+  /// A JSON-compatible map containing Scenario metadata, run status, timing,
+  /// artifact paths, and Step results.
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'scenario': <String, Object?>{
@@ -340,7 +410,11 @@ class ScenarioRunReport {
       'status': status.name,
       'startedAt': startedAt.toIso8601String(),
       'durationMs': durationMs,
+      'runDirectory': runDirectoryPath,
       if (failureReason != null) 'failureReason': failureReason,
+      'artifacts': <Object?>[
+        for (final ArtifactReport artifact in artifacts) artifact.toJson(),
+      ],
       'steps': <Object?>[for (final StepRunReport step in steps) step.toJson()],
     };
   }
