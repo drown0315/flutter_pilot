@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_testkit/file_testkit.dart';
 import 'package:flutter_pilot/flutter_pilot.dart';
@@ -144,6 +145,57 @@ void main() {
         File('${writer.runDirectory.path}/run_report.json').readAsStringSync(),
         contains('"status":"failed"'),
       );
+    });
+  });
+
+  test('writes screenshot and Snapshot capture artifacts', () async {
+    await FileTestkit.runZoned(() async {
+      final RunArtifactWriter writer = RunArtifactWriter(
+        Directory('artifact_output/.runs/capture_run'),
+      );
+      final Uint8List screenshotBytes = Uint8List.fromList(<int>[
+        137,
+        80,
+        78,
+        71,
+      ]);
+
+      final ArtifactReport screenshotArtifact = writer.writeScreenshot(
+        index: 1,
+        label: 'checkpoint',
+        bytes: screenshotBytes,
+        mimeType: 'image/png',
+      );
+      final ArtifactReport snapshotArtifact = writer.writeSnapshot(
+        index: 1,
+        label: 'checkpoint',
+        data: <String, Object?>{
+          'route': '/login',
+          'visibleText': <String>['Email'],
+        },
+      );
+
+      expect(screenshotArtifact.type, ArtifactType.screenshot);
+      expect(
+        screenshotArtifact.path,
+        'captures/0001_checkpoint_screenshot.png',
+      );
+      expect(snapshotArtifact.type, ArtifactType.snapshot);
+      expect(snapshotArtifact.path, 'captures/0001_checkpoint_snapshot.json');
+      expect(
+        File(
+          '${writer.runDirectory.path}/${screenshotArtifact.path}',
+        ).readAsBytesSync(),
+        screenshotBytes,
+      );
+      final Map<String, Object?> snapshotJson =
+          jsonDecode(
+                File(
+                  '${writer.runDirectory.path}/${snapshotArtifact.path}',
+                ).readAsStringSync(),
+              )
+              as Map<String, Object?>;
+      expect(snapshotJson['route'], '/login');
     });
   });
 }
