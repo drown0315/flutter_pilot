@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
@@ -186,6 +187,70 @@ class RunArtifactWriter {
     return ArtifactReport(type: ArtifactType.stepMetadata, path: relativePath);
   }
 
+  /// Write one screenshot captured by a Step.
+  ///
+  /// Args:
+  /// `index` is the 1-based Step number.
+  /// `label` is the optional Step label used in the artifact file name.
+  /// `bytes` is the encoded image returned by the Runtime Adapter.
+  /// `mimeType` describes the image format. The first version writes PNG files
+  /// for `image/png` and uses a binary extension for other formats.
+  ///
+  /// Returns:
+  /// An artifact record with `type: screenshot` and a path relative to the run
+  /// directory.
+  ArtifactReport writeScreenshot({
+    required int index,
+    required String? label,
+    required Uint8List bytes,
+    required String mimeType,
+  }) {
+    final String relativePath = p.join(
+      'captures',
+      _captureFileName(
+        index: index,
+        label: label,
+        suffix: 'screenshot',
+        extension: mimeType == 'image/png' ? 'png' : 'bin',
+      ),
+    );
+    final File screenshotFile = File(p.join(runDirectory.path, relativePath));
+    screenshotFile.parent.createSync(recursive: true);
+    screenshotFile.writeAsBytesSync(bytes);
+    return ArtifactReport(type: ArtifactType.screenshot, path: relativePath);
+  }
+
+  /// Write one structured Snapshot captured by a Step.
+  ///
+  /// Args:
+  /// `index` is the 1-based Step number.
+  /// `label` is the optional Step label used in the artifact file name.
+  /// `data` is the JSON-compatible Snapshot payload returned by the Runtime
+  /// Adapter.
+  ///
+  /// Returns:
+  /// An artifact record with `type: snapshot` and a path relative to the run
+  /// directory.
+  ArtifactReport writeSnapshot({
+    required int index,
+    required String? label,
+    required Object data,
+  }) {
+    final String relativePath = p.join(
+      'captures',
+      _captureFileName(
+        index: index,
+        label: label,
+        suffix: 'snapshot',
+        extension: 'json',
+      ),
+    );
+    final File snapshotFile = File(p.join(runDirectory.path, relativePath));
+    snapshotFile.parent.createSync(recursive: true);
+    snapshotFile.writeAsStringSync(jsonEncode(data));
+    return ArtifactReport(type: ArtifactType.snapshot, path: relativePath);
+  }
+
   /// Return the file name for one Step metadata artifact.
   ///
   /// Args:
@@ -204,6 +269,27 @@ class RunArtifactWriter {
       return '$stepNumber.json';
     }
     return '${stepNumber}_$label.json';
+  }
+
+  /// Return the file name for one captured Step artifact.
+  ///
+  /// Args:
+  /// `index` is the 1-based Step number. It is padded to four digits.
+  /// `label` is appended after the padded number when present.
+  /// `suffix` identifies the capture kind, such as `screenshot`.
+  /// `extension` is the file extension without a leading dot.
+  ///
+  /// Returns:
+  /// A capture file name such as `0001_checkpoint_screenshot.png`.
+  String _captureFileName({
+    required int index,
+    required String? label,
+    required String suffix,
+    required String extension,
+  }) {
+    final String stepNumber = index.toString().padLeft(4, '0');
+    final String prefix = label == null ? stepNumber : '${stepNumber}_$label';
+    return '${prefix}_$suffix.$extension';
   }
 
   /// Convert a Scenario into the JSON stored in `scenario.json`.
@@ -311,7 +397,7 @@ class RunArtifactWriter {
 /// Artifact family names used in `run_report.json`.
 ///
 /// Each value identifies the kind of file referenced by an `ArtifactReport`.
-enum ArtifactType { scenario, runReport, stepMetadata }
+enum ArtifactType { scenario, runReport, stepMetadata, screenshot, snapshot }
 
 /// Metadata for one file written in a run directory.
 ///

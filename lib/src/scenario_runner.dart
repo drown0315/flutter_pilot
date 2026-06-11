@@ -60,7 +60,11 @@ class ScenarioRunner {
     }
 
     bool failed = false;
-    String? failureReason = await _executeSteps(scenario.steps, steps);
+    String? failureReason = await _executeSteps(
+      scenario.steps,
+      steps,
+      runArtifactWriter,
+    );
     if (failureReason != null) {
       failed = true;
     }
@@ -110,6 +114,7 @@ class ScenarioRunner {
   Future<String?> _executeSteps(
     List<ScenarioStep> scenarioSteps,
     List<StepRunReport> reports,
+    RunArtifactWriter runArtifactWriter,
   ) async {
     ScenarioStep? activeStep;
     Stopwatch? activeStepStopwatch;
@@ -120,6 +125,7 @@ class ScenarioRunner {
         final StepRunReport stepReport = await _executeStep(
           step,
           activeStepStopwatch,
+          runArtifactWriter,
         );
         reports.add(stepReport);
         if (stepReport.status == StepStatus.failed) {
@@ -185,6 +191,7 @@ class ScenarioRunner {
     final List<ArtifactReport> artifacts = <ArtifactReport>[
       const ArtifactReport(type: ArtifactType.scenario, path: 'scenario.json'),
     ];
+    _addStepCaptureArtifacts(steps, artifacts);
     _writeStepMetadataArtifacts(runArtifactWriter, steps, artifacts);
     final ScenarioRunReport report = ScenarioRunReport(
       scenarioName: scenario.name,
@@ -205,17 +212,25 @@ class ScenarioRunner {
   Future<StepRunReport> _executeStep(
     ScenarioStep step,
     Stopwatch stopwatch,
+    RunArtifactWriter runArtifactWriter,
   ) async {
     final String actionName = _actionName(step.action);
     try {
-      await _executeAction(step.action);
+      final _ActionExecutionResult result = await _executeAction(
+        step,
+        runArtifactWriter,
+      );
       stopwatch.stop();
       return StepRunReport(
         index: step.index,
         label: step.label,
         action: actionName,
-        status: StepStatus.passed,
+        status: result.failureReason == null
+            ? StepStatus.passed
+            : StepStatus.failed,
         durationMs: stopwatch.elapsedMilliseconds,
+        artifacts: result.artifacts,
+        failureReason: result.failureReason,
       );
     } on _StepFailureException catch (error) {
       stopwatch.stop();
@@ -242,7 +257,11 @@ class ScenarioRunner {
   }
 
   /// Dispatch one action to the Runtime Adapter.
-  Future<String> _executeAction(StepAction action) async {
+  Future<_ActionExecutionResult> _executeAction(
+    ScenarioStep step,
+    RunArtifactWriter runArtifactWriter,
+  ) async {
+    final StepAction action = step.action;
     return switch (action) {
       TapAction(:final Finder finder) => _withUniqueMatch(
         finder,
@@ -271,6 +290,8 @@ class ScenarioRunner {
         :final bool logs,
       ) =>
         _executeCapture(
+          step: step,
+          runArtifactWriter: runArtifactWriter,
           screenshot: screenshot,
           snapshot: snapshot,
           widgetTree: widgetTree,
@@ -279,8 +300,8 @@ class ScenarioRunner {
     };
   }
 
-  /// Resolve `finder`, execute `operation`, and return the action name.
-  Future<String> _withUniqueMatch(
+  /// Resolve `finder`, execute `operation`, and return no Step artifacts.
+  Future<_ActionExecutionResult> _withUniqueMatch(
     Finder finder,
     Future<void> Function(FinderMatch match) operation, {
     required String actionName,
@@ -290,7 +311,7 @@ class ScenarioRunner {
       actionName: actionName,
     );
     await operation(match);
-    return actionName;
+    return const _ActionExecutionResult();
   }
 
   /// Resolve a Finder and enforce first-version cardinality rules.
@@ -315,12 +336,15 @@ class ScenarioRunner {
   }
 
   /// Poll a Finder until it has one unique match or the timeout expires.
-  Future<String> _waitFor(Finder finder, {required Duration timeout}) async {
+  Future<_ActionExecutionResult> _waitFor(
+    Finder finder, {
+    required Duration timeout,
+  }) async {
     final Stopwatch stopwatch = Stopwatch()..start();
     while (true) {
       final List<FinderMatch> matches = await adapter.resolveFinder(finder);
       if (matches.length == 1) {
-        return 'waitFor';
+        return const _ActionExecutionResult();
       }
       if (matches.length > 1) {
         throw _StepFailureException(
@@ -339,7 +363,7 @@ class ScenarioRunner {
   }
 
   /// Execute a scroll action, resolving its optional Finder when provided.
-  Future<String> _executeScroll({
+  Future<_ActionExecutionResult> _executeScroll({
     required Finder? finder,
     required double deltaX,
     required double deltaY,
@@ -349,33 +373,71 @@ class ScenarioRunner {
       match = await _resolveUniqueMatch(finder, actionName: 'scroll');
     }
     await adapter.performScroll(match: match, deltaX: deltaX, deltaY: deltaY);
-    return 'scroll';
+    return const _ActionExecutionResult();
   }
 
-  /// Execute a capture action without persisting artifacts yet.
+  /// Execute a capture action and write Step-owned capture artifacts.
   ///
-  /// Issue #6 and Issue #7 will write captured payloads through the Artifact
-  /// Store. In this runner slice, capture only proves that the configured
-  /// Runtime Adapter operations are invoked successfully.
-  Future<String> _executeCapture({
+  /// Each requested capture is attempted independently. A failed capture marks
+  /// the Step failed, but does not discard artifacts already written by earlier
+  /// captures or prevent later requested captures from being attempted.
+  Future<_ActionExecutionResult> _executeCapture({
+    required ScenarioStep step,
+    required RunArtifactWriter runArtifactWriter,
     required bool screenshot,
     required bool snapshot,
     required bool widgetTree,
     required bool logs,
   }) async {
+    final List<ArtifactReport> artifacts = <ArtifactReport>[];
+    final List<String> failures = <String>[];
     if (screenshot) {
-      await adapter.captureScreenshot();
+      try {
+        final ScreenshotCapture capture = await adapter.captureScreenshot();
+        artifacts.add(
+          runArtifactWriter.writeScreenshot(
+            index: step.index,
+            label: step.label,
+            bytes: capture.bytes,
+            mimeType: capture.mimeType,
+          ),
+        );
+      } on RuntimeOperationException catch (error) {
+        failures.add(error.message);
+      }
     }
     if (snapshot) {
-      await adapter.captureSnapshot();
+      try {
+        final SnapshotCapture capture = await adapter.captureSnapshot();
+        artifacts.add(
+          runArtifactWriter.writeSnapshot(
+            index: step.index,
+            label: step.label,
+            data: capture.data,
+          ),
+        );
+      } on RuntimeOperationException catch (error) {
+        failures.add(error.message);
+      }
     }
     if (widgetTree) {
-      await adapter.captureWidgetTree();
+      try {
+        await adapter.captureWidgetTree();
+      } on RuntimeOperationException catch (error) {
+        failures.add(error.message);
+      }
     }
     if (logs) {
-      await adapter.collectLogs();
+      try {
+        await adapter.collectLogs();
+      } on RuntimeOperationException catch (error) {
+        failures.add(error.message);
+      }
     }
-    return 'capture';
+    return _ActionExecutionResult(
+      artifacts: artifacts,
+      failureReason: failures.isEmpty ? null : failures.join('; '),
+    );
   }
 
   /// Write the JSON report artifact for this run.
@@ -413,6 +475,21 @@ class ScenarioRunner {
         metadata: step.toJson(),
       );
       artifacts.add(artifact);
+    }
+  }
+
+  /// Add Step capture artifact records to the run-level artifact list.
+  ///
+  /// Args:
+  /// `steps` are the executed Step reports.
+  /// `artifacts` is the report artifact list that receives each Step-owned
+  /// screenshot and Snapshot path.
+  void _addStepCaptureArtifacts(
+    List<StepRunReport> steps,
+    List<ArtifactReport> artifacts,
+  ) {
+    for (final StepRunReport step in steps) {
+      artifacts.addAll(step.artifacts);
     }
   }
 }
@@ -496,6 +573,7 @@ class StepRunReport {
     required this.action,
     required this.status,
     required this.durationMs,
+    this.artifacts = const <ArtifactReport>[],
     this.failureReason,
   });
 
@@ -508,6 +586,9 @@ class StepRunReport {
   /// Human-readable failure reason when `status` is `failed`.
   final String? failureReason;
 
+  /// Files produced by this Step, relative to the run directory.
+  final List<ArtifactReport> artifacts;
+
   /// Convert this Step entry to the first-version `run_report.json` shape.
   Map<String, Object?> toJson() {
     return <String, Object?>{
@@ -516,6 +597,10 @@ class StepRunReport {
       'action': action,
       'status': status.name,
       'durationMs': durationMs,
+      if (artifacts.isNotEmpty)
+        'artifacts': <Object?>[
+          for (final ArtifactReport artifact in artifacts) artifact.toJson(),
+        ],
       if (failureReason != null) 'failureReason': failureReason,
     };
   }
@@ -530,4 +615,19 @@ class _StepFailureException implements Exception {
 
   final String actionName;
   final String message;
+}
+
+/// Result from executing one action inside a Step.
+///
+/// It carries any Step-owned artifact records and an optional failure reason.
+/// Capture uses this to report partial success without throwing away files that
+/// were already written.
+class _ActionExecutionResult {
+  const _ActionExecutionResult({
+    this.artifacts = const <ArtifactReport>[],
+    this.failureReason,
+  });
+
+  final List<ArtifactReport> artifacts;
+  final String? failureReason;
 }

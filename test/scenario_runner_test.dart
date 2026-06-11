@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_testkit/file_testkit.dart';
 import 'package:flutter_pilot/flutter_pilot.dart';
@@ -162,16 +164,34 @@ void main() {
   });
 
   test(
-    'executes default capture operations without artifact storage',
+    'writes default capture screenshots and snapshots as Step artifacts',
     () async {
       await FileTestkit.runZoned(() async {
         final Directory outputDirectory = Directory('capture_output');
-        final FakeRuntimeAdapter adapter = FakeRuntimeAdapter();
+        final Uint8List screenshotBytes = Uint8List.fromList(<int>[
+          137,
+          80,
+          78,
+          71,
+        ]);
+        final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+          screenshot: ScreenshotCapture(
+            bytes: screenshotBytes,
+            mimeType: 'image/png',
+          ),
+          snapshot: const SnapshotCapture(
+            data: <String, Object?>{
+              'route': '/login',
+              'visibleText': <String>['Email', 'Password'],
+            },
+          ),
+        );
         final Scenario scenario = Scenario(
           name: 'capture_checkpoint',
           steps: const <ScenarioStep>[
             ScenarioStep(
               index: 1,
+              label: 'after_submit',
               action: CaptureAction(
                 screenshot: true,
                 snapshot: true,
@@ -189,6 +209,50 @@ void main() {
 
         expect(report.status, ScenarioRunStatus.passed);
         expect(
+          report.steps.single.artifacts.map(
+            (ArtifactReport artifact) => artifact.type,
+          ),
+          <ArtifactType>[ArtifactType.screenshot, ArtifactType.snapshot],
+        );
+
+        final ArtifactReport screenshotArtifact = report.steps.single.artifacts
+            .singleWhere(
+              (ArtifactReport artifact) =>
+                  artifact.type == ArtifactType.screenshot,
+            );
+        final ArtifactReport snapshotArtifact = report.steps.single.artifacts
+            .singleWhere(
+              (ArtifactReport artifact) =>
+                  artifact.type == ArtifactType.snapshot,
+            );
+        expect(
+          screenshotArtifact.path,
+          'captures/0001_after_submit_screenshot.png',
+        );
+        expect(
+          snapshotArtifact.path,
+          'captures/0001_after_submit_snapshot.json',
+        );
+        expect(
+          File(
+            '${report.runDirectoryPath}/${screenshotArtifact.path}',
+          ).readAsBytesSync(),
+          screenshotBytes,
+        );
+        final Map<String, Object?> snapshotJson =
+            jsonDecode(
+                  File(
+                    '${report.runDirectoryPath}/${snapshotArtifact.path}',
+                  ).readAsStringSync(),
+                )
+                as Map<String, Object?>;
+        expect(snapshotJson['route'], '/login');
+
+        final String reportJson = _runReportFile(report).readAsStringSync();
+        expect(reportJson, contains('"type":"screenshot"'));
+        expect(reportJson, contains('"type":"snapshot"'));
+        expect(reportJson, contains('"artifacts"'));
+        expect(
           adapter.events.map((FakeRuntimeEvent event) => event.operation),
           <RuntimeOperation>[
             RuntimeOperation.initialize,
@@ -201,6 +265,78 @@ void main() {
       });
     },
   );
+
+  test('keeps successful capture artifacts when a later capture fails', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('partial_capture_output');
+      final Uint8List screenshotBytes = Uint8List.fromList(<int>[
+        137,
+        80,
+        78,
+        71,
+      ]);
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        screenshot: ScreenshotCapture(
+          bytes: screenshotBytes,
+          mimeType: 'image/png',
+        ),
+        failures: <RuntimeOperation, RuntimeOperationException>{
+          RuntimeOperation.captureSnapshot: const RuntimeOperationException(
+            operation: RuntimeOperation.captureSnapshot,
+            message: 'Snapshot RPC failed.',
+          ),
+        },
+      );
+      final Scenario scenario = Scenario(
+        name: 'partial_capture',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            label: 'checkpoint',
+            action: CaptureAction(
+              screenshot: true,
+              snapshot: true,
+              widgetTree: false,
+              logs: true,
+            ),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      expect(report.status, ScenarioRunStatus.failed);
+      expect(report.steps.single.status, StepStatus.failed);
+      expect(report.steps.single.failureReason, 'Snapshot RPC failed.');
+      expect(report.steps.single.artifacts, hasLength(1));
+      expect(
+        report.steps.single.artifacts.single.type,
+        ArtifactType.screenshot,
+      );
+      expect(
+        File(
+          '${report.runDirectoryPath}/${report.steps.single.artifacts.single.path}',
+        ).readAsBytesSync(),
+        screenshotBytes,
+      );
+      expect(
+        adapter.events.map((FakeRuntimeEvent event) => event.operation),
+        <RuntimeOperation>[
+          RuntimeOperation.initialize,
+          RuntimeOperation.captureScreenshot,
+          RuntimeOperation.collectLogs,
+          RuntimeOperation.dispose,
+        ],
+      );
+
+      final String reportJson = _runReportFile(report).readAsStringSync();
+      expect(reportJson, contains('"type":"screenshot"'));
+      expect(reportJson, contains('"failureReason":"Snapshot RPC failed."'));
+    });
+  });
 
   test('waits until a Finder has exactly one match', () async {
     await FileTestkit.runZoned(() async {
