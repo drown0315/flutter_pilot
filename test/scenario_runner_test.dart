@@ -140,6 +140,136 @@ void main() {
     },
   );
 
+  test('waits until a Finder has exactly one match', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('wait_for_success_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        finderResultSequences: <String, List<List<FinderMatch>>>{
+          'loading_done': <List<FinderMatch>>[
+            const <FinderMatch>[],
+            const <FinderMatch>[
+              FinderMatch(id: 'wait-match', debugLabel: 'Text("Done")'),
+            ],
+          ],
+        },
+      );
+      final Scenario scenario = Scenario(
+        name: 'wait_for_widget',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: WaitForAction(
+              finder: Finder(byKey: 'loading_done'),
+              timeoutMs: 100,
+            ),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      expect(report.status, ScenarioRunStatus.passed);
+      expect(report.steps.single.status, StepStatus.passed);
+      expect(
+        adapter.events.map((FakeRuntimeEvent event) => event.operation),
+        <RuntimeOperation>[
+          RuntimeOperation.initialize,
+          RuntimeOperation.resolveFinder,
+          RuntimeOperation.resolveFinder,
+          RuntimeOperation.dispose,
+        ],
+      );
+    });
+  });
+
+  test('fails waitFor when timeout expires with no matches', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('wait_for_timeout_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter();
+      final Scenario scenario = Scenario(
+        name: 'wait_for_timeout',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: WaitForAction(
+              finder: Finder(byKey: 'missing_loading_done'),
+              timeoutMs: 1,
+            ),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      expect(report.status, ScenarioRunStatus.failed);
+      expect(report.steps.single.status, StepStatus.failed);
+      expect(
+        report.steps.single.failureReason,
+        'Finder matched no widgets before timeout.',
+      );
+      expect(
+        adapter.events.map((FakeRuntimeEvent event) => event.operation),
+        containsAllInOrder(<RuntimeOperation>[
+          RuntimeOperation.initialize,
+          RuntimeOperation.resolveFinder,
+          RuntimeOperation.dispose,
+        ]),
+      );
+    });
+  });
+
+  test('fails waitFor when multiple widgets match', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('wait_for_multiple_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        finderResults: <String, List<FinderMatch>>{
+          'loading_done': const <FinderMatch>[
+            FinderMatch(id: 'first-match', debugLabel: 'Text("Done")'),
+            FinderMatch(id: 'second-match', debugLabel: 'Text("Done")'),
+          ],
+        },
+      );
+      final Scenario scenario = Scenario(
+        name: 'wait_for_ambiguous_widget',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: WaitForAction(
+              finder: Finder(byKey: 'loading_done'),
+              timeoutMs: 100,
+            ),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      expect(report.status, ScenarioRunStatus.failed);
+      expect(report.steps.single.status, StepStatus.failed);
+      expect(
+        report.steps.single.failureReason,
+        'Finder matched multiple widgets.',
+      );
+      expect(
+        adapter.events.map((FakeRuntimeEvent event) => event.operation),
+        <RuntimeOperation>[
+          RuntimeOperation.initialize,
+          RuntimeOperation.resolveFinder,
+          RuntimeOperation.dispose,
+        ],
+      );
+    });
+  });
+
   test('fails a Finder action when no widgets match', () async {
     await FileTestkit.runZoned(() async {
       final Directory outputDirectory = Directory('zero_match_output');

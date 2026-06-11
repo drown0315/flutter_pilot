@@ -17,6 +17,8 @@ import 'scenario.dart';
 class ScenarioRunner {
   const ScenarioRunner({required this.adapter, required this.outputDirectory});
 
+  static const Duration _waitForPollInterval = Duration(milliseconds: 50);
+
   final RuntimeAdapter adapter;
   final Directory outputDirectory;
 
@@ -171,10 +173,9 @@ class ScenarioRunner {
         :final double deltaY,
       ) =>
         _executeScroll(finder: finder, deltaX: deltaX, deltaY: deltaY),
-      WaitForAction(:final Finder finder) => _withUniqueMatch(
+      WaitForAction(:final Finder finder, :final int timeoutMs) => _waitFor(
         finder,
-        (FinderMatch match) async {},
-        actionName: 'waitFor',
+        timeout: Duration(milliseconds: timeoutMs),
       ),
       CaptureAction(
         :final bool screenshot,
@@ -224,6 +225,30 @@ class ScenarioRunner {
       );
     }
     return matches.single;
+  }
+
+  /// Poll a Finder until it has one unique match or the timeout expires.
+  Future<String> _waitFor(Finder finder, {required Duration timeout}) async {
+    final Stopwatch stopwatch = Stopwatch()..start();
+    while (true) {
+      final List<FinderMatch> matches = await adapter.resolveFinder(finder);
+      if (matches.length == 1) {
+        return 'waitFor';
+      }
+      if (matches.length > 1) {
+        throw _StepFailureException(
+          actionName: 'waitFor',
+          message: 'Finder matched multiple widgets.',
+        );
+      }
+      if (stopwatch.elapsed >= timeout) {
+        throw _StepFailureException(
+          actionName: 'waitFor',
+          message: 'Finder matched no widgets before timeout.',
+        );
+      }
+      await Future<void>.delayed(_waitForPollInterval);
+    }
   }
 
   /// Execute a scroll action, resolving its optional Finder when provided.
