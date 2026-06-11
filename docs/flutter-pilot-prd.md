@@ -125,6 +125,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - Artifact bundle layout is stable and intended for both humans and AI agents.
 - The run report is JSON and records scenario metadata, runtime target metadata, steps, command inputs, command outputs, status, duration, artifact paths, and failure diagnostics.
 - `run` generates `run_report.json` by default. The HTML timeline report is generated only when explicitly requested, such as with `--html`.
+- The first runner slice writes `run_report.json` directly to the current working directory and may overwrite an existing file. Stable `.runs/<timestamp>_<scenario>/` directories and artifact path references are introduced by the Artifact Store slice, not by the first successful runner slice.
 - The HTML timeline report is generated from the run report and artifacts, not by rerunning the scenario.
 - The diff command compares two run directories. It reports changes in step status, screenshots, visible text, semantic snapshots, widget summaries, and logs.
 - A Screenshot is a visual image artifact for human review. A Snapshot is a structured UI state artifact for programmatic and agent consumption. A Widget Tree is a raw or near-raw Flutter hierarchy artifact for deeper debugging.

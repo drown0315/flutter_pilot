@@ -3,8 +3,10 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 
+import 'runtime/runtime_contract.dart';
 import 'scenario.dart';
 import 'scenario_parser.dart';
+import 'scenario_runner.dart';
 
 /// Command-line entry point for Flutter Pilot.
 ///
@@ -40,6 +42,86 @@ class FlutterPilotCli {
       stderr.writeln(error.usage);
       return 64;
     }
+  }
+}
+
+/// Build the first-version default runner used by the executable.
+///
+/// The real `mcp_flutter` adapter is not implemented yet, so the executable
+/// reports a clear runtime failure after parsing succeeds. Runner success
+/// behavior is covered separately through `ScenarioRunner` tests.
+ScenarioRunner _createDefaultRunner(RuntimeTarget target) {
+  return ScenarioRunner(
+    adapter: _UnimplementedRuntimeAdapter(),
+    outputDirectory: Directory.current,
+  );
+}
+
+/// Placeholder adapter used until the real `mcp_flutter` adapter exists.
+class _UnimplementedRuntimeAdapter implements RuntimeAdapter {
+  const _UnimplementedRuntimeAdapter();
+
+  @override
+  Future<void> initialize() async {
+    throw const RuntimeOperationException(
+      operation: RuntimeOperation.initialize,
+      message: 'mcp_flutter Runtime Adapter is not implemented yet.',
+    );
+  }
+
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  Future<List<FinderMatch>> resolveFinder(Finder finder) async {
+    throw _unimplemented(RuntimeOperation.resolveFinder);
+  }
+
+  @override
+  Future<void> performTap(FinderMatch match) async {
+    throw _unimplemented(RuntimeOperation.performTap);
+  }
+
+  @override
+  Future<void> replaceText(FinderMatch match, String text) async {
+    throw _unimplemented(RuntimeOperation.replaceText);
+  }
+
+  @override
+  Future<void> performScroll({
+    FinderMatch? match,
+    required double deltaX,
+    required double deltaY,
+  }) async {
+    throw _unimplemented(RuntimeOperation.performScroll);
+  }
+
+  @override
+  Future<ScreenshotCapture> captureScreenshot() async {
+    throw _unimplemented(RuntimeOperation.captureScreenshot);
+  }
+
+  @override
+  Future<SnapshotCapture> captureSnapshot() async {
+    throw _unimplemented(RuntimeOperation.captureSnapshot);
+  }
+
+  @override
+  Future<WidgetTreeCapture> captureWidgetTree() async {
+    throw _unimplemented(RuntimeOperation.captureWidgetTree);
+  }
+
+  @override
+  Future<LogsCapture> collectLogs() async {
+    throw _unimplemented(RuntimeOperation.collectLogs);
+  }
+
+  /// Return a normalized Runtime Adapter failure for an unsupported operation.
+  RuntimeOperationException _unimplemented(RuntimeOperation operation) {
+    return RuntimeOperationException(
+      operation: operation,
+      message: 'mcp_flutter Runtime Adapter is not implemented yet.',
+    );
   }
 }
 
@@ -150,7 +232,8 @@ class _RunCommand extends Command<int> {
     if (argResults!.rest.length != 1) {
       throw UsageException('Expected exactly one scenario file.', usage);
     }
-    if (argResults!.option('target') == null) {
+    final String? targetValue = argResults!.option('target');
+    if (targetValue == null) {
       throw UsageException('Missing required option --target.', usage);
     }
     if (argResults!.option('print') != null &&
@@ -158,25 +241,75 @@ class _RunCommand extends Command<int> {
       throw UsageException('--print must be used with --until.', usage);
     }
 
-    final Scenario scenario;
+    final Scenario parsedScenario;
     try {
-      scenario = ScenarioParser.parseFile(argResults!.rest.single);
+      parsedScenario = ScenarioParser.parseFile(argResults!.rest.single);
     } on ScenarioValidationException catch (error) {
       _writeValidationErrors(error.errors);
       return 1;
     }
 
     final String? until = argResults!.option('until');
+    Scenario scenario = parsedScenario;
     if (until != null) {
-      final String? error = _validateUntil(until, scenario);
+      final String? error = _validateUntil(until, parsedScenario);
       if (error != null) {
         stderr.writeln(error);
         return 64;
       }
+      scenario = _sliceScenarioUntil(parsedScenario, until);
     }
 
-    stdout.writeln('Runner is not implemented yet.');
-    return 0;
+    final Uri? targetUri = _parseTargetUri(targetValue);
+    if (targetUri == null) {
+      stderr.writeln(
+        '--target must be an absolute ws://, wss://, http://, or https:// VM service URI.',
+      );
+      return 64;
+    }
+    final ScenarioRunner runner = _createDefaultRunner(
+      RuntimeTarget(vmServiceUri: targetUri),
+    );
+    try {
+      final ScenarioRunReport report = await runner.run(scenario);
+      return report.status == ScenarioRunStatus.passed ? 0 : 1;
+    } on RuntimeOperationException catch (error) {
+      stderr.writeln(error.message);
+      return 1;
+    }
+  }
+
+  /// Return the Scenario prefix selected by a validated `--until` value.
+  Scenario _sliceScenarioUntil(Scenario scenario, String until) {
+    final int? stepNumber = int.tryParse(until);
+    if (stepNumber != null) {
+      return scenario.sliceThroughStepNumber(stepNumber);
+    }
+    return scenario.sliceThroughStepLabel(until);
+  }
+
+  /// Parse and validate the first-version Runtime Target URI.
+  ///
+  /// Args:
+  /// `targetValue` is the raw `--target` argument.
+  ///
+  /// Returns:
+  /// An absolute VM service URI when valid, otherwise `null`.
+  Uri? _parseTargetUri(String targetValue) {
+    final Uri uri;
+    try {
+      uri = Uri.parse(targetValue);
+    } on FormatException {
+      return null;
+    }
+    final Set<String> allowedSchemes = <String>{'ws', 'wss', 'http', 'https'};
+    if (!uri.hasScheme || !allowedSchemes.contains(uri.scheme)) {
+      return null;
+    }
+    if (uri.host.isEmpty) {
+      return null;
+    }
+    return uri;
   }
 
   /// Validate that `--until` names an existing stop point in the Scenario.
