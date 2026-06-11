@@ -1,0 +1,4 @@
+steps:
+  - tap:
+      byText:
+        - Log in

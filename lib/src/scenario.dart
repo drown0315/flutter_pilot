@@ -24,6 +24,45 @@ class Scenario {
   final String name;
   final String? description;
   final List<ScenarioStep> steps;
+
+  /// Return a Scenario that includes steps through `stepNumber`.
+  ///
+  /// Args:
+  /// `stepNumber` is the 1-based stop point accepted by CLI `--until`.
+  ///
+  /// Returns:
+  /// A Scenario with the same metadata and only the steps that should execute.
+  ///
+  /// Throws:
+  /// `RangeError` when `stepNumber` is outside the Scenario step range.
+  Scenario sliceThroughStepNumber(int stepNumber) {
+    RangeError.checkValueInInterval(stepNumber, 1, steps.length, 'stepNumber');
+    return Scenario(
+      name: name,
+      description: description,
+      steps: steps.take(stepNumber).toList(growable: false),
+    );
+  }
+
+  /// Return a Scenario that includes steps through the Step named `label`.
+  ///
+  /// Args:
+  /// `label` is an already-validated Step label accepted by CLI `--until`.
+  ///
+  /// Returns:
+  /// A Scenario with the same metadata and only the steps that should execute.
+  ///
+  /// Throws:
+  /// `ArgumentError` when no Step has `label`.
+  Scenario sliceThroughStepLabel(String label) {
+    final int stepIndex = steps.indexWhere(
+      (ScenarioStep step) => step.label == label,
+    );
+    if (stepIndex == -1) {
+      throw ArgumentError.value(label, 'label', 'No Step has this label.');
+    }
+    return sliceThroughStepNumber(stepIndex + 1);
+  }
 }
 
 /// One ordered Scenario step.
