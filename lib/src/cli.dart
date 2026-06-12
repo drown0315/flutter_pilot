@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 
+import 'runtime/mcp_flutter_runtime_adapter.dart';
 import 'runtime/runtime_contract.dart';
 import 'scenario.dart';
 import 'scenario_parser.dart';
@@ -46,83 +47,11 @@ class FlutterPilotCli {
 }
 
 /// Build the first-version default runner used by the executable.
-///
-/// The real `mcp_flutter` adapter is not implemented yet, so the executable
-/// reports a clear runtime failure after parsing succeeds. Runner success
-/// behavior is covered separately through `ScenarioRunner` tests.
 ScenarioRunner _createDefaultRunner(RuntimeTarget target) {
   return ScenarioRunner(
-    adapter: _UnimplementedRuntimeAdapter(),
+    adapter: McpFlutterRuntimeAdapter(target: target),
     outputDirectory: Directory.current,
   );
-}
-
-/// Placeholder adapter used until the real `mcp_flutter` adapter exists.
-class _UnimplementedRuntimeAdapter implements RuntimeAdapter {
-  const _UnimplementedRuntimeAdapter();
-
-  @override
-  Future<void> initialize() async {
-    throw const RuntimeOperationException(
-      operation: RuntimeOperation.initialize,
-      message: 'mcp_flutter Runtime Adapter is not implemented yet.',
-    );
-  }
-
-  @override
-  Future<void> dispose() async {}
-
-  @override
-  Future<List<FinderMatch>> resolveFinder(Finder finder) async {
-    throw _unimplemented(RuntimeOperation.resolveFinder);
-  }
-
-  @override
-  Future<void> performTap(FinderMatch match) async {
-    throw _unimplemented(RuntimeOperation.performTap);
-  }
-
-  @override
-  Future<void> replaceText(FinderMatch match, String text) async {
-    throw _unimplemented(RuntimeOperation.replaceText);
-  }
-
-  @override
-  Future<void> performScroll({
-    FinderMatch? match,
-    required double deltaX,
-    required double deltaY,
-  }) async {
-    throw _unimplemented(RuntimeOperation.performScroll);
-  }
-
-  @override
-  Future<ScreenshotCapture> captureScreenshot() async {
-    throw _unimplemented(RuntimeOperation.captureScreenshot);
-  }
-
-  @override
-  Future<SnapshotCapture> captureSnapshot() async {
-    throw _unimplemented(RuntimeOperation.captureSnapshot);
-  }
-
-  @override
-  Future<WidgetTreeCapture> captureWidgetTree() async {
-    throw _unimplemented(RuntimeOperation.captureWidgetTree);
-  }
-
-  @override
-  Future<LogsCapture> collectLogs() async {
-    throw _unimplemented(RuntimeOperation.collectLogs);
-  }
-
-  /// Return a normalized Runtime Adapter failure for an unsupported operation.
-  RuntimeOperationException _unimplemented(RuntimeOperation operation) {
-    return RuntimeOperationException(
-      operation: operation,
-      message: 'mcp_flutter Runtime Adapter is not implemented yet.',
-    );
-  }
 }
 
 /// `validate` command for checking Scenario YAML without connecting to Flutter.
@@ -275,12 +204,17 @@ class _RunCommand extends Command<int> {
         parsedScenario,
         stopPoint: stopPoint,
       );
+      stdout.writeln(
+        '$_runReportLabel ${report.runDirectoryPath}/run_report.json',
+      );
       return report.status == ScenarioRunStatus.passed ? 0 : 1;
     } on RuntimeOperationException catch (error) {
       stderr.writeln(error.message);
       return 1;
     }
   }
+
+  static const String _runReportLabel = 'Run report:';
 
   /// Return the runner stop point selected by a validated `--until` value.
   RunStopPoint _stopPointFromUntil(String until) {

@@ -95,6 +95,8 @@ void main() {
           ], workingDirectory: tempDirectory.path);
 
       expect(result.exitCode, isNonZero);
+      expect(result.stdout, contains('Run report:'));
+      expect(result.stdout, contains('run_report.json'));
     } finally {
       tempDirectory.deleteSync(recursive: true);
     }
