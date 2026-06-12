@@ -1,6 +1,9 @@
 .DS_Store
+.idea/
 .dart_tool/
 build/
 .packages
 .pub-cache/
 .pub/
+.flutter_mcp/
+.runs/

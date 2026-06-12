@@ -34,7 +34,7 @@ only after checking the code completion status below.
 | 11. Add Diagnostic Reducer | `#11`, `#25` | Not complete | No reducer exists yet. |
 | 12. Generate HTML Timeline Report | `#12`, `#26` | Not complete | `--html` is accepted as a flag, but no HTML report is generated. |
 | 13. Compare Before/After Run Directories | `#13`, `#27` | Not complete | No diff command or run-directory comparison exists yet. |
-| 14. Add Real Flutter Smoke Scenario Through `mcp_flutter` | `#14`, `#28` | Not complete | No real Flutter smoke scenario through `mcp_flutter` exists yet. |
+| 14. Add Real Flutter Smoke Scenario Through `mcp_flutter` | `#14`, `#28` | Complete | Added `examples/smoke_app`, `examples/smoke_scenario.yaml`, a real `McpFlutterRuntimeAdapter`, and `tool/run_mcp_flutter_smoke.dart`. A local macOS smoke run passed and wrote snapshot/log artifacts plus `run_report.json`. |
 
 ## Recommended GitHub Cleanup
 
