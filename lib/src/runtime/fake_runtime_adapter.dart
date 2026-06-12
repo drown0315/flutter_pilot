@@ -11,12 +11,15 @@ import 'runtime_contract.dart';
 class FakeRuntimeAdapter implements RuntimeAdapter {
   FakeRuntimeAdapter({
     Map<String, List<FinderMatch>>? finderResults,
+    Map<String, List<List<FinderMatch>>>? finderResultSequences,
     ScreenshotCapture? screenshot,
     SnapshotCapture? snapshot,
     WidgetTreeCapture? widgetTree,
     LogsCapture? logs,
     Map<RuntimeOperation, RuntimeOperationException>? failures,
   }) : finderResults = finderResults ?? <String, List<FinderMatch>>{},
+       finderResultSequences =
+           finderResultSequences ?? <String, List<List<FinderMatch>>>{},
        failures = failures ?? <RuntimeOperation, RuntimeOperationException>{},
        screenshot =
            screenshot ??
@@ -30,12 +33,21 @@ class FakeRuntimeAdapter implements RuntimeAdapter {
        logs = logs ?? const LogsCapture(data: <String, Object?>{});
 
   final Map<String, List<FinderMatch>> finderResults;
+
+  /// Ordered Finder results returned one per `resolveFinder` call.
+  ///
+  /// This lets runner tests model time-sensitive behavior, such as a widget
+  /// appearing after a `waitFor` poll. After the sequence is exhausted, the fake
+  /// falls back to `finderResults`.
+  final Map<String, List<List<FinderMatch>>> finderResultSequences;
+
   final ScreenshotCapture screenshot;
   final SnapshotCapture snapshot;
   final WidgetTreeCapture widgetTree;
   final LogsCapture logs;
   final Map<RuntimeOperation, RuntimeOperationException> failures;
   final List<FakeRuntimeEvent> events = <FakeRuntimeEvent>[];
+  final Map<String, int> _finderSequenceOffsets = <String, int>{};
 
   @override
   Future<void> initialize() async {
@@ -58,7 +70,14 @@ class FakeRuntimeAdapter implements RuntimeAdapter {
         finder: finder,
       ),
     );
-    return finderResults[_finderKey(finder)] ?? const <FinderMatch>[];
+    final String finderKey = _finderKey(finder);
+    final List<List<FinderMatch>>? sequence = finderResultSequences[finderKey];
+    final int sequenceOffset = _finderSequenceOffsets[finderKey] ?? 0;
+    if (sequence != null && sequenceOffset < sequence.length) {
+      _finderSequenceOffsets[finderKey] = sequenceOffset + 1;
+      return sequence[sequenceOffset];
+    }
+    return finderResults[finderKey] ?? const <FinderMatch>[];
   }
 
   @override

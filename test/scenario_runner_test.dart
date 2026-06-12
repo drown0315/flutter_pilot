@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:file_testkit/file_testkit.dart';
 import 'package:flutter_pilot/flutter_pilot.dart';
@@ -79,7 +81,7 @@ void main() {
         ],
       );
 
-      final File reportFile = File('${outputDirectory.path}/run_report.json');
+      final File reportFile = _runReportFile(report);
       expect(reportFile.existsSync(), isTrue);
       expect(reportFile.readAsStringSync(), contains('"name":"login_error"'));
       expect(
@@ -99,17 +101,97 @@ void main() {
     });
   });
 
+  test('creates a stable run directory with scenario metadata', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('artifact_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter();
+      final Scenario scenario = Scenario(
+        name: 'capture_checkpoint',
+        description: 'Collect diagnostics at a checkpoint',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            label: 'checkpoint',
+            action: CaptureAction(
+              screenshot: false,
+              snapshot: false,
+              widgetTree: false,
+              logs: false,
+            ),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      final Directory runsDirectory = Directory(
+        '${outputDirectory.path}/.runs',
+      );
+      final List<Directory> runDirectories = runsDirectory
+          .listSync()
+          .whereType<Directory>()
+          .toList(growable: false);
+      expect(runDirectories, hasLength(1));
+
+      final Directory runDirectory = runDirectories.single;
+      expect(
+        runDirectory.path,
+        matches(
+          r'artifact_output/\.runs/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}_capture_checkpoint$',
+        ),
+      );
+      expect(report.runDirectoryPath, runDirectory.path);
+
+      final File scenarioFile = File('${runDirectory.path}/scenario.json');
+      final File stepFile = File(
+        '${runDirectory.path}/steps/0001_checkpoint.json',
+      );
+      final File reportFile = File('${runDirectory.path}/run_report.json');
+      expect(scenarioFile.existsSync(), isTrue);
+      expect(stepFile.existsSync(), isTrue);
+      expect(reportFile.existsSync(), isTrue);
+      expect(scenarioFile.readAsStringSync(), contains('"capture_checkpoint"'));
+      expect(stepFile.readAsStringSync(), contains('"label":"checkpoint"'));
+      expect(reportFile.readAsStringSync(), contains('"path":"scenario.json"'));
+      expect(
+        reportFile.readAsStringSync(),
+        contains('"path":"steps/0001_checkpoint.json"'),
+      );
+    });
+  });
+
   test(
-    'executes default capture operations without artifact storage',
+    'writes default capture screenshots and snapshots as Step artifacts',
     () async {
       await FileTestkit.runZoned(() async {
         final Directory outputDirectory = Directory('capture_output');
-        final FakeRuntimeAdapter adapter = FakeRuntimeAdapter();
+        final Uint8List screenshotBytes = Uint8List.fromList(<int>[
+          137,
+          80,
+          78,
+          71,
+        ]);
+        final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+          screenshot: ScreenshotCapture(
+            bytes: screenshotBytes,
+            mimeType: 'image/png',
+          ),
+          snapshot: const SnapshotCapture(
+            data: <String, Object?>{
+              'route': '/login',
+              'visibleText': <String>['Email', 'Password'],
+            },
+          ),
+        );
         final Scenario scenario = Scenario(
           name: 'capture_checkpoint',
           steps: const <ScenarioStep>[
             ScenarioStep(
               index: 1,
+              label: 'after_submit',
               action: CaptureAction(
                 screenshot: true,
                 snapshot: true,
@@ -127,6 +209,50 @@ void main() {
 
         expect(report.status, ScenarioRunStatus.passed);
         expect(
+          report.steps.single.artifacts.map(
+            (ArtifactReport artifact) => artifact.type,
+          ),
+          <ArtifactType>[ArtifactType.screenshot, ArtifactType.snapshot],
+        );
+
+        final ArtifactReport screenshotArtifact = report.steps.single.artifacts
+            .singleWhere(
+              (ArtifactReport artifact) =>
+                  artifact.type == ArtifactType.screenshot,
+            );
+        final ArtifactReport snapshotArtifact = report.steps.single.artifacts
+            .singleWhere(
+              (ArtifactReport artifact) =>
+                  artifact.type == ArtifactType.snapshot,
+            );
+        expect(
+          screenshotArtifact.path,
+          'captures/0001_after_submit_screenshot.png',
+        );
+        expect(
+          snapshotArtifact.path,
+          'captures/0001_after_submit_snapshot.json',
+        );
+        expect(
+          File(
+            '${report.runDirectoryPath}/${screenshotArtifact.path}',
+          ).readAsBytesSync(),
+          screenshotBytes,
+        );
+        final Map<String, Object?> snapshotJson =
+            jsonDecode(
+                  File(
+                    '${report.runDirectoryPath}/${snapshotArtifact.path}',
+                  ).readAsStringSync(),
+                )
+                as Map<String, Object?>;
+        expect(snapshotJson['route'], '/login');
+
+        final String reportJson = _runReportFile(report).readAsStringSync();
+        expect(reportJson, contains('"type":"screenshot"'));
+        expect(reportJson, contains('"type":"snapshot"'));
+        expect(reportJson, contains('"artifacts"'));
+        expect(
           adapter.events.map((FakeRuntimeEvent event) => event.operation),
           <RuntimeOperation>[
             RuntimeOperation.initialize,
@@ -139,6 +265,208 @@ void main() {
       });
     },
   );
+
+  test('keeps successful capture artifacts when a later capture fails', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('partial_capture_output');
+      final Uint8List screenshotBytes = Uint8List.fromList(<int>[
+        137,
+        80,
+        78,
+        71,
+      ]);
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        screenshot: ScreenshotCapture(
+          bytes: screenshotBytes,
+          mimeType: 'image/png',
+        ),
+        failures: <RuntimeOperation, RuntimeOperationException>{
+          RuntimeOperation.captureSnapshot: const RuntimeOperationException(
+            operation: RuntimeOperation.captureSnapshot,
+            message: 'Snapshot RPC failed.',
+          ),
+        },
+      );
+      final Scenario scenario = Scenario(
+        name: 'partial_capture',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            label: 'checkpoint',
+            action: CaptureAction(
+              screenshot: true,
+              snapshot: true,
+              widgetTree: false,
+              logs: true,
+            ),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      expect(report.status, ScenarioRunStatus.failed);
+      expect(report.steps.single.status, StepStatus.failed);
+      expect(report.steps.single.failureReason, 'Snapshot RPC failed.');
+      expect(report.steps.single.artifacts, hasLength(1));
+      expect(
+        report.steps.single.artifacts.single.type,
+        ArtifactType.screenshot,
+      );
+      expect(
+        File(
+          '${report.runDirectoryPath}/${report.steps.single.artifacts.single.path}',
+        ).readAsBytesSync(),
+        screenshotBytes,
+      );
+      expect(
+        adapter.events.map((FakeRuntimeEvent event) => event.operation),
+        <RuntimeOperation>[
+          RuntimeOperation.initialize,
+          RuntimeOperation.captureScreenshot,
+          RuntimeOperation.collectLogs,
+          RuntimeOperation.dispose,
+        ],
+      );
+
+      final String reportJson = _runReportFile(report).readAsStringSync();
+      expect(reportJson, contains('"type":"screenshot"'));
+      expect(reportJson, contains('"failureReason":"Snapshot RPC failed."'));
+    });
+  });
+
+  test('waits until a Finder has exactly one match', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('wait_for_success_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        finderResultSequences: <String, List<List<FinderMatch>>>{
+          'loading_done': <List<FinderMatch>>[
+            const <FinderMatch>[],
+            const <FinderMatch>[
+              FinderMatch(id: 'wait-match', debugLabel: 'Text("Done")'),
+            ],
+          ],
+        },
+      );
+      final Scenario scenario = Scenario(
+        name: 'wait_for_widget',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: WaitForAction(
+              finder: Finder(byKey: 'loading_done'),
+              timeoutMs: 100,
+            ),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      expect(report.status, ScenarioRunStatus.passed);
+      expect(report.steps.single.status, StepStatus.passed);
+      expect(
+        adapter.events.map((FakeRuntimeEvent event) => event.operation),
+        <RuntimeOperation>[
+          RuntimeOperation.initialize,
+          RuntimeOperation.resolveFinder,
+          RuntimeOperation.resolveFinder,
+          RuntimeOperation.dispose,
+        ],
+      );
+    });
+  });
+
+  test('fails waitFor when timeout expires with no matches', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('wait_for_timeout_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter();
+      final Scenario scenario = Scenario(
+        name: 'wait_for_timeout',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: WaitForAction(
+              finder: Finder(byKey: 'missing_loading_done'),
+              timeoutMs: 1,
+            ),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      expect(report.status, ScenarioRunStatus.failed);
+      expect(report.steps.single.status, StepStatus.failed);
+      expect(
+        report.steps.single.failureReason,
+        'Finder matched no widgets before timeout.',
+      );
+      expect(
+        adapter.events.map((FakeRuntimeEvent event) => event.operation),
+        containsAllInOrder(<RuntimeOperation>[
+          RuntimeOperation.initialize,
+          RuntimeOperation.resolveFinder,
+          RuntimeOperation.dispose,
+        ]),
+      );
+    });
+  });
+
+  test('fails waitFor when multiple widgets match', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('wait_for_multiple_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        finderResults: <String, List<FinderMatch>>{
+          'loading_done': const <FinderMatch>[
+            FinderMatch(id: 'first-match', debugLabel: 'Text("Done")'),
+            FinderMatch(id: 'second-match', debugLabel: 'Text("Done")'),
+          ],
+        },
+      );
+      final Scenario scenario = Scenario(
+        name: 'wait_for_ambiguous_widget',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: WaitForAction(
+              finder: Finder(byKey: 'loading_done'),
+              timeoutMs: 100,
+            ),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      expect(report.status, ScenarioRunStatus.failed);
+      expect(report.steps.single.status, StepStatus.failed);
+      expect(
+        report.steps.single.failureReason,
+        'Finder matched multiple widgets.',
+      );
+      expect(
+        adapter.events.map((FakeRuntimeEvent event) => event.operation),
+        <RuntimeOperation>[
+          RuntimeOperation.initialize,
+          RuntimeOperation.resolveFinder,
+          RuntimeOperation.dispose,
+        ],
+      );
+    });
+  });
 
   test('fails a Finder action when no widgets match', () async {
     await FileTestkit.runZoned(() async {
@@ -171,7 +499,7 @@ void main() {
         ],
       );
 
-      final File reportFile = File('${outputDirectory.path}/run_report.json');
+      final File reportFile = _runReportFile(report);
       expect(reportFile.readAsStringSync(), contains('"status":"failed"'));
       expect(
         reportFile.readAsStringSync(),
@@ -254,7 +582,7 @@ void main() {
       expect(report.status, ScenarioRunStatus.failed);
       expect(report.steps.single.failureReason, 'Finder matched no widgets.');
 
-      final File reportFile = File('${outputDirectory.path}/run_report.json');
+      final File reportFile = _runReportFile(report);
       expect(
         reportFile.readAsStringSync(),
         contains('Finder matched no widgets'),
@@ -295,7 +623,7 @@ void main() {
       expect(report.failureReason, 'Dispose failed.');
       expect(report.steps.single.status, StepStatus.passed);
 
-      final File reportFile = File('${outputDirectory.path}/run_report.json');
+      final File reportFile = _runReportFile(report);
       expect(
         reportFile.readAsStringSync(),
         contains('"failureReason":"Dispose failed."'),
@@ -354,7 +682,7 @@ void main() {
         ],
       );
 
-      final File reportFile = File('${outputDirectory.path}/run_report.json');
+      final File reportFile = _runReportFile(report);
       expect(reportFile.readAsStringSync(), contains('Tap RPC failed.'));
     });
   });
@@ -394,11 +722,16 @@ void main() {
       expect(report.failureReason, 'Initialize failed.');
       expect(report.steps, isEmpty);
 
-      final File reportFile = File('${outputDirectory.path}/run_report.json');
+      final File reportFile = _runReportFile(report);
       expect(
         reportFile.readAsStringSync(),
         contains('"failureReason":"Initialize failed."'),
       );
     });
   });
+}
+
+/// Return the report file written for a completed Scenario run.
+File _runReportFile(ScenarioRunReport report) {
+  return File('${report.runDirectoryPath}/run_report.json');
 }
