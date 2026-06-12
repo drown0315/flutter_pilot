@@ -78,6 +78,28 @@ void main() {
     expect(result.stderr, contains('--target must be an absolute'));
   });
 
+  test('run exits non-zero when the Scenario run fails', () async {
+    final Directory tempDirectory = Directory.systemTemp.createTempSync(
+      'flutter_pilot_cli_test_',
+    );
+    final String packageRoot = Directory.current.absolute.path;
+    try {
+      final ProcessResult result =
+          await Process.run(Platform.resolvedExecutable, [
+            'run',
+            '$packageRoot/bin/flutter_pilot.dart',
+            'run',
+            '$packageRoot/examples/login_error.yaml',
+            '--target',
+            'ws://127.0.0.1:1234/example=/ws',
+          ], workingDirectory: tempDirectory.path);
+
+      expect(result.exitCode, isNonZero);
+    } finally {
+      tempDirectory.deleteSync(recursive: true);
+    }
+  });
+
   test('run --print without --until exits non-zero', () async {
     final ProcessResult result =
         await Process.run(Platform.resolvedExecutable, [

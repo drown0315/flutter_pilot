@@ -557,6 +557,9 @@ void main() {
         <RuntimeOperation>[
           RuntimeOperation.initialize,
           RuntimeOperation.resolveFinder,
+          RuntimeOperation.captureScreenshot,
+          RuntimeOperation.captureSnapshot,
+          RuntimeOperation.collectLogs,
           RuntimeOperation.dispose,
         ],
       );
@@ -590,6 +593,9 @@ void main() {
         <RuntimeOperation>[
           RuntimeOperation.initialize,
           RuntimeOperation.resolveFinder,
+          RuntimeOperation.captureScreenshot,
+          RuntimeOperation.captureSnapshot,
+          RuntimeOperation.collectLogs,
           RuntimeOperation.dispose,
         ],
       );
@@ -602,6 +608,173 @@ void main() {
       );
     });
   });
+
+  test('collects default failure artifacts when a Step fails', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('failure_artifacts_output');
+      final Uint8List screenshotBytes = Uint8List.fromList(<int>[
+        137,
+        80,
+        78,
+        71,
+      ]);
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        screenshot: ScreenshotCapture(
+          bytes: screenshotBytes,
+          mimeType: 'image/png',
+        ),
+        snapshot: const SnapshotCapture(
+          data: <String, Object?>{'route': '/login'},
+        ),
+        logs: const LogsCapture(
+          data: <String, Object?>{
+            'entries': <Object?>[
+              <String, Object?>{
+                'level': 'error',
+                'message': 'Login button was not found.',
+              },
+            ],
+          },
+        ),
+      );
+      final Scenario scenario = Scenario(
+        name: 'missing_button_failure_bundle',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            label: 'submit_login',
+            action: TapAction(finder: Finder(byKey: 'missing_button')),
+          ),
+          ScenarioStep(
+            index: 2,
+            action: CaptureAction(
+              screenshot: true,
+              snapshot: true,
+              widgetTree: true,
+              logs: true,
+            ),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      expect(report.status, ScenarioRunStatus.failed);
+      expect(report.steps, hasLength(1));
+      expect(report.steps.single.status, StepStatus.failed);
+      expect(report.steps.single.failureReason, 'Finder matched no widgets.');
+      expect(
+        report.steps.single.artifacts.map(
+          (ArtifactReport artifact) => artifact.type,
+        ),
+        <ArtifactType>[
+          ArtifactType.screenshot,
+          ArtifactType.snapshot,
+          ArtifactType.logs,
+        ],
+      );
+      expect(
+        report.steps.single.artifacts.every(
+          (ArtifactReport artifact) =>
+              artifact.purpose == ArtifactPurpose.failure,
+        ),
+        isTrue,
+      );
+      expect(
+        adapter.events.map((FakeRuntimeEvent event) => event.operation),
+        <RuntimeOperation>[
+          RuntimeOperation.initialize,
+          RuntimeOperation.resolveFinder,
+          RuntimeOperation.captureScreenshot,
+          RuntimeOperation.captureSnapshot,
+          RuntimeOperation.collectLogs,
+          RuntimeOperation.dispose,
+        ],
+      );
+
+      final ArtifactReport screenshotArtifact = report.steps.single.artifacts
+          .singleWhere(
+            (ArtifactReport artifact) =>
+                artifact.type == ArtifactType.screenshot,
+          );
+      expect(
+        File(
+          '${report.runDirectoryPath}/${screenshotArtifact.path}',
+        ).readAsBytesSync(),
+        screenshotBytes,
+      );
+
+      final String reportJson = _runReportFile(report).readAsStringSync();
+      expect(reportJson, contains('"purpose":"failure"'));
+      expect(reportJson, isNot(contains('"type":"widgetTree"')));
+    });
+  });
+
+  test(
+    'records diagnostic failure reason when automatic failure capture fails',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final Directory outputDirectory = Directory(
+          'failure_diagnostic_failure_output',
+        );
+        final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+          snapshot: const SnapshotCapture(
+            data: <String, Object?>{'route': '/login'},
+          ),
+          logs: const LogsCapture(
+            data: <String, Object?>{'entries': <Object?>[]},
+          ),
+          failures: <RuntimeOperation, RuntimeOperationException>{
+            RuntimeOperation.captureScreenshot: const RuntimeOperationException(
+              operation: RuntimeOperation.captureScreenshot,
+              message: 'Screenshot RPC failed.',
+            ),
+          },
+        );
+        final Scenario scenario = Scenario(
+          name: 'partial_failure_bundle',
+          steps: const <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              label: 'submit_login',
+              action: TapAction(finder: Finder(byKey: 'missing_button')),
+            ),
+          ],
+        );
+
+        final ScenarioRunReport report = await ScenarioRunner(
+          adapter: adapter,
+          outputDirectory: outputDirectory,
+        ).run(scenario);
+
+        expect(report.status, ScenarioRunStatus.failed);
+        expect(report.steps.single.failureReason, 'Finder matched no widgets.');
+        expect(
+          report.steps.single.diagnosticFailureReason,
+          'Screenshot RPC failed.',
+        );
+        expect(
+          report.steps.single.artifacts.map(
+            (ArtifactReport artifact) => artifact.type,
+          ),
+          <ArtifactType>[ArtifactType.snapshot, ArtifactType.logs],
+        );
+
+        final String reportJson = _runReportFile(report).readAsStringSync();
+        expect(
+          reportJson,
+          contains('"failureReason":"Finder matched no widgets."'),
+        );
+        expect(
+          reportJson,
+          contains('"diagnosticFailureReason":"Screenshot RPC failed."'),
+        );
+      });
+    },
+  );
 
   test('fails a Finder action when multiple widgets match', () async {
     await FileTestkit.runZoned(() async {
@@ -640,6 +813,9 @@ void main() {
         <RuntimeOperation>[
           RuntimeOperation.initialize,
           RuntimeOperation.resolveFinder,
+          RuntimeOperation.captureScreenshot,
+          RuntimeOperation.captureSnapshot,
+          RuntimeOperation.collectLogs,
           RuntimeOperation.dispose,
         ],
       );
@@ -769,10 +945,23 @@ void main() {
       expect(report.steps.single.status, StepStatus.failed);
       expect(report.steps.single.failureReason, 'Tap RPC failed.');
       expect(
+        report.steps.single.artifacts.map(
+          (ArtifactReport artifact) => artifact.purpose,
+        ),
+        <ArtifactPurpose>[
+          ArtifactPurpose.failure,
+          ArtifactPurpose.failure,
+          ArtifactPurpose.failure,
+        ],
+      );
+      expect(
         adapter.events.map((FakeRuntimeEvent event) => event.operation),
         <RuntimeOperation>[
           RuntimeOperation.initialize,
           RuntimeOperation.resolveFinder,
+          RuntimeOperation.captureScreenshot,
+          RuntimeOperation.captureSnapshot,
+          RuntimeOperation.collectLogs,
           RuntimeOperation.dispose,
         ],
       );
