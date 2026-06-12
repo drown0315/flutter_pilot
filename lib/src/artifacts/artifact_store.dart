@@ -195,6 +195,8 @@ class RunArtifactWriter {
   /// `bytes` is the encoded image returned by the Runtime Adapter.
   /// `mimeType` describes the image format. The first version writes PNG files
   /// for `image/png` and uses a binary extension for other formats.
+  /// `purpose` explains whether this screenshot came from an explicit capture
+  /// Step or from an automatic failure bundle.
   ///
   /// Returns:
   /// An artifact record with `type: screenshot` and a path relative to the run
@@ -204,6 +206,7 @@ class RunArtifactWriter {
     required String? label,
     required Uint8List bytes,
     required String mimeType,
+    ArtifactPurpose purpose = ArtifactPurpose.capture,
   }) {
     final String relativePath = p.join(
       'captures',
@@ -217,7 +220,11 @@ class RunArtifactWriter {
     final File screenshotFile = File(p.join(runDirectory.path, relativePath));
     screenshotFile.parent.createSync(recursive: true);
     screenshotFile.writeAsBytesSync(bytes);
-    return ArtifactReport(type: ArtifactType.screenshot, path: relativePath);
+    return ArtifactReport(
+      type: ArtifactType.screenshot,
+      path: relativePath,
+      purpose: purpose,
+    );
   }
 
   /// Write one structured Snapshot captured by a Step.
@@ -227,6 +234,8 @@ class RunArtifactWriter {
   /// `label` is the optional Step label used in the artifact file name.
   /// `data` is the JSON-compatible Snapshot payload returned by the Runtime
   /// Adapter.
+  /// `purpose` explains whether this Snapshot came from an explicit capture
+  /// Step or from an automatic failure bundle.
   ///
   /// Returns:
   /// An artifact record with `type: snapshot` and a path relative to the run
@@ -235,6 +244,7 @@ class RunArtifactWriter {
     required int index,
     required String? label,
     required Object data,
+    ArtifactPurpose purpose = ArtifactPurpose.capture,
   }) {
     final String relativePath = p.join(
       'captures',
@@ -248,7 +258,11 @@ class RunArtifactWriter {
     final File snapshotFile = File(p.join(runDirectory.path, relativePath));
     snapshotFile.parent.createSync(recursive: true);
     snapshotFile.writeAsStringSync(jsonEncode(data));
-    return ArtifactReport(type: ArtifactType.snapshot, path: relativePath);
+    return ArtifactReport(
+      type: ArtifactType.snapshot,
+      path: relativePath,
+      purpose: purpose,
+    );
   }
 
   /// Write one structured Logs capture produced by a Step.
@@ -259,6 +273,8 @@ class RunArtifactWriter {
   /// `data` is the JSON-compatible Logs payload returned by the Runtime
   /// Adapter. Runtime errors are represented inside this payload when the
   /// adapter exposes them.
+  /// `purpose` explains whether these Logs came from an explicit capture Step
+  /// or from an automatic failure bundle.
   ///
   /// Returns:
   /// An artifact record with `type: logs` and a path relative to the run
@@ -267,6 +283,7 @@ class RunArtifactWriter {
     required int index,
     required String? label,
     required Object data,
+    ArtifactPurpose purpose = ArtifactPurpose.capture,
   }) {
     final String relativePath = p.join(
       'captures',
@@ -280,7 +297,11 @@ class RunArtifactWriter {
     final File logsFile = File(p.join(runDirectory.path, relativePath));
     logsFile.parent.createSync(recursive: true);
     logsFile.writeAsStringSync(jsonEncode(data));
-    return ArtifactReport(type: ArtifactType.logs, path: relativePath);
+    return ArtifactReport(
+      type: ArtifactType.logs,
+      path: relativePath,
+      purpose: purpose,
+    );
   }
 
   /// Return the file name for one Step metadata artifact.
@@ -438,25 +459,48 @@ enum ArtifactType {
   logs,
 }
 
+/// Reason one artifact was written during a Scenario run.
+///
+/// Capture artifacts can come from:
+/// - an explicit Scenario `capture` Step
+/// - an automatic failure bundle collected after a Step fails
+///
+/// Example:
+/// A screenshot from `capture: {}` uses `capture`; a screenshot collected
+/// after a failed tap uses `failure`.
+enum ArtifactPurpose { capture, failure }
+
 /// Metadata for one file written in a run directory.
 ///
 /// It contains:
 /// - `type`: the artifact family
 /// - `path`: the file path relative to the run directory
+/// - `purpose`: why a capture artifact was written, when applicable
 ///
 /// Example:
-/// `ArtifactReport(type: ArtifactType.scenario, path: 'scenario.json')`
+/// `ArtifactReport(type: ArtifactType.screenshot, path: 'captures/0001.png',
+/// purpose: ArtifactPurpose.failure)` records a failure screenshot.
 class ArtifactReport {
-  const ArtifactReport({required this.type, required this.path});
+  const ArtifactReport({required this.type, required this.path, this.purpose});
 
   final ArtifactType type;
   final String path;
 
+  /// Why this artifact was written.
+  ///
+  /// Non-capture artifacts such as `scenario.json` and `run_report.json` omit
+  /// this field because their role is already described by `type`.
+  final ArtifactPurpose? purpose;
+
   /// Convert this artifact record to the JSON stored in `run_report.json`.
   ///
   /// Returns:
-  /// A JSON-compatible map with `type` and `path`.
+  /// A JSON-compatible map with `type`, `path`, and optional `purpose`.
   Map<String, Object?> toJson() {
-    return <String, Object?>{'type': type.name, 'path': path};
+    return <String, Object?>{
+      'type': type.name,
+      'path': path,
+      if (purpose != null) 'purpose': purpose!.name,
+    };
   }
 }

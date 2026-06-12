@@ -186,8 +186,15 @@ void main() {
           ],
         },
       );
+      final ArtifactReport failureLogsArtifact = writer.writeLogs(
+        index: 2,
+        label: 'failed_submit',
+        data: <String, Object?>{'entries': <Object?>[]},
+        purpose: ArtifactPurpose.failure,
+      );
 
       expect(screenshotArtifact.type, ArtifactType.screenshot);
+      expect(screenshotArtifact.purpose, ArtifactPurpose.capture);
       expect(
         screenshotArtifact.path,
         'captures/0001_checkpoint_screenshot.png',
@@ -196,6 +203,12 @@ void main() {
       expect(snapshotArtifact.path, 'captures/0001_checkpoint_snapshot.json');
       expect(logsArtifact.type, ArtifactType.logs);
       expect(logsArtifact.path, 'captures/0001_checkpoint_logs.json');
+      expect(failureLogsArtifact.purpose, ArtifactPurpose.failure);
+      expect(failureLogsArtifact.toJson(), <String, Object?>{
+        'type': 'logs',
+        'path': 'captures/0002_failed_submit_logs.json',
+        'purpose': 'failure',
+      });
       expect(
         File(
           '${writer.runDirectory.path}/${screenshotArtifact.path}',
