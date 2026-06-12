@@ -1,6 +1,6 @@
 # Flutter Pilot Issue Progress
 
-Last reviewed: 2026-06-11
+Last reviewed: 2026-06-12
 
 This file tracks implementation progress against the local issue breakdown and
 the GitHub issue list. Use code reality as the source of truth when GitHub issue
@@ -27,7 +27,7 @@ only after checking the code completion status below.
 | 4. Implement WaitFor Timing Behavior | `#4`, `#18` | Complete | `waitFor` polls until exactly one Finder Match appears, fails when the timeout expires with zero matches, and fails immediately when multiple matches appear. |
 | 5. Create Stable Run Directories And Artifact Metadata | `#5`, `#19` | Complete | Artifact Store creates stable `.runs/<timestamp>_<scenario>/` directories, avoids overwriting repeated runs, writes `scenario.json`, writes Step metadata, writes `run_report.json`, records artifact paths in the report, and keeps runner execution flow split into initialization, Step execution, cleanup, and report finalization. |
 | 6. Capture Screenshots And Snapshots | `#6`, `#20` | Complete | Capture Steps write screenshot PNG files and Snapshot JSON files under `captures/`, attach those artifact paths to the producing Step, and include them in the run report artifact index. |
-| 7. Capture Errors And Logs | `#7`, `#21` | Not complete | Runner calls `collectLogs`, but Logs are not persisted as artifacts or referenced by report paths. |
+| 7. Capture Errors And Logs | `#7`, `#21` | Complete | Capture Steps write Logs JSON files under `captures/`, attach those artifact paths to the producing Step, include them in the run report artifact index, and respect explicit `logs: false` overrides. Runtime errors remain part of Logs when the adapter exposes them. |
 | 8. Produce Failure Artifact Bundles | `#8`, `#22` | Not complete | Failed steps do not automatically collect screenshot, Snapshot, and Logs bundles yet. |
 | 9. Implement Real `--until` Stop Points | `#9`, `#23` | Partial | CLI validates `--until` and slices the Scenario before execution. Unexecuted steps are not represented as skipped in the run report. |
 | 10. Implement `--print` Diagnostics After `--until` | `#10`, `#24` | Not complete | CLI validates `--print` requires `--until`, but does not print Snapshot, Widget Tree, or Logs diagnostics. |

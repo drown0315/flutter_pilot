@@ -164,7 +164,7 @@ void main() {
   });
 
   test(
-    'writes default capture screenshots and snapshots as Step artifacts',
+    'writes default capture screenshots, snapshots, and logs as Step artifacts',
     () async {
       await FileTestkit.runZoned(() async {
         final Directory outputDirectory = Directory('capture_output');
@@ -183,6 +183,16 @@ void main() {
             data: <String, Object?>{
               'route': '/login',
               'visibleText': <String>['Email', 'Password'],
+            },
+          ),
+          logs: const LogsCapture(
+            data: <String, Object?>{
+              'entries': <Object?>[
+                <String, Object?>{
+                  'level': 'error',
+                  'message': 'Incorrect email or password.',
+                },
+              ],
             },
           ),
         );
@@ -212,7 +222,11 @@ void main() {
           report.steps.single.artifacts.map(
             (ArtifactReport artifact) => artifact.type,
           ),
-          <ArtifactType>[ArtifactType.screenshot, ArtifactType.snapshot],
+          <ArtifactType>[
+            ArtifactType.screenshot,
+            ArtifactType.snapshot,
+            ArtifactType.logs,
+          ],
         );
 
         final ArtifactReport screenshotArtifact = report.steps.single.artifacts
@@ -225,6 +239,10 @@ void main() {
               (ArtifactReport artifact) =>
                   artifact.type == ArtifactType.snapshot,
             );
+        final ArtifactReport logsArtifact = report.steps.single.artifacts
+            .singleWhere(
+              (ArtifactReport artifact) => artifact.type == ArtifactType.logs,
+            );
         expect(
           screenshotArtifact.path,
           'captures/0001_after_submit_screenshot.png',
@@ -233,6 +251,7 @@ void main() {
           snapshotArtifact.path,
           'captures/0001_after_submit_snapshot.json',
         );
+        expect(logsArtifact.path, 'captures/0001_after_submit_logs.json');
         expect(
           File(
             '${report.runDirectoryPath}/${screenshotArtifact.path}',
@@ -247,10 +266,19 @@ void main() {
                 )
                 as Map<String, Object?>;
         expect(snapshotJson['route'], '/login');
+        final Map<String, Object?> logsJson =
+            jsonDecode(
+                  File(
+                    '${report.runDirectoryPath}/${logsArtifact.path}',
+                  ).readAsStringSync(),
+                )
+                as Map<String, Object?>;
+        expect(logsJson['entries'], hasLength(1));
 
         final String reportJson = _runReportFile(report).readAsStringSync();
         expect(reportJson, contains('"type":"screenshot"'));
         expect(reportJson, contains('"type":"snapshot"'));
+        expect(reportJson, contains('"type":"logs"'));
         expect(reportJson, contains('"artifacts"'));
         expect(
           adapter.events.map((FakeRuntimeEvent event) => event.operation),
@@ -266,38 +294,114 @@ void main() {
     },
   );
 
-  test('keeps successful capture artifacts when a later capture fails', () async {
-    await FileTestkit.runZoned(() async {
-      final Directory outputDirectory = Directory('partial_capture_output');
-      final Uint8List screenshotBytes = Uint8List.fromList(<int>[
-        137,
-        80,
-        78,
-        71,
-      ]);
-      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
-        screenshot: ScreenshotCapture(
-          bytes: screenshotBytes,
-          mimeType: 'image/png',
-        ),
-        failures: <RuntimeOperation, RuntimeOperationException>{
-          RuntimeOperation.captureSnapshot: const RuntimeOperationException(
-            operation: RuntimeOperation.captureSnapshot,
-            message: 'Snapshot RPC failed.',
+  test(
+    'keeps successful capture artifacts when a later capture fails',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final Directory outputDirectory = Directory('partial_capture_output');
+        final Uint8List screenshotBytes = Uint8List.fromList(<int>[
+          137,
+          80,
+          78,
+          71,
+        ]);
+        final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+          screenshot: ScreenshotCapture(
+            bytes: screenshotBytes,
+            mimeType: 'image/png',
           ),
-        },
+          failures: <RuntimeOperation, RuntimeOperationException>{
+            RuntimeOperation.captureSnapshot: const RuntimeOperationException(
+              operation: RuntimeOperation.captureSnapshot,
+              message: 'Snapshot RPC failed.',
+            ),
+          },
+        );
+        final Scenario scenario = Scenario(
+          name: 'partial_capture',
+          steps: const <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              label: 'checkpoint',
+              action: CaptureAction(
+                screenshot: true,
+                snapshot: true,
+                widgetTree: false,
+                logs: true,
+              ),
+            ),
+          ],
+        );
+
+        final ScenarioRunReport report = await ScenarioRunner(
+          adapter: adapter,
+          outputDirectory: outputDirectory,
+        ).run(scenario);
+
+        expect(report.status, ScenarioRunStatus.failed);
+        expect(report.steps.single.status, StepStatus.failed);
+        expect(report.steps.single.failureReason, 'Snapshot RPC failed.');
+        expect(
+          report.steps.single.artifacts.map(
+            (ArtifactReport artifact) => artifact.type,
+          ),
+          <ArtifactType>[ArtifactType.screenshot, ArtifactType.logs],
+        );
+        final ArtifactReport screenshotArtifact = report.steps.single.artifacts
+            .singleWhere(
+              (ArtifactReport artifact) =>
+                  artifact.type == ArtifactType.screenshot,
+            );
+        final ArtifactReport logsArtifact = report.steps.single.artifacts
+            .singleWhere(
+              (ArtifactReport artifact) => artifact.type == ArtifactType.logs,
+            );
+        expect(
+          File(
+            '${report.runDirectoryPath}/${screenshotArtifact.path}',
+          ).readAsBytesSync(),
+          screenshotBytes,
+        );
+        expect(
+          File('${report.runDirectoryPath}/${logsArtifact.path}').existsSync(),
+          isTrue,
+        );
+        expect(
+          adapter.events.map((FakeRuntimeEvent event) => event.operation),
+          <RuntimeOperation>[
+            RuntimeOperation.initialize,
+            RuntimeOperation.captureScreenshot,
+            RuntimeOperation.collectLogs,
+            RuntimeOperation.dispose,
+          ],
+        );
+
+        final String reportJson = _runReportFile(report).readAsStringSync();
+        expect(reportJson, contains('"type":"screenshot"'));
+        expect(reportJson, contains('"failureReason":"Snapshot RPC failed."'));
+      });
+    },
+  );
+
+  test('does not collect logs when a capture Step disables logs', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('logs_disabled_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        snapshot: const SnapshotCapture(
+          data: <String, Object?>{'route': '/settings'},
+        ),
       );
       final Scenario scenario = Scenario(
-        name: 'partial_capture',
+        name: 'logs_disabled',
         steps: const <ScenarioStep>[
           ScenarioStep(
             index: 1,
             label: 'checkpoint',
             action: CaptureAction(
-              screenshot: true,
+              screenshot: false,
               snapshot: true,
               widgetTree: false,
-              logs: true,
+              logs: false,
             ),
           ),
         ],
@@ -308,33 +412,24 @@ void main() {
         outputDirectory: outputDirectory,
       ).run(scenario);
 
-      expect(report.status, ScenarioRunStatus.failed);
-      expect(report.steps.single.status, StepStatus.failed);
-      expect(report.steps.single.failureReason, 'Snapshot RPC failed.');
-      expect(report.steps.single.artifacts, hasLength(1));
+      expect(report.status, ScenarioRunStatus.passed);
       expect(
-        report.steps.single.artifacts.single.type,
-        ArtifactType.screenshot,
-      );
-      expect(
-        File(
-          '${report.runDirectoryPath}/${report.steps.single.artifacts.single.path}',
-        ).readAsBytesSync(),
-        screenshotBytes,
+        report.steps.single.artifacts.map(
+          (ArtifactReport artifact) => artifact.type,
+        ),
+        <ArtifactType>[ArtifactType.snapshot],
       );
       expect(
         adapter.events.map((FakeRuntimeEvent event) => event.operation),
         <RuntimeOperation>[
           RuntimeOperation.initialize,
-          RuntimeOperation.captureScreenshot,
-          RuntimeOperation.collectLogs,
+          RuntimeOperation.captureSnapshot,
           RuntimeOperation.dispose,
         ],
       );
 
       final String reportJson = _runReportFile(report).readAsStringSync();
-      expect(reportJson, contains('"type":"screenshot"'));
-      expect(reportJson, contains('"failureReason":"Snapshot RPC failed."'));
+      expect(reportJson, isNot(contains('"type":"logs"')));
     });
   });
 
