@@ -136,6 +136,11 @@ class ScenarioRunner {
       activeStepStopwatch?.stop();
       final ScenarioStep? step = activeStep;
       if (step != null) {
+        final _FailureDiagnosticResult diagnostics =
+            await _collectFailureArtifacts(
+              step: step,
+              runArtifactWriter: runArtifactWriter,
+            );
         reports.add(
           StepRunReport(
             index: step.index,
@@ -143,7 +148,9 @@ class ScenarioRunner {
             action: _actionName(step.action),
             status: StepStatus.failed,
             durationMs: activeStepStopwatch?.elapsedMilliseconds ?? 0,
+            artifacts: diagnostics.artifacts,
             failureReason: error.message,
+            diagnosticFailureReason: diagnostics.failureReason,
           ),
         );
       }
@@ -234,13 +241,20 @@ class ScenarioRunner {
       );
     } on _StepFailureException catch (error) {
       stopwatch.stop();
+      final _FailureDiagnosticResult diagnostics =
+          await _collectFailureArtifacts(
+            step: step,
+            runArtifactWriter: runArtifactWriter,
+          );
       return StepRunReport(
         index: step.index,
         label: step.label,
         action: error.actionName,
         status: StepStatus.failed,
         durationMs: stopwatch.elapsedMilliseconds,
+        artifacts: diagnostics.artifacts,
         failureReason: error.message,
+        diagnosticFailureReason: diagnostics.failureReason,
       );
     }
   }
@@ -296,6 +310,7 @@ class ScenarioRunner {
           snapshot: snapshot,
           widgetTree: widgetTree,
           logs: logs,
+          purpose: ArtifactPurpose.capture,
         ),
     };
   }
@@ -388,6 +403,7 @@ class ScenarioRunner {
     required bool snapshot,
     required bool widgetTree,
     required bool logs,
+    required ArtifactPurpose purpose,
   }) async {
     final List<ArtifactReport> artifacts = <ArtifactReport>[];
     final List<String> failures = <String>[];
@@ -400,6 +416,7 @@ class ScenarioRunner {
             label: step.label,
             bytes: capture.bytes,
             mimeType: capture.mimeType,
+            purpose: purpose,
           ),
         );
       } on RuntimeOperationException catch (error) {
@@ -414,6 +431,7 @@ class ScenarioRunner {
             index: step.index,
             label: step.label,
             data: capture.data,
+            purpose: purpose,
           ),
         );
       } on RuntimeOperationException catch (error) {
@@ -435,6 +453,7 @@ class ScenarioRunner {
             index: step.index,
             label: step.label,
             data: capture.data,
+            purpose: purpose,
           ),
         );
       } on RuntimeOperationException catch (error) {
@@ -444,6 +463,35 @@ class ScenarioRunner {
     return _ActionExecutionResult(
       artifacts: artifacts,
       failureReason: failures.isEmpty ? null : failures.join('; '),
+    );
+  }
+
+  /// Collect the default diagnostic bundle for a failed Step.
+  ///
+  /// Args:
+  /// `step` is the Step that already failed.
+  /// `runArtifactWriter` writes successful diagnostic captures into the current
+  /// run directory.
+  ///
+  /// Returns:
+  /// Artifact records for successful screenshot, Snapshot, and Logs captures.
+  /// Widget Tree is not requested by default.
+  Future<_FailureDiagnosticResult> _collectFailureArtifacts({
+    required ScenarioStep step,
+    required RunArtifactWriter runArtifactWriter,
+  }) async {
+    final _ActionExecutionResult result = await _executeCapture(
+      step: step,
+      runArtifactWriter: runArtifactWriter,
+      screenshot: true,
+      snapshot: true,
+      widgetTree: false,
+      logs: true,
+      purpose: ArtifactPurpose.failure,
+    );
+    return _FailureDiagnosticResult(
+      artifacts: result.artifacts,
+      failureReason: result.failureReason,
     );
   }
 
@@ -582,6 +630,7 @@ class StepRunReport {
     required this.durationMs,
     this.artifacts = const <ArtifactReport>[],
     this.failureReason,
+    this.diagnosticFailureReason,
   });
 
   final int index;
@@ -592,6 +641,13 @@ class StepRunReport {
 
   /// Human-readable failure reason when `status` is `failed`.
   final String? failureReason;
+
+  /// Human-readable failure from automatic failure diagnostic capture.
+  ///
+  /// This field is separate from `failureReason` so the report preserves the
+  /// Step's primary failure while still recording screenshot, Snapshot, or Logs
+  /// capture failures that happened while building the failure bundle.
+  final String? diagnosticFailureReason;
 
   /// Files produced by this Step, relative to the run directory.
   final List<ArtifactReport> artifacts;
@@ -609,8 +665,30 @@ class StepRunReport {
           for (final ArtifactReport artifact in artifacts) artifact.toJson(),
         ],
       if (failureReason != null) 'failureReason': failureReason,
+      if (diagnosticFailureReason != null)
+        'diagnosticFailureReason': diagnosticFailureReason,
     };
   }
+}
+
+/// Result from collecting automatic diagnostics after a Step fails.
+///
+/// It contains:
+/// - artifacts that were successfully written
+/// - an optional failure reason for diagnostic captures that failed
+///
+/// Example:
+/// If screenshot capture fails but Snapshot and Logs succeed, `artifacts`
+/// contains the Snapshot and Logs paths, and `failureReason` contains the
+/// screenshot failure message.
+class _FailureDiagnosticResult {
+  const _FailureDiagnosticResult({
+    required this.artifacts,
+    required this.failureReason,
+  });
+
+  final List<ArtifactReport> artifacts;
+  final String? failureReason;
 }
 
 /// Controlled Step failure that should be recorded in the run report.
