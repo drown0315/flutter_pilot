@@ -429,7 +429,14 @@ class ScenarioRunner {
     }
     if (logs) {
       try {
-        await adapter.collectLogs();
+        final LogsCapture capture = await adapter.collectLogs();
+        artifacts.add(
+          runArtifactWriter.writeLogs(
+            index: step.index,
+            label: step.label,
+            data: capture.data,
+          ),
+        );
       } on RuntimeOperationException catch (error) {
         failures.add(error.message);
       }
