@@ -6,12 +6,12 @@ scenario:
 steps:
   - label: enter_email
     type:
-      byKey: email_input
+      byText: Email
       text: bad@example.com
 
   - label: enter_password
     type:
-      byKey: password_input
+      byText: Password
       text: wrong
 
   - label: submit_login

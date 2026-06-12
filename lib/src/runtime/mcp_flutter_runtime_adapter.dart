@@ -299,7 +299,6 @@ class McpFlutterRuntimeAdapter implements RuntimeAdapter {
   /// Return whether one semantic snapshot node satisfies a Finder.
   bool _matchesFinder(Map<String, Object?> node, Finder finder) {
     return _matchesOptional(finder.byText, _nodeText(node)) &&
-        _matchesOptional(finder.byKey, _nodeKey(node)) &&
         _matchesOptional(finder.byType, _nodeType(node));
   }
 
@@ -344,6 +343,11 @@ class McpFlutterRuntimeAdapter implements RuntimeAdapter {
     return _stringField(node, const <String>['key', 'valueKey']);
   }
 
+  /// Return the `mcp_flutter` semantic node type used by Finder `byType`.
+  ///
+  /// Real `semantic_snapshot` responses expose semantic types such as
+  /// `textField`, `button`, `text`, and `scrollable`, not Dart widget class
+  /// names such as `TextField` or `FilledButton`.
   String? _nodeType(Map<String, Object?> node) {
     return _stringField(node, const <String>['type', 'widgetType']);
   }

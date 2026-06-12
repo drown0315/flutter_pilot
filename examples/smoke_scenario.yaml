@@ -6,7 +6,7 @@ scenario:
 steps:
   - label: enter_email
     type:
-      byText: Email
+      byType: textField
       text: smoke@example.com
 
   - label: submit_form

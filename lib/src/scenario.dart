@@ -86,19 +86,17 @@ class ScenarioStep {
 ///
 /// It can contain any combination of:
 /// - `byText`: exact visible text
-/// - `byKey`: logical key string
-/// - `byType`: simple Flutter widget class name
+/// - `byType`: semantic Snapshot node type from `mcp_flutter`
 ///
 /// Example:
-/// `Finder(byText: 'Log in', byType: 'TextButton')` means both rules must match.
+/// `Finder(byText: 'Log in', byType: 'button')` means both rules must match.
 class Finder {
-  const Finder({this.byText, this.byKey, this.byType});
+  const Finder({this.byText, this.byType});
 
   final String? byText;
-  final String? byKey;
   final String? byType;
 
-  bool get isEmpty => byText == null && byKey == null && byType == null;
+  bool get isEmpty => byText == null && byType == null;
 }
 
 /// Tap action targeting exactly one widget matched by its Finder.

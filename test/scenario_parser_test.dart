@@ -18,7 +18,7 @@ steps:
   - label: submit_login
     tap:
       byText: Log in
-      byType: TextButton
+      byType: button
   - label: wait_for_error
     waitFor:
       byText: Invalid password
@@ -32,7 +32,7 @@ steps:
 
       final TapAction tap = scenario.steps[0].action as TapAction;
       expect(tap.finder.byText, 'Log in');
-      expect(tap.finder.byType, 'TextButton');
+      expect(tap.finder.byType, 'button');
 
       final WaitForAction waitFor = scenario.steps[1].action as WaitForAction;
       expect(waitFor.timeoutMs, 3000);
@@ -109,19 +109,19 @@ steps:
       final Scenario scenario = parseScenario('''
 steps:
   - type:
-      byKey: email_input
+      byText: Email
       text: bad@example.com
   - scroll:
-      byType: ListView
+      byType: scrollable
       deltaY: -500
 ''');
 
       final TypeAction type = scenario.steps[0].action as TypeAction;
-      expect(type.finder.byKey, 'email_input');
+      expect(type.finder.byText, 'Email');
       expect(type.text, 'bad@example.com');
 
       final ScrollAction scroll = scenario.steps[1].action as ScrollAction;
-      expect(scroll.finder!.byType, 'ListView');
+      expect(scroll.finder!.byType, 'scrollable');
       expect(scroll.deltaX, 0.0);
       expect(scroll.deltaY, -500.0);
     });

@@ -24,7 +24,7 @@ void main() {
                 'ref': 's_0',
                 'label': 'Log in',
                 'key': 'login_button',
-                'type': 'TextButton',
+                'type': 'button',
                 'rect': <String, Object?>{
                   'left': 10,
                   'top': 20,
@@ -36,7 +36,7 @@ void main() {
                 'ref': 's_1',
                 'label': 'Cancel',
                 'key': 'cancel_button',
-                'type': 'TextButton',
+                'type': 'button',
               },
             ],
           },
@@ -46,11 +46,7 @@ void main() {
     );
 
     final List<FinderMatch> matches = await adapter.resolveFinder(
-      const Finder(
-        byText: 'Log in',
-        byKey: 'login_button',
-        byType: 'TextButton',
-      ),
+      const Finder(byText: 'Log in', byType: 'button'),
     );
 
     expect(matches, hasLength(1));
@@ -58,7 +54,7 @@ void main() {
     expect(matches.single.debugLabel, 'Log in');
     expect(matches.single.text, 'Log in');
     expect(matches.single.key, 'login_button');
-    expect(matches.single.type, 'TextButton');
+    expect(matches.single.type, 'button');
     expect(matches.single.bounds!.width, 100);
     expect(calls.single.name, 'semantic_snapshot');
     expect(calls.single.arguments, <String, Object?>{

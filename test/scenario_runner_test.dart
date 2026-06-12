@@ -37,19 +37,19 @@ void main() {
           ScenarioStep(
             index: 1,
             label: 'submit_login',
-            action: TapAction(finder: Finder(byKey: 'login_button')),
+            action: TapAction(finder: Finder(byText: 'login_button')),
           ),
           ScenarioStep(
             index: 2,
             action: TypeAction(
-              finder: Finder(byKey: 'email_input'),
+              finder: Finder(byText: 'email_input'),
               text: 'bad@example.com',
             ),
           ),
           ScenarioStep(
             index: 3,
             action: ScrollAction(
-              finder: Finder(byKey: 'scrollable'),
+              finder: Finder(byText: 'scrollable'),
               deltaX: 0,
               deltaY: -500,
             ),
@@ -57,7 +57,7 @@ void main() {
           ScenarioStep(
             index: 4,
             action: WaitForAction(
-              finder: Finder(byKey: 'loading_done'),
+              finder: Finder(byText: 'loading_done'),
               timeoutMs: 3000,
             ),
           ),
@@ -452,7 +452,7 @@ void main() {
           ScenarioStep(
             index: 1,
             action: WaitForAction(
-              finder: Finder(byKey: 'loading_done'),
+              finder: Finder(byText: 'loading_done'),
               timeoutMs: 100,
             ),
           ),
@@ -497,12 +497,12 @@ void main() {
             ScenarioStep(
               index: 1,
               label: 'first_step',
-              action: TapAction(finder: Finder(byKey: 'first_button')),
+              action: TapAction(finder: Finder(byText: 'first_button')),
             ),
             ScenarioStep(
               index: 2,
               label: 'second_step',
-              action: TapAction(finder: Finder(byKey: 'second_button')),
+              action: TapAction(finder: Finder(byText: 'second_button')),
             ),
           ],
         );
@@ -553,17 +553,17 @@ void main() {
             ScenarioStep(
               index: 1,
               label: 'first_step',
-              action: TapAction(finder: Finder(byKey: 'first_button')),
+              action: TapAction(finder: Finder(byText: 'first_button')),
             ),
             ScenarioStep(
               index: 2,
               label: 'checkpoint',
-              action: TapAction(finder: Finder(byKey: 'second_button')),
+              action: TapAction(finder: Finder(byText: 'second_button')),
             ),
             ScenarioStep(
               index: 3,
               label: 'third_step',
-              action: TapAction(finder: Finder(byKey: 'third_button')),
+              action: TapAction(finder: Finder(byText: 'third_button')),
             ),
           ],
         );
@@ -607,7 +607,7 @@ void main() {
           ScenarioStep(
             index: 1,
             action: WaitForAction(
-              finder: Finder(byKey: 'missing_loading_done'),
+              finder: Finder(byText: 'missing_loading_done'),
               timeoutMs: 1,
             ),
           ),
@@ -653,7 +653,7 @@ void main() {
           ScenarioStep(
             index: 1,
             action: WaitForAction(
-              finder: Finder(byKey: 'loading_done'),
+              finder: Finder(byText: 'loading_done'),
               timeoutMs: 100,
             ),
           ),
@@ -694,7 +694,7 @@ void main() {
         steps: const <ScenarioStep>[
           ScenarioStep(
             index: 1,
-            action: TapAction(finder: Finder(byKey: 'missing_button')),
+            action: TapAction(finder: Finder(byText: 'missing_button')),
           ),
         ],
       );
@@ -762,7 +762,7 @@ void main() {
           ScenarioStep(
             index: 1,
             label: 'submit_login',
-            action: TapAction(finder: Finder(byKey: 'missing_button')),
+            action: TapAction(finder: Finder(byText: 'missing_button')),
           ),
           ScenarioStep(
             index: 2,
@@ -859,7 +859,7 @@ void main() {
             ScenarioStep(
               index: 1,
               label: 'submit_login',
-              action: TapAction(finder: Finder(byKey: 'missing_button')),
+              action: TapAction(finder: Finder(byText: 'missing_button')),
             ),
           ],
         );
@@ -911,7 +911,7 @@ void main() {
         steps: const <ScenarioStep>[
           ScenarioStep(
             index: 1,
-            action: TapAction(finder: Finder(byKey: 'login_button')),
+            action: TapAction(finder: Finder(byText: 'login_button')),
           ),
         ],
       );
@@ -959,7 +959,7 @@ void main() {
         steps: const <ScenarioStep>[
           ScenarioStep(
             index: 1,
-            action: TapAction(finder: Finder(byKey: 'missing_button')),
+            action: TapAction(finder: Finder(byText: 'missing_button')),
           ),
         ],
       );
@@ -999,7 +999,7 @@ void main() {
         steps: const <ScenarioStep>[
           ScenarioStep(
             index: 1,
-            action: TapAction(finder: Finder(byKey: 'login_button')),
+            action: TapAction(finder: Finder(byText: 'login_button')),
           ),
         ],
       );
@@ -1040,7 +1040,7 @@ void main() {
         steps: const <ScenarioStep>[
           ScenarioStep(
             index: 1,
-            action: TapAction(finder: Finder(byKey: 'login_button')),
+            action: TapAction(finder: Finder(byText: 'login_button')),
           ),
           ScenarioStep(
             index: 2,

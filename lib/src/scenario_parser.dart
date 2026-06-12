@@ -40,7 +40,7 @@ class ScenarioValidationException implements Exception {
 /// It accepts the first-version Scenario schema:
 /// - top-level `scenario` metadata and required `steps`
 /// - one action per step
-/// - Finder fields `byText`, `byKey`, and `byType`
+/// - Finder fields `byText` and `byType`
 ///
 /// Example:
 /// `ScenarioParser.parseFile('examples/login_error.yaml')` returns a
@@ -50,7 +50,7 @@ class ScenarioParser {
 
   static final RegExp _slugPattern = RegExp(r'^[a-zA-Z0-9][a-zA-Z0-9_-]*$');
   static const _actionKeys = {'tap', 'type', 'scroll', 'waitFor', 'capture'};
-  static const _finderKeys = {'byText', 'byKey', 'byType'};
+  static const _finderKeys = {'byText', 'byType'};
 
   /// Read a Scenario YAML file and return the parsed Scenario.
   ///
@@ -391,7 +391,7 @@ class ScenarioParser {
   /// Parse Finder fields from an action map.
   ///
   /// Args:
-  /// `yaml` is the action map that may contain `byText`, `byKey`, and `byType`.
+  /// `yaml` is the action map that may contain `byText` and `byType`.
   /// `path` is the action path used when reporting invalid Finder fields.
   /// `required` controls whether an empty Finder is accepted. `scroll` passes
   /// `false`; `tap`, `type`, and `waitFor` pass `true`.
@@ -407,7 +407,6 @@ class ScenarioParser {
     required List<ScenarioValidationError> errors,
   }) {
     String? byText;
-    String? byKey;
     String? byType;
     for (final String key in _finderKeys) {
       if (!yaml.containsKey(key)) {
@@ -421,14 +420,12 @@ class ScenarioParser {
       switch (key) {
         case 'byText':
           byText = value;
-        case 'byKey':
-          byKey = value;
         case 'byType':
           byType = value;
       }
     }
 
-    final Finder finder = Finder(byText: byText, byKey: byKey, byType: byType);
+    final Finder finder = Finder(byText: byText, byType: byType);
     if (required && finder.isEmpty) {
       errors.add(
         ScenarioValidationError(path, 'Expected at least one Finder.'),

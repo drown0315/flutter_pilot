@@ -9,11 +9,8 @@ void main() {
   ) async {
     await tester.pumpWidget(const SmokeApp());
 
-    await tester.enterText(
-      find.byKey(const ValueKey<String>('email_input')),
-      'smoke@example.com',
-    );
-    await tester.tap(find.byKey(const ValueKey<String>('submit_button')));
+    await tester.enterText(find.byType(TextField), 'smoke@example.com');
+    await tester.tap(find.text('Submit smoke'));
     await tester.pump();
 
     expect(find.text('Smoke validation failed'), findsOneWidget);

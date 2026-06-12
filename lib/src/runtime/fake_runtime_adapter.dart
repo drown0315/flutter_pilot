@@ -166,7 +166,6 @@ class FakeRuntimeAdapter implements RuntimeAdapter {
   String _finderKey(Finder finder) {
     final List<String> parts = <String>[
       if (finder.byText != null) 'byText=${finder.byText}',
-      if (finder.byKey != null) 'byKey=${finder.byKey}',
       if (finder.byType != null) 'byType=${finder.byType}',
     ];
     if (parts.length == 1) {

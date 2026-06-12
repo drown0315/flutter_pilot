@@ -56,14 +56,14 @@ Scenario _scenario() {
         index: 1,
         label: 'enter_email',
         action: TypeAction(
-          finder: Finder(byKey: 'email_input'),
+          finder: Finder(byText: 'email_input'),
           text: 'bad@example.com',
         ),
       ),
       ScenarioStep(
         index: 2,
         label: 'submit_login',
-        action: TapAction(finder: Finder(byKey: 'login_button')),
+        action: TapAction(finder: Finder(byText: 'login_button')),
       ),
       ScenarioStep(
         index: 3,

@@ -433,15 +433,14 @@ class RunArtifactWriter {
   /// Convert a Finder into JSON-compatible constraints.
   ///
   /// Args:
-  /// `finder` contains the byText, byKey, and byType constraints that were
-  /// present in the Scenario.
+  /// `finder` contains the byText and byType constraints that were present in
+  /// the Scenario.
   ///
   /// Returns:
   /// A map containing only the Finder fields that are present.
   Map<String, Object?> _finderToJson(Finder finder) {
     return <String, Object?>{
       if (finder.byText != null) 'byText': finder.byText,
-      if (finder.byKey != null) 'byKey': finder.byKey,
       if (finder.byType != null) 'byType': finder.byType,
     };
   }

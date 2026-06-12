@@ -37,15 +37,15 @@ void main() {
       await adapter.initialize();
 
       expect(
-        await adapter.resolveFinder(const Finder(byKey: 'missing')),
+        await adapter.resolveFinder(const Finder(byText: 'missing')),
         isEmpty,
       );
       expect(
-        await adapter.resolveFinder(const Finder(byKey: 'unique')),
+        await adapter.resolveFinder(const Finder(byText: 'unique')),
         hasLength(1),
       );
       expect(
-        await adapter.resolveFinder(const Finder(byKey: 'many')),
+        await adapter.resolveFinder(const Finder(byText: 'many')),
         hasLength(2),
       );
 
@@ -66,10 +66,10 @@ void main() {
     test('records action arguments for runner assertions', () async {
       const FinderMatch match = FinderMatch(
         id: 'match-1',
-        debugLabel: 'TextButton("Log in")',
+        debugLabel: 'button("Log in")',
         text: 'Log in',
         key: 'login_button',
-        type: 'TextButton',
+        type: 'button',
         bounds: WidgetBounds(left: 10, top: 20, width: 100, height: 48),
       );
       final FakeRuntimeAdapter adapter = FakeRuntimeAdapter();

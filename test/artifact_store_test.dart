@@ -70,13 +70,13 @@ void main() {
             index: 1,
             label: 'submit_login',
             action: TapAction(
-              finder: Finder(byKey: 'login_button', byType: 'TextButton'),
+              finder: Finder(byText: 'Log in', byType: 'button'),
             ),
           ),
           ScenarioStep(
             index: 2,
             action: TypeAction(
-              finder: Finder(byKey: 'email_input'),
+              finder: Finder(byText: 'email_input'),
               text: 'bad@example.com',
             ),
           ),
