@@ -85,7 +85,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
   - `flutter_pilot validate <scenario.yaml>`
   - `flutter_pilot run <scenario.yaml> --target <runtime-target>`
   - `flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label>`
-  - `flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label> --print <widget-tree|snapshot|logs>`
+  - `flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label> --print <snapshot|widget-tree|errors>`
   - `flutter_pilot diff <before-run> <after-run>`
 - The `validate` command checks Scenario YAML and schema rules without connecting to a Runtime Target.
 - The `validate` command supports human-readable output by default and machine-readable JSON output with `--json`. Validation failures exit non-zero and include field paths such as `steps[2].tap.byText`.
@@ -107,7 +107,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - `--until <step-or-label>` executes through the target Step and stops after that Step completes.
 - Numeric `--until` values are 1-based Step numbers.
 - `--print` must be used with `--until` in the first version. It prints the requested artifact after the target Step completes.
-- First-version `--print` values are `snapshot`, `widget-tree`, and `logs`. Screenshots are file artifacts and are not printed to stdout.
+- First-version `--print` values are `snapshot`, `widget-tree`, and `errors`. The option may be repeated to print several diagnostics after the same stopped Step. When multiple diagnostics are requested, output order is fixed as `snapshot`, `widget-tree`, then `errors`. Screenshots are file artifacts and are not printed to stdout.
 - `byKey` is not part of the current Scenario DSL because the calibrated `mcp_flutter` semantic Snapshot path does not expose Flutter key values reliably. Key-based Finders may be added later if the Runtime Adapter can obtain stable key data.
 - `byType` accepts the `mcp_flutter` semantic Snapshot node type, such as `textField`, `button`, `text`, `scrollable`, or `header`. It does not accept Dart widget class names such as `TextField`, `FilledButton`, or app-defined wrapper widget classes.
 - `byText` matches exact visible text. It does not perform contains, fuzzy, or regular expression matching in the first version.
@@ -169,7 +169,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
    - On failed steps, automatically collect screenshot, semantic snapshot, widget summary, logs, and device or target metadata.
    - This is the first major user-facing debugging win and should be complete before report polish.
 7. `--until` and `--print`
-   - Support stopping at numeric or labeled steps and printing `widget-tree`, `snapshot`, or `logs`.
+   - Support stopping at numeric or labeled steps and printing `snapshot`, `widget-tree`, `errors`, or any repeated combination of those values in fixed output order.
    - This builds on the runner, capture, and diagnostic plumbing and makes the tool useful for iterative human and agent debugging.
 8. Diagnostic reducer
    - Convert raw widget and semantic data into compact agent-friendly summaries of visible text, interactive widgets, routes, logs, runtime failures, and likely suspects.
