@@ -29,11 +29,11 @@ The result is a reproducible bug report package that can be consumed by humans, 
 
 1. As a Flutter developer, I want to describe a UI reproduction path in YAML, so that I can replay the same bug consistently.
 2. As a Flutter developer, I want to tap widgets by visible text, so that simple scenarios are easy to write.
-3. As a Flutter developer, I want to tap widgets by key, so that scenarios remain stable when text changes.
-4. As a Flutter developer, I want to tap widgets by widget type, so that I can interact with UI elements that do not expose stable text or keys.
-5. As a Flutter developer, I want to combine text, key, and widget type Finders in one step, so that I can disambiguate similar widgets.
+3. As a Flutter developer, I want future key-based Finders to remain possible if `mcp_flutter` exposes stable key data, so that scenarios can become more resilient when text changes.
+4. As a Flutter developer, I want to tap widgets by semantic node type, so that I can interact with UI elements by the role exposed through `mcp_flutter`.
+5. As a Flutter developer, I want to combine text and semantic node type Finders in one step, so that I can disambiguate similar widgets.
 6. As a Flutter developer, I want combined Finders to always use all constraints without a configurable `match` field, so that Scenario behavior is predictable and the YAML stays compact.
-7. As a Flutter developer, I want to type text into fields by key, text Finder, or widget type, so that form-based bugs can be reproduced.
+7. As a Flutter developer, I want to type text into fields by text Finder or semantic node type, so that form-based bugs can be reproduced.
 8. As a Flutter developer, I want to scroll a view from a scenario step, so that off-screen UI can be reached.
 9. As a Flutter developer, I want to wait for visible text or UI state, so that replay does not depend on fixed sleeps.
 10. As a Flutter developer, I want each scenario step to have a label, so that I can reference meaningful checkpoints from CLI commands.
@@ -97,7 +97,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - Unknown fields are validation errors. The Scenario DSL uses a strict schema so typos and unsupported options fail clearly instead of being ignored.
 - `scenario.description` is optional metadata. When present, it must be a string and may use YAML multiline string syntax.
 - `scenario.name`, when present, must match `^[a-zA-Z0-9][a-zA-Z0-9_-]*$`. This keeps run directory names portable and prevents path-like values. Names derived from file names must be sanitized to the same safe form.
-- The YAML scenario format is the product contract. It should support scenario metadata, ordered steps, optional labels, capture directives, and Finders by text, key, and widget type. Multiple `by*` Finder constraints may be used in one step, and all constraints must match. Each `byText`, `byKey`, and `byType` value is a single string, not an array. The YAML does not expose a `match` option. Runtime target configuration is provided by CLI options so scenarios remain portable across machines, devices, and CI.
+- The YAML scenario format is the product contract. It should support scenario metadata, ordered steps, optional labels, capture directives, and Finders by text and semantic node type. Multiple `by*` Finder constraints may be used in one step, and all constraints must match. Each `byText` and `byType` value is a single string, not an array. The YAML does not expose a `match` option. Runtime target configuration is provided by CLI options so scenarios remain portable across machines, devices, and CI.
 - Each Step is one item in the `steps` array. A Step may include a `label` field and must include exactly one action field. The `label` field is a sibling of the action field, not a nested action parameter.
 - The typed action model uses a sealed class hierarchy so each Step has exactly one strongly typed action and runner/report code can handle actions exhaustively.
 - Finder is a typed value object shared by actions. `tap`, `type`, and `waitFor` require at least one Finder field; `scroll` may omit Finder; `capture` does not use Finder.
@@ -108,8 +108,8 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - Numeric `--until` values are 1-based Step numbers.
 - `--print` must be used with `--until` in the first version. It prints the requested artifact after the target Step completes.
 - First-version `--print` values are `snapshot`, `widget-tree`, and `logs`. Screenshots are file artifacts and are not printed to stdout.
-- `byKey` accepts a logical key string such as `login_button`, not a Dart expression such as `ValueKey('login_button')`. The `mcp_flutter` adapter is responsible for resolving that Finder using the installed `mcp_flutter` API or CLI fallback.
-- `byType` accepts a simple Dart widget type name such as `TextButton`. It does not accept package-qualified names, library-qualified names, or generic type expressions.
+- `byKey` is not part of the current Scenario DSL because the calibrated `mcp_flutter` semantic Snapshot path does not expose Flutter key values reliably. Key-based Finders may be added later if the Runtime Adapter can obtain stable key data.
+- `byType` accepts the `mcp_flutter` semantic Snapshot node type, such as `textField`, `button`, `text`, `scrollable`, or `header`. It does not accept Dart widget class names such as `TextField`, `FilledButton`, or app-defined wrapper widget classes.
 - `byText` matches exact visible text. It does not perform contains, fuzzy, or regular expression matching in the first version.
 - A Finder must resolve to exactly one widget before an action can execute. Zero matches fail the step as "Finder matched no widgets"; multiple matches fail the step as "Finder matched multiple widgets." Flutter Pilot does not automatically choose the first match.
 - The initial action set includes `tap`, `type`, `scroll`, `waitFor`, and `capture`.

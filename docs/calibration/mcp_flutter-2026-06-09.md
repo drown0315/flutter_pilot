@@ -52,8 +52,9 @@ These still need to be run against the discovered target before the real
 - semantic snapshot structure
 - Logs capture, including whether runtime errors are included
 - Finder by exact text
-- Finder by logical key string
-- Finder by simple widget type name
+- Finder by logical key string is not available through the calibrated
+  `semantic_snapshot` response shape
+- Finder by semantic node type from `mcp_flutter` `semantic_snapshot`
 - multiple Finder Match descriptions
 - WidgetBounds availability and coordinate space
 - scroll by delta without a Finder Match

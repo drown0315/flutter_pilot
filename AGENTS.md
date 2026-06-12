@@ -74,7 +74,7 @@ Current Scenario rules:
 - A Step may have `label` plus exactly one action.
 - Step label belongs beside the action, not inside the action.
 - Supported actions: `tap`, `type`, `scroll`, `waitFor`, `capture`.
-- Supported Finder fields: `byText`, `byKey`, `byType`.
+- Supported Finder fields: `byText`, `byType`.
 - Finder fields are single strings.
 - Multiple `by*` fields mean all constraints must match. There is no `match`
   field.
@@ -82,8 +82,8 @@ Current Scenario rules:
 - `scroll` may omit Finder and then targets the primary scrollable.
 - Finder Match cardinality is strict: 0 fails, 1 executes, more than 1 fails.
 - `byText` is exact visible text.
-- `byKey` is a logical key string, not a Dart `ValueKey(...)` expression.
-- `byType` is a simple widget type name.
+- `byType` is the `mcp_flutter` semantic Snapshot node type, such as
+  `textField`, `button`, `text`, `scrollable`, or `header`.
 - `type` clears existing text and enters the configured text.
 - `waitFor.timeoutMs` defaults to `3000`.
 - `scroll` uses gesture drag deltas. At least one of `deltaX` or `deltaY` must

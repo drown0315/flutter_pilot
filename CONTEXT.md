@@ -17,20 +17,16 @@ The narrow interface between the Flutter Pilot runner and a concrete Flutter run
 _Avoid_: Runtime Target, driver, bridge
 
 **Finder**:
-A rule for finding the widget that a Scenario step should interact with or wait for. A Finder may combine text, key, and widget type constraints in the same step; every configured constraint must match, each constraint has one string value, and there is no separate match option.
+A rule for finding the widget that a Scenario step should interact with or wait for. A Finder may combine text and semantic node type constraints in the same step; every configured constraint must match, each constraint has one string value, and there is no separate match option.
 _Avoid_: Selector, locator, query
 
 **Finder Match**:
 The widget result produced by applying a Finder during a Scenario run. A valid action requires exactly one Finder Match; zero matches or multiple matches fail the step. Its runtime identifier is an opaque Runtime Adapter reference that may be recorded and passed back to the Runtime Adapter, but must not be parsed by the runner. A Finder Match is valid only for the action immediately following the Finder resolution that produced it; the runner must not cache it for later Steps.
 _Avoid_: First match, best match
 
-**Logical Key**:
-The string value used by a Scenario to refer to a Flutter widget key. It is written as the key value itself, not as a Dart key expression.
-_Avoid_: ValueKey expression, key constructor
-
-**Widget Type Name**:
-The simple Dart class name used by a Finder to refer to a widget type. It does not include package paths, library qualifiers, or generic type arguments.
-_Avoid_: Runtime type expression, qualified type name
+**Semantic Node Type**:
+The `mcp_flutter` semantic Snapshot node type used by `byType`. It names the role exposed by the runtime Snapshot, such as `textField`, `button`, `text`, `scrollable`, or `header`; it is not a Dart widget class name.
+_Avoid_: Widget class name, runtime type expression, qualified type name
 
 **Text Finder**:
 A Finder constraint that matches a widget by exact visible text.
