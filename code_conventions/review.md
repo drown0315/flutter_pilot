@@ -35,8 +35,20 @@ preferences.
 
 - Public methods should validate inputs or clearly document and enforce
   preconditions.
-- Do not rely on one caller's validation if the method can be called elsewhere.
 - Prefer explicit errors over silently returning misleading results.
+
+## Catch Only Owned Failures
+
+- Public API argument errors are contract violations. Throw clear exceptions
+  such as `ArgumentError` or `RangeError`; do not turn them into business
+  results just to avoid throwing.
+- CLI user input errors should become usage errors because the CLI owns that
+  user-facing boundary.
+- Internal helpers usually trust validated inputs from their caller. Rechecking
+  every private method parameter adds noise unless the helper is its own
+  contract boundary.
+- Runtime, environment, and business-rule failures should be caught at the
+  workflow boundary and recorded in the report, log, or command output.
 
 ## Ensure Arguments Affect Behavior
 

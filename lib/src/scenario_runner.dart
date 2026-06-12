@@ -27,17 +27,22 @@ class ScenarioRunner {
   final RuntimeAdapter adapter;
   final Directory outputDirectory;
 
-  /// Execute every Step in a Scenario and write a run report.
+  /// Execute Scenario Steps and write a run report.
   ///
   /// Args:
   /// `scenario` is the parsed Scenario to replay through the Runtime Adapter.
   /// Its name is used in the run directory name, and its Steps determine which
   /// Runtime Adapter operations are called.
+  /// `stopPoint` optionally stops after a selected 1-based Step number or Step
+  /// label. Later Steps stay in the report with `skipped` status.
   ///
   /// Returns:
   /// A `ScenarioRunReport` containing Scenario metadata, run status, elapsed
   /// time, the run directory path, artifact paths, and ordered Step results.
-  Future<ScenarioRunReport> run(Scenario scenario) async {
+  Future<ScenarioRunReport> run(
+    Scenario scenario, {
+    RunStopPoint? stopPoint,
+  }) async {
     final DateTime startedAt = DateTime.now().toUtc();
     final RunArtifactWriter runArtifactWriter = RunArtifactStore(
       outputDirectory,
@@ -61,7 +66,7 @@ class ScenarioRunner {
 
     bool failed = false;
     String? failureReason = await _executeSteps(
-      scenario.steps,
+      _stepsToExecute(scenario, stopPoint),
       steps,
       runArtifactWriter,
     );
@@ -75,6 +80,10 @@ class ScenarioRunner {
       failureReason = disposeFailure;
     }
 
+    if (!failed) {
+      _addSkippedSteps(allSteps: scenario.steps, reports: steps);
+    }
+
     stopwatch.stop();
     return _finishRun(
       scenario: scenario,
@@ -85,6 +94,60 @@ class ScenarioRunner {
       failed: failed,
       failureReason: failureReason,
     );
+  }
+
+  /// Return the Step prefix selected by an optional run stop point.
+  ///
+  /// Args:
+  /// `scenario` provides the full ordered Step list.
+  /// `stopPoint` selects the final Step to execute. When omitted, every Step is
+  /// executed.
+  ///
+  /// Returns:
+  /// The ordered Steps that should execute before later Steps are marked
+  /// skipped in the report.
+  List<ScenarioStep> _stepsToExecute(
+    Scenario scenario,
+    RunStopPoint? stopPoint,
+  ) {
+    if (stopPoint == null) {
+      return scenario.steps;
+    }
+    return switch (stopPoint) {
+      StepNumberStopPoint(:final int stepNumber) =>
+        scenario.sliceThroughStepNumber(stepNumber).steps,
+      StepLabelStopPoint(:final String label) =>
+        scenario.sliceThroughStepLabel(label).steps,
+    };
+  }
+
+  /// Append skipped reports for Steps after the last executed Step.
+  ///
+  /// Args:
+  /// `allSteps` is the full Scenario Step list.
+  /// `reports` already contains the executed Step reports and receives skipped
+  /// entries for any later Steps.
+  void _addSkippedSteps({
+    required List<ScenarioStep> allSteps,
+    required List<StepRunReport> reports,
+  }) {
+    final Set<int> reportedIndexes = <int>{
+      for (final StepRunReport report in reports) report.index,
+    };
+    for (final ScenarioStep step in allSteps) {
+      if (reportedIndexes.contains(step.index)) {
+        continue;
+      }
+      reports.add(
+        StepRunReport(
+          index: step.index,
+          label: step.label,
+          action: _actionName(step.action),
+          status: StepStatus.skipped,
+          durationMs: 0,
+        ),
+      );
+    }
   }
 
   /// Initialize the Runtime Adapter and return an initialization failure.
@@ -554,6 +617,37 @@ enum ScenarioRunStatus { passed, failed }
 
 /// Status for one executed Step.
 enum StepStatus { passed, failed, skipped }
+
+/// Stop point for a partial Scenario run.
+///
+/// It contains either:
+/// - a 1-based Step number
+/// - a Step label
+///
+/// Example:
+/// `RunStopPoint.stepNumber(3)` runs through Step 3 and reports later Steps as
+/// skipped.
+sealed class RunStopPoint {
+  const RunStopPoint();
+
+  const factory RunStopPoint.stepNumber(int stepNumber) = StepNumberStopPoint;
+
+  const factory RunStopPoint.stepLabel(String label) = StepLabelStopPoint;
+}
+
+/// Stop point that selects the final executed Step by its 1-based index.
+class StepNumberStopPoint extends RunStopPoint {
+  const StepNumberStopPoint(this.stepNumber);
+
+  final int stepNumber;
+}
+
+/// Stop point that selects the final executed Step by its label.
+class StepLabelStopPoint extends RunStopPoint {
+  const StepLabelStopPoint(this.label);
+
+  final String label;
+}
 
 /// Report returned after one Scenario run.
 ///

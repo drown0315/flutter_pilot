@@ -250,14 +250,14 @@ class _RunCommand extends Command<int> {
     }
 
     final String? until = argResults!.option('until');
-    Scenario scenario = parsedScenario;
+    RunStopPoint? stopPoint;
     if (until != null) {
       final String? error = _validateUntil(until, parsedScenario);
       if (error != null) {
         stderr.writeln(error);
         return 64;
       }
-      scenario = _sliceScenarioUntil(parsedScenario, until);
+      stopPoint = _stopPointFromUntil(until);
     }
 
     final Uri? targetUri = _parseTargetUri(targetValue);
@@ -271,7 +271,10 @@ class _RunCommand extends Command<int> {
       RuntimeTarget(vmServiceUri: targetUri),
     );
     try {
-      final ScenarioRunReport report = await runner.run(scenario);
+      final ScenarioRunReport report = await runner.run(
+        parsedScenario,
+        stopPoint: stopPoint,
+      );
       return report.status == ScenarioRunStatus.passed ? 0 : 1;
     } on RuntimeOperationException catch (error) {
       stderr.writeln(error.message);
@@ -279,13 +282,13 @@ class _RunCommand extends Command<int> {
     }
   }
 
-  /// Return the Scenario prefix selected by a validated `--until` value.
-  Scenario _sliceScenarioUntil(Scenario scenario, String until) {
+  /// Return the runner stop point selected by a validated `--until` value.
+  RunStopPoint _stopPointFromUntil(String until) {
     final int? stepNumber = int.tryParse(until);
     if (stepNumber != null) {
-      return scenario.sliceThroughStepNumber(stepNumber);
+      return RunStopPoint.stepNumber(stepNumber);
     }
-    return scenario.sliceThroughStepLabel(until);
+    return RunStopPoint.stepLabel(until);
   }
 
   /// Parse and validate the first-version Runtime Target URI.

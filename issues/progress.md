@@ -29,7 +29,7 @@ only after checking the code completion status below.
 | 6. Capture Screenshots And Snapshots | `#6`, `#20` | Complete | Capture Steps write screenshot PNG files and Snapshot JSON files under `captures/`, attach those artifact paths to the producing Step, and include them in the run report artifact index. |
 | 7. Capture Errors And Logs | `#7`, `#21` | Complete | Capture Steps write Logs JSON files under `captures/`, attach those artifact paths to the producing Step, include them in the run report artifact index, and respect explicit `logs: false` overrides. Runtime errors remain part of Logs when the adapter exposes them. |
 | 8. Produce Failure Artifact Bundles | `#8`, `#22` | Complete | Failed Steps automatically collect screenshot, Snapshot, and Logs artifacts, mark those artifact records with `purpose: failure`, keep Widget Tree disabled by default, and failed runs exit non-zero through the CLI. |
-| 9. Implement Real `--until` Stop Points | `#9`, `#23` | Partial | CLI validates `--until` and slices the Scenario before execution. Unexecuted steps are not represented as skipped in the run report. |
+| 9. Implement Real `--until` Stop Points | `#9`, `#23` | Complete | CLI validates `--until`, runner executes through the selected Step number or label, and later Steps are represented as skipped in the run report. |
 | 10. Implement `--print` Diagnostics After `--until` | `#10`, `#24` | Not complete | CLI validates `--print` requires `--until`, but does not print Snapshot, Widget Tree, or Logs diagnostics. |
 | 11. Add Diagnostic Reducer | `#11`, `#25` | Not complete | No reducer exists yet. |
 | 12. Generate HTML Timeline Report | `#12`, `#26` | Not complete | `--html` is accepted as a flag, but no HTML report is generated. |
@@ -42,5 +42,3 @@ only after checking the code completion status below.
   completed work already represented by closed issues `#15`, `#16`, and `#17`.
 - Keep `#4` through `#14` open unless their duplicated closed issues were closed
   intentionally for a non-code reason.
-- Keep `#9` open unless the team explicitly accepts Scenario slicing without
-  skipped-step report entries as complete.

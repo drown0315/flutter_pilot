@@ -478,6 +478,125 @@ void main() {
     });
   });
 
+  test(
+    'stops after the selected Step number and reports later Steps skipped',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final Directory outputDirectory = Directory('until_number_output');
+        final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+          finderResults: <String, List<FinderMatch>>{
+            'first_button': const <FinderMatch>[FinderMatch(id: 'first-match')],
+            'second_button': const <FinderMatch>[
+              FinderMatch(id: 'second-match'),
+            ],
+          },
+        );
+        final Scenario scenario = Scenario(
+          name: 'stop_after_first_step',
+          steps: const <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              label: 'first_step',
+              action: TapAction(finder: Finder(byKey: 'first_button')),
+            ),
+            ScenarioStep(
+              index: 2,
+              label: 'second_step',
+              action: TapAction(finder: Finder(byKey: 'second_button')),
+            ),
+          ],
+        );
+
+        final ScenarioRunReport report = await ScenarioRunner(
+          adapter: adapter,
+          outputDirectory: outputDirectory,
+        ).run(scenario, stopPoint: const RunStopPoint.stepNumber(1));
+
+        expect(report.status, ScenarioRunStatus.passed);
+        expect(
+          report.steps.map((StepRunReport step) => step.status),
+          <StepStatus>[StepStatus.passed, StepStatus.skipped],
+        );
+        expect(
+          adapter.events.map((FakeRuntimeEvent event) => event.operation),
+          <RuntimeOperation>[
+            RuntimeOperation.initialize,
+            RuntimeOperation.resolveFinder,
+            RuntimeOperation.performTap,
+            RuntimeOperation.dispose,
+          ],
+        );
+
+        final String reportJson = _runReportFile(report).readAsStringSync();
+        expect(reportJson, contains('"status":"skipped"'));
+      });
+    },
+  );
+
+  test(
+    'stops after the selected Step label and reports later Steps skipped',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final Directory outputDirectory = Directory('until_label_output');
+        final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+          finderResults: <String, List<FinderMatch>>{
+            'first_button': const <FinderMatch>[FinderMatch(id: 'first-match')],
+            'second_button': const <FinderMatch>[
+              FinderMatch(id: 'second-match'),
+            ],
+            'third_button': const <FinderMatch>[FinderMatch(id: 'third-match')],
+          },
+        );
+        final Scenario scenario = Scenario(
+          name: 'stop_after_labeled_step',
+          steps: const <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              label: 'first_step',
+              action: TapAction(finder: Finder(byKey: 'first_button')),
+            ),
+            ScenarioStep(
+              index: 2,
+              label: 'checkpoint',
+              action: TapAction(finder: Finder(byKey: 'second_button')),
+            ),
+            ScenarioStep(
+              index: 3,
+              label: 'third_step',
+              action: TapAction(finder: Finder(byKey: 'third_button')),
+            ),
+          ],
+        );
+
+        final ScenarioRunReport report = await ScenarioRunner(
+          adapter: adapter,
+          outputDirectory: outputDirectory,
+        ).run(scenario, stopPoint: const RunStopPoint.stepLabel('checkpoint'));
+
+        expect(report.status, ScenarioRunStatus.passed);
+        expect(
+          report.steps.map((StepRunReport step) => step.status),
+          <StepStatus>[
+            StepStatus.passed,
+            StepStatus.passed,
+            StepStatus.skipped,
+          ],
+        );
+        expect(
+          adapter.events.map((FakeRuntimeEvent event) => event.operation),
+          <RuntimeOperation>[
+            RuntimeOperation.initialize,
+            RuntimeOperation.resolveFinder,
+            RuntimeOperation.performTap,
+            RuntimeOperation.resolveFinder,
+            RuntimeOperation.performTap,
+            RuntimeOperation.dispose,
+          ],
+        );
+      });
+    },
+  );
+
   test('fails waitFor when timeout expires with no matches', () async {
     await FileTestkit.runZoned(() async {
       final Directory outputDirectory = Directory('wait_for_timeout_output');
