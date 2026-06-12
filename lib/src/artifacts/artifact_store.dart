@@ -251,6 +251,38 @@ class RunArtifactWriter {
     return ArtifactReport(type: ArtifactType.snapshot, path: relativePath);
   }
 
+  /// Write one structured Logs capture produced by a Step.
+  ///
+  /// Args:
+  /// `index` is the 1-based Step number.
+  /// `label` is the optional Step label used in the artifact file name.
+  /// `data` is the JSON-compatible Logs payload returned by the Runtime
+  /// Adapter. Runtime errors are represented inside this payload when the
+  /// adapter exposes them.
+  ///
+  /// Returns:
+  /// An artifact record with `type: logs` and a path relative to the run
+  /// directory.
+  ArtifactReport writeLogs({
+    required int index,
+    required String? label,
+    required Object data,
+  }) {
+    final String relativePath = p.join(
+      'captures',
+      _captureFileName(
+        index: index,
+        label: label,
+        suffix: 'logs',
+        extension: 'json',
+      ),
+    );
+    final File logsFile = File(p.join(runDirectory.path, relativePath));
+    logsFile.parent.createSync(recursive: true);
+    logsFile.writeAsStringSync(jsonEncode(data));
+    return ArtifactReport(type: ArtifactType.logs, path: relativePath);
+  }
+
   /// Return the file name for one Step metadata artifact.
   ///
   /// Args:
@@ -397,7 +429,14 @@ class RunArtifactWriter {
 /// Artifact family names used in `run_report.json`.
 ///
 /// Each value identifies the kind of file referenced by an `ArtifactReport`.
-enum ArtifactType { scenario, runReport, stepMetadata, screenshot, snapshot }
+enum ArtifactType {
+  scenario,
+  runReport,
+  stepMetadata,
+  screenshot,
+  snapshot,
+  logs,
+}
 
 /// Metadata for one file written in a run directory.
 ///

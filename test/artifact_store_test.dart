@@ -148,7 +148,7 @@ void main() {
     });
   });
 
-  test('writes screenshot and Snapshot capture artifacts', () async {
+  test('writes screenshot, Snapshot, and Logs capture artifacts', () async {
     await FileTestkit.runZoned(() async {
       final RunArtifactWriter writer = RunArtifactWriter(
         Directory('artifact_output/.runs/capture_run'),
@@ -174,6 +174,18 @@ void main() {
           'visibleText': <String>['Email'],
         },
       );
+      final ArtifactReport logsArtifact = writer.writeLogs(
+        index: 1,
+        label: 'checkpoint',
+        data: <String, Object?>{
+          'entries': <Object?>[
+            <String, Object?>{
+              'level': 'error',
+              'message': 'Validation failed.',
+            },
+          ],
+        },
+      );
 
       expect(screenshotArtifact.type, ArtifactType.screenshot);
       expect(
@@ -182,6 +194,8 @@ void main() {
       );
       expect(snapshotArtifact.type, ArtifactType.snapshot);
       expect(snapshotArtifact.path, 'captures/0001_checkpoint_snapshot.json');
+      expect(logsArtifact.type, ArtifactType.logs);
+      expect(logsArtifact.path, 'captures/0001_checkpoint_logs.json');
       expect(
         File(
           '${writer.runDirectory.path}/${screenshotArtifact.path}',
@@ -196,6 +210,14 @@ void main() {
               )
               as Map<String, Object?>;
       expect(snapshotJson['route'], '/login');
+      final Map<String, Object?> logsJson =
+          jsonDecode(
+                File(
+                  '${writer.runDirectory.path}/${logsArtifact.path}',
+                ).readAsStringSync(),
+              )
+              as Map<String, Object?>;
+      expect(logsJson['entries'], hasLength(1));
     });
   });
 }
