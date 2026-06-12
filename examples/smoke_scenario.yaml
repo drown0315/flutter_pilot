@@ -1,0 +1,29 @@
+scenario:
+  name: smoke_runtime
+  description: |
+    Exercises Flutter Pilot against the sample Flutter app through mcp_flutter.
+
+steps:
+  - label: enter_email
+    type:
+      byText: Email
+      text: smoke@example.com
+
+  - label: submit_form
+    tap:
+      byText: Submit smoke
+
+  - label: wait_for_error
+    waitFor:
+      byText: Smoke validation failed
+      timeoutMs: 5000
+
+  - label: scroll_list
+    scroll:
+      deltaY: -300
+
+  - label: capture_runtime
+    capture:
+      screenshot: true
+      snapshot: true
+      logs: true
