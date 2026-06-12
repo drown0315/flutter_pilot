@@ -42,6 +42,7 @@ class ScenarioRunner {
   Future<ScenarioRunReport> run(
     Scenario scenario, {
     RunStopPoint? stopPoint,
+    Set<PrintDiagnostic> printDiagnostics = const <PrintDiagnostic>{},
   }) async {
     final DateTime startedAt = DateTime.now().toUtc();
     final RunArtifactWriter runArtifactWriter = RunArtifactStore(
@@ -61,6 +62,7 @@ class ScenarioRunner {
         steps: steps,
         failed: true,
         failureReason: initializeFailure,
+        printedDiagnostics: const <PrintedDiagnostic>[],
       );
     }
 
@@ -74,14 +76,25 @@ class ScenarioRunner {
       failed = true;
     }
 
+    if (!failed) {
+      _addSkippedSteps(allSteps: scenario.steps, reports: steps);
+    }
+
+    List<PrintedDiagnostic> printedDiagnostics = const <PrintedDiagnostic>[];
+    if (!failed) {
+      try {
+        printedDiagnostics = await _capturePrintedDiagnostics(printDiagnostics);
+      } on RuntimeOperationException catch (error) {
+        failed = true;
+        failureReason = error.message;
+        printedDiagnostics = const <PrintedDiagnostic>[];
+      }
+    }
+
     final String? disposeFailure = await _tryDisposeAdapter();
     if (!failed && disposeFailure != null) {
       failed = true;
       failureReason = disposeFailure;
-    }
-
-    if (!failed) {
-      _addSkippedSteps(allSteps: scenario.steps, reports: steps);
     }
 
     stopwatch.stop();
@@ -93,6 +106,7 @@ class ScenarioRunner {
       steps: steps,
       failed: failed,
       failureReason: failureReason,
+      printedDiagnostics: printedDiagnostics,
     );
   }
 
@@ -257,6 +271,7 @@ class ScenarioRunner {
     required List<StepRunReport> steps,
     required bool failed,
     required String? failureReason,
+    required List<PrintedDiagnostic> printedDiagnostics,
   }) {
     final List<ArtifactReport> artifacts = <ArtifactReport>[
       const ArtifactReport(type: ArtifactType.scenario, path: 'scenario.json'),
@@ -273,6 +288,7 @@ class ScenarioRunner {
       runDirectoryPath: runArtifactWriter.runDirectory.path,
       artifacts: artifacts,
       failureReason: failureReason,
+      printedDiagnostics: printedDiagnostics,
     );
     _writeReport(runArtifactWriter, report);
     return report;
@@ -610,6 +626,47 @@ class ScenarioRunner {
       artifacts.addAll(step.artifacts);
     }
   }
+
+  /// Capture diagnostic payloads requested for terminal printing.
+  ///
+  /// Args:
+  /// `printDiagnostics` selects the Runtime Adapter captures to perform after
+  /// the stopped Step has completed.
+  ///
+  /// Returns:
+  /// The captured payloads in stable order: Snapshot, Widget Tree, then errors.
+  Future<List<PrintedDiagnostic>> _capturePrintedDiagnostics(
+    Set<PrintDiagnostic> printDiagnostics,
+  ) async {
+    final List<PrintedDiagnostic> printedDiagnostics = <PrintedDiagnostic>[];
+    for (final PrintDiagnostic printDiagnostic in PrintDiagnostic.fixedOrder) {
+      if (!printDiagnostics.contains(printDiagnostic)) {
+        continue;
+      }
+      printedDiagnostics.add(await _capturePrintedDiagnostic(printDiagnostic));
+    }
+    return printedDiagnostics;
+  }
+
+  /// Capture one diagnostic payload for terminal printing.
+  Future<PrintedDiagnostic> _capturePrintedDiagnostic(
+    PrintDiagnostic printDiagnostic,
+  ) async {
+    return switch (printDiagnostic) {
+      PrintDiagnostic.snapshot => PrintedDiagnostic(
+        type: PrintDiagnostic.snapshot,
+        data: (await adapter.captureSnapshot()).data,
+      ),
+      PrintDiagnostic.widgetTree => PrintedDiagnostic(
+        type: PrintDiagnostic.widgetTree,
+        data: (await adapter.captureWidgetTree()).data,
+      ),
+      PrintDiagnostic.errors => PrintedDiagnostic(
+        type: PrintDiagnostic.errors,
+        data: (await adapter.collectLogs()).data,
+      ),
+    };
+  }
 }
 
 /// Overall status for one Scenario run.
@@ -617,6 +674,20 @@ enum ScenarioRunStatus { passed, failed }
 
 /// Status for one executed Step.
 enum StepStatus { passed, failed, skipped }
+
+/// Diagnostic payload that can be printed after `--until` completes.
+enum PrintDiagnostic {
+  snapshot,
+  widgetTree,
+  errors;
+
+  /// Stable terminal and report output order for requested diagnostics.
+  static const List<PrintDiagnostic> fixedOrder = <PrintDiagnostic>[
+    snapshot,
+    widgetTree,
+    errors,
+  ];
+}
 
 /// Stop point for a partial Scenario run.
 ///
@@ -671,6 +742,7 @@ class ScenarioRunReport {
     required this.steps,
     required this.runDirectoryPath,
     required this.artifacts,
+    this.printedDiagnostics = const <PrintedDiagnostic>[],
     this.failureReason,
   });
 
@@ -690,6 +762,9 @@ class ScenarioRunReport {
   /// Human-readable run-level failure reason.
   final String? failureReason;
 
+  /// Diagnostic data requested for terminal output after a stopped Step.
+  final List<PrintedDiagnostic> printedDiagnostics;
+
   /// Convert this report to the JSON stored in `run_report.json`.
   ///
   /// Returns:
@@ -706,11 +781,29 @@ class ScenarioRunReport {
       'durationMs': durationMs,
       'runDirectory': runDirectoryPath,
       if (failureReason != null) 'failureReason': failureReason,
+      if (printedDiagnostics.isNotEmpty)
+        'printedDiagnostics': <Object?>[
+          for (final PrintedDiagnostic diagnostic in printedDiagnostics)
+            diagnostic.toJson(),
+        ],
       'artifacts': <Object?>[
         for (final ArtifactReport artifact in artifacts) artifact.toJson(),
       ],
       'steps': <Object?>[for (final StepRunReport step in steps) step.toJson()],
     };
+  }
+}
+
+/// Runtime diagnostic selected for stdout printing by the CLI.
+class PrintedDiagnostic {
+  const PrintedDiagnostic({required this.type, required this.data});
+
+  final PrintDiagnostic type;
+  final Object data;
+
+  /// Convert the printed diagnostic to a JSON-compatible report object.
+  Map<String, Object?> toJson() {
+    return <String, Object?>{'type': type.name, 'data': data};
   }
 }
 

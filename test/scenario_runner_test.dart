@@ -597,6 +597,156 @@ void main() {
     },
   );
 
+  test(
+    'captures printable diagnostics after the stop point in fixed order',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final Directory outputDirectory = Directory('print_diagnostics_output');
+        final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+          finderResults: <String, List<FinderMatch>>{
+            'first_button': const <FinderMatch>[FinderMatch(id: 'first-match')],
+            'second_button': const <FinderMatch>[
+              FinderMatch(id: 'second-match'),
+            ],
+          },
+          snapshot: const SnapshotCapture(
+            data: <String, Object?>{
+              'route': '/login',
+              'visibleText': <String>['Email', 'Password'],
+            },
+          ),
+          widgetTree: const WidgetTreeCapture(
+            data: <String, Object?>{
+              'root': 'MaterialApp',
+              'children': <String>['LoginPage'],
+            },
+          ),
+          logs: const LogsCapture(
+            data: <String, Object?>{
+              'errors': <Object?>[
+                <String, Object?>{'message': 'A RenderFlex overflowed.'},
+              ],
+            },
+          ),
+        );
+        final Scenario scenario = Scenario(
+          name: 'print_after_until',
+          steps: const <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              label: 'first_step',
+              action: TapAction(finder: Finder(byText: 'first_button')),
+            ),
+            ScenarioStep(
+              index: 2,
+              label: 'checkpoint',
+              action: TapAction(finder: Finder(byText: 'second_button')),
+            ),
+          ],
+        );
+
+        final ScenarioRunReport report =
+            await ScenarioRunner(
+              adapter: adapter,
+              outputDirectory: outputDirectory,
+            ).run(
+              scenario,
+              stopPoint: const RunStopPoint.stepLabel('checkpoint'),
+              printDiagnostics: const <PrintDiagnostic>{
+                PrintDiagnostic.errors,
+                PrintDiagnostic.snapshot,
+                PrintDiagnostic.widgetTree,
+              },
+            );
+
+        expect(report.status, ScenarioRunStatus.passed);
+        expect(
+          report.printedDiagnostics.map(
+            (PrintedDiagnostic diagnostic) => diagnostic.type,
+          ),
+          <PrintDiagnostic>[
+            PrintDiagnostic.snapshot,
+            PrintDiagnostic.widgetTree,
+            PrintDiagnostic.errors,
+          ],
+        );
+        expect(report.printedDiagnostics.first.data, <String, Object?>{
+          'route': '/login',
+          'visibleText': <String>['Email', 'Password'],
+        });
+        expect(
+          adapter.events.map((FakeRuntimeEvent event) => event.operation),
+          <RuntimeOperation>[
+            RuntimeOperation.initialize,
+            RuntimeOperation.resolveFinder,
+            RuntimeOperation.performTap,
+            RuntimeOperation.resolveFinder,
+            RuntimeOperation.performTap,
+            RuntimeOperation.captureSnapshot,
+            RuntimeOperation.captureWidgetTree,
+            RuntimeOperation.collectLogs,
+            RuntimeOperation.dispose,
+          ],
+        );
+      });
+    },
+  );
+
+  test(
+    'fails and disposes when printable diagnostics cannot be captured',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final Directory outputDirectory = Directory('print_failure_output');
+        final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+          failures: <RuntimeOperation, RuntimeOperationException>{
+            RuntimeOperation.captureSnapshot: const RuntimeOperationException(
+              operation: RuntimeOperation.captureSnapshot,
+              message: 'Snapshot capture failed.',
+            ),
+          },
+        );
+        final Scenario scenario = Scenario(
+          name: 'print_failure',
+          steps: const <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              label: 'checkpoint',
+              action: CaptureAction(
+                screenshot: false,
+                snapshot: false,
+                widgetTree: false,
+                logs: false,
+              ),
+            ),
+          ],
+        );
+
+        final ScenarioRunReport report =
+            await ScenarioRunner(
+              adapter: adapter,
+              outputDirectory: outputDirectory,
+            ).run(
+              scenario,
+              stopPoint: const RunStopPoint.stepLabel('checkpoint'),
+              printDiagnostics: const <PrintDiagnostic>{
+                PrintDiagnostic.snapshot,
+              },
+            );
+
+        expect(report.status, ScenarioRunStatus.failed);
+        expect(report.failureReason, 'Snapshot capture failed.');
+        expect(report.printedDiagnostics, isEmpty);
+        expect(
+          adapter.events.map((FakeRuntimeEvent event) => event.operation),
+          <RuntimeOperation>[
+            RuntimeOperation.initialize,
+            RuntimeOperation.dispose,
+          ],
+        );
+      });
+    },
+  );
+
   test('fails waitFor when timeout expires with no matches', () async {
     await FileTestkit.runZoned(() async {
       final Directory outputDirectory = Directory('wait_for_timeout_output');
