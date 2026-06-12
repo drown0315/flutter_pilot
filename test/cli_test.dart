@@ -118,4 +118,23 @@ void main() {
     expect(result.exitCode, isNonZero);
     expect(result.stderr, contains('--print must be used with --until'));
   });
+
+  test('run rejects screenshot as printable output', () async {
+    final ProcessResult result =
+        await Process.run(Platform.resolvedExecutable, [
+          'run',
+          'bin/flutter_pilot.dart',
+          'run',
+          'examples/login_error.yaml',
+          '--target',
+          'ws://127.0.0.1:1234/example=/ws',
+          '--until',
+          '1',
+          '--print',
+          'screenshot',
+        ]);
+
+    expect(result.exitCode, isNonZero);
+    expect(result.stderr, contains('[snapshot, widget-tree, errors]'));
+  });
 }

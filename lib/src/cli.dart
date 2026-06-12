@@ -138,9 +138,9 @@ class _RunCommand extends Command<int> {
         'until',
         help: 'Run through a 1-based step number or step label.',
       )
-      ..addOption(
+      ..addMultiOption(
         'print',
-        allowed: ['snapshot', 'widget-tree', 'logs'],
+        allowed: ['snapshot', 'widget-tree', 'errors'],
         help: 'Print diagnostics after --until.',
       )
       ..addFlag(
@@ -165,7 +165,7 @@ class _RunCommand extends Command<int> {
     if (targetValue == null) {
       throw UsageException('Missing required option --target.', usage);
     }
-    if (argResults!.option('print') != null &&
+    if (argResults!.multiOption('print').isNotEmpty &&
         argResults!.option('until') == null) {
       throw UsageException('--print must be used with --until.', usage);
     }
@@ -203,7 +203,13 @@ class _RunCommand extends Command<int> {
       final ScenarioRunReport report = await runner.run(
         parsedScenario,
         stopPoint: stopPoint,
+        printDiagnostics: _printDiagnosticsFromOptions(
+          argResults!.multiOption('print'),
+        ),
       );
+      if (report.printedDiagnostics.isNotEmpty) {
+        stdout.writeln(jsonEncode(_printDiagnosticsJson(report)));
+      }
       stdout.writeln(
         '$_runReportLabel ${report.runDirectoryPath}/run_report.json',
       );
@@ -223,6 +229,54 @@ class _RunCommand extends Command<int> {
       return RunStopPoint.stepNumber(stepNumber);
     }
     return RunStopPoint.stepLabel(until);
+  }
+
+  /// Return the runner diagnostics selected by repeated CLI `--print` options.
+  ///
+  /// Args:
+  /// `printValues` are the already-validated option values from `args`.
+  ///
+  /// Returns:
+  /// The diagnostic requests to pass to the runner. Duplicate options collapse
+  /// to one request.
+  Set<PrintDiagnostic> _printDiagnosticsFromOptions(List<String> printValues) {
+    final Set<PrintDiagnostic> printDiagnostics = <PrintDiagnostic>{};
+    for (final String printValue in printValues) {
+      final PrintDiagnostic? printDiagnostic = switch (printValue) {
+        'snapshot' => PrintDiagnostic.snapshot,
+        'widget-tree' => PrintDiagnostic.widgetTree,
+        'errors' => PrintDiagnostic.errors,
+        _ => null,
+      };
+      if (printDiagnostic != null) {
+        printDiagnostics.add(printDiagnostic);
+      }
+    }
+    return printDiagnostics;
+  }
+
+  /// Return the stdout JSON object for printable diagnostics.
+  ///
+  /// Args:
+  /// `report` contains diagnostics already captured by the runner in fixed
+  /// output order.
+  ///
+  /// Returns:
+  /// A JSON-compatible object keyed by the CLI diagnostic names.
+  Map<String, Object?> _printDiagnosticsJson(ScenarioRunReport report) {
+    return <String, Object?>{
+      for (final PrintedDiagnostic diagnostic in report.printedDiagnostics)
+        _printDiagnosticJsonKey(diagnostic.type): diagnostic.data,
+    };
+  }
+
+  /// Return the public JSON key for a printable diagnostic type.
+  String _printDiagnosticJsonKey(PrintDiagnostic printDiagnostic) {
+    return switch (printDiagnostic) {
+      PrintDiagnostic.snapshot => 'snapshot',
+      PrintDiagnostic.widgetTree => 'widgetTree',
+      PrintDiagnostic.errors => 'errors',
+    };
   }
 
   /// Parse and validate the first-version Runtime Target URI.
