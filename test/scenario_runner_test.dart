@@ -140,7 +140,7 @@ void main() {
       expect(
         runDirectory.path,
         matches(
-          r'artifact_output/\.runs/\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}_capture_checkpoint$',
+          r'artifact_output/\.runs/\d{4}-\d{2}-\d{2}_\d{2}-\d{2}_capture_checkpoint$',
         ),
       );
       expect(report.runDirectoryPath, runDirectory.path);

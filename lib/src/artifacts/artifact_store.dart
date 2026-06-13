@@ -16,7 +16,7 @@ const JsonEncoder _artifactJsonEncoder = JsonEncoder.withIndent('  ');
 ///
 /// Example:
 /// `RunArtifactStore(Directory('build')).createRun(...)` writes files under a
-/// directory like `build/.runs/2026-06-11T10-20-30_login_error/`.
+/// directory like `build/.runs/2026-06-11_10-20_login_error/`.
 class RunArtifactStore {
   const RunArtifactStore(this.outputDirectory);
 
@@ -36,7 +36,7 @@ class RunArtifactStore {
   ///
   /// Example:
   /// A Scenario named `login_error` started at `2026-06-11T10:20:30Z` creates
-  /// `.runs/2026-06-11T10-20-30_login_error/`.
+  /// `.runs/2026-06-11_10-20_login_error/`.
   RunArtifactWriter createRun({
     required Scenario scenario,
     required DateTime startedAt,
@@ -66,8 +66,8 @@ class RunArtifactStore {
   /// appends `_1`, `_2`, and so on until it finds an unused name.
   ///
   /// Example:
-  /// If `2026-06-11T10-20-30_login_error` exists, the next directory is
-  /// `2026-06-11T10-20-30_login_error_1`.
+  /// If `2026-06-11_10-20_login_error` exists, the next directory is
+  /// `2026-06-11_10-20_login_error_1`.
   Directory _createUniqueRunDirectory({
     required Directory runsDirectory,
     required DateTime startedAt,
@@ -101,16 +101,15 @@ class RunArtifactStore {
   /// A filesystem-friendly timestamp without colons.
   ///
   /// Example:
-  /// `2026-06-11T10:20:30Z` returns `2026-06-11T10-20-30`.
+  /// `2026-06-11T10:20:30Z` returns `2026-06-11_10-20`.
   String _formatTimestamp(DateTime startedAt) {
     final DateTime utcStartedAt = startedAt.toUtc();
     String twoDigits(int value) => value.toString().padLeft(2, '0');
     return '${utcStartedAt.year}-'
         '${twoDigits(utcStartedAt.month)}-'
-        '${twoDigits(utcStartedAt.day)}T'
+        '${twoDigits(utcStartedAt.day)}_'
         '${twoDigits(utcStartedAt.hour)}-'
-        '${twoDigits(utcStartedAt.minute)}-'
-        '${twoDigits(utcStartedAt.second)}';
+        '${twoDigits(utcStartedAt.minute)}';
   }
 }
 

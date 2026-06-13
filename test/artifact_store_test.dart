@@ -40,11 +40,11 @@ void main() {
 
       expect(
         firstRun.runDirectory.path,
-        'artifact_output/.runs/2026-06-11T10-20-30_login_error',
+        'artifact_output/.runs/2026-06-11_10-20_login_error',
       );
       expect(
         secondRun.runDirectory.path,
-        'artifact_output/.runs/2026-06-11T10-20-30_login_error_1',
+        'artifact_output/.runs/2026-06-11_10-20_login_error_1',
       );
       expect(
         File('${firstRun.runDirectory.path}/scenario.json').existsSync(),
