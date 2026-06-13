@@ -1,6 +1,6 @@
 # Flutter Pilot Issue Progress
 
-Last reviewed: 2026-06-12
+Last reviewed: 2026-06-13
 
 This file tracks implementation progress against the local issue breakdown and
 the GitHub issue list. Use code reality as the source of truth when GitHub issue
@@ -25,14 +25,14 @@ only after checking the code completion status below.
 | 2. Replay Successful Scenario And Write Basic Run Report | `#2`, `#16` | Complete | `ScenarioRunner` executes successful steps through the adapter and writes `run_report.json`. CLI still uses an unimplemented default adapter until the real `mcp_flutter` adapter lands. |
 | 3. Enforce Finder Match Cardinality | `#3`, `#17` | Complete | Zero matches fail, one match executes, multiple matches fail, and failure reasons are recorded in the run report. |
 | 4. Implement WaitFor Timing Behavior | `#4`, `#18` | Complete | `waitFor` polls until exactly one Finder Match appears, fails when the timeout expires with zero matches, and fails immediately when multiple matches appear. |
-| 5. Create Stable Run Directories And Artifact Metadata | `#5`, `#19` | Complete | Artifact Store creates stable `.runs/<timestamp>_<scenario>/` directories, avoids overwriting repeated runs, writes `scenario.json`, writes Step metadata, writes `run_report.json`, records artifact paths in the report, and keeps runner execution flow split into initialization, Step execution, cleanup, and report finalization. |
+| 5. Create Stable Run Directories And Artifact Metadata | `#5`, `#19` | Complete | Artifact Store creates stable `.runs/<timestamp>_<scenario>/` directories, avoids overwriting repeated runs, writes `scenario.json`, writes aggregated Step metadata to `step.json`, writes `run_report.json`, records artifact paths in the report, and keeps runner execution flow split into initialization, Step execution, cleanup, and report finalization. |
 | 6. Capture Screenshots And Snapshots | `#6`, `#20` | Complete | Capture Steps write screenshot PNG files and Snapshot JSON files under `captures/`, attach those artifact paths to the producing Step, and include them in the run report artifact index. |
 | 7. Capture Errors And Logs | `#7`, `#21` | Complete | Capture Steps write Logs JSON files under `captures/`, attach those artifact paths to the producing Step, include them in the run report artifact index, and respect explicit `logs: false` overrides. Runtime errors remain part of Logs when the adapter exposes them. |
 | 8. Produce Failure Artifact Bundles | `#8`, `#22` | Complete | Failed Steps automatically collect screenshot, Snapshot, and Logs artifacts, mark those artifact records with `purpose: failure`, keep Widget Tree disabled by default, and failed runs exit non-zero through the CLI. |
 | 9. Implement Real `--until` Stop Points | `#9`, `#23` | Complete | CLI validates `--until`, runner executes through the selected Step number or label, and later Steps are represented as skipped in the run report. |
 | 10. Implement `--print` Diagnostics After `--until` | `#10`, `#24` | Complete | `--print` requires `--until`, supports repeated `snapshot`, `widget-tree`, and `errors` diagnostics after the stopped Step, prints a single JSON object in fixed Snapshot, Widget Tree, Errors order, records printed diagnostics in the run report, and still rejects screenshot stdout output. |
 | 11. Add Diagnostic Reducer | `#11`, `#25` | Complete | Added a public Diagnostic Reducer that turns raw Snapshot, Widget Tree, and Logs payloads into compact summaries of visible text, interactive widgets, routes, useful logs, runtime failures, and likely suspects. `--print` runs now also store the reduced `diagnosticSummary` in `run_report.json`. |
-| 12. Generate HTML Timeline Report | `#12`, `#26` | Not complete | `--html` is accepted as a flag, but no HTML report is generated. |
+| 12. Generate HTML Timeline Report | `#12`, `#26` | Complete | `run` now generates `timeline.html` by default, records an `htmlReport` artifact in `run_report.json`, renders Step action/status/duration/failure details with screenshot previews and JSON artifact links, and `report <run-directory>` regenerates HTML from existing run artifacts without replaying the Scenario. Implemented in commit `79009df`. |
 | 13. Compare Before/After Run Directories | `#13`, `#27` | Not complete | No diff command or run-directory comparison exists yet. |
 | 14. Add Real Flutter Smoke Scenario Through `mcp_flutter` | `#14`, `#28` | Complete | Added `examples/smoke_app`, `examples/smoke_scenario.yaml`, a real `McpFlutterRuntimeAdapter`, and `tool/run_mcp_flutter_smoke.dart`. A local macOS smoke run passed and wrote snapshot/log artifacts plus `run_report.json`. |
 
