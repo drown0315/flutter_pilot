@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 
+import 'diagnostic_text_renderer.dart';
 import 'runtime/mcp_flutter_runtime_adapter.dart';
 import 'runtime/runtime_contract.dart';
 import 'scenario.dart';
@@ -104,7 +105,7 @@ class _ValidateCommand extends Command<int> {
     required List<ScenarioValidationError> errors,
   }) {
     stdout.writeln(
-      jsonEncode({
+      const JsonEncoder.withIndent('  ').convert({
         'valid': valid,
         'errors': [
           for (final ScenarioValidationError error in errors)
@@ -147,6 +148,11 @@ class _RunCommand extends Command<int> {
         'html',
         negatable: false,
         help: 'Also generate an HTML timeline report.',
+      )
+      ..addFlag(
+        'json',
+        negatable: false,
+        help: 'Print raw diagnostics as indented JSON.',
       );
   }
 
@@ -208,7 +214,16 @@ class _RunCommand extends Command<int> {
         ),
       );
       if (report.printedDiagnostics.isNotEmpty) {
-        stdout.writeln(jsonEncode(_printDiagnosticsJson(report)));
+        final bool jsonOutput = argResults!.flag('json');
+        if (jsonOutput) {
+          stdout.writeln(
+            const JsonEncoder.withIndent(
+              '  ',
+            ).convert(_printDiagnosticsJson(report)),
+          );
+        } else {
+          stdout.writeln(DiagnosticTextRenderer.render(report));
+        }
       }
       stdout.writeln(
         '$_runReportLabel ${report.runDirectoryPath}/run_report.json',

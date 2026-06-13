@@ -67,3 +67,45 @@ These still need to be run against the discovered target before the real
 - `SnapshotCapture`, `WidgetTreeCapture`, and `LogsCapture` carry decoded
   JSON-compatible `Object` data in the first version. Stronger structures can be
   introduced after real `mcp_flutter` responses are calibrated.
+
+## Widget Tree Calibration Follow-Up - 2026-06-13
+
+Command currently used by Flutter Pilot:
+
+```bash
+flutter-mcp-toolkit exec --name get_view_details --args '{"connection":{"mode":"uri","uri":"ws://127.0.0.1:<port>/<token>/ws"}}'
+```
+
+Flutter Pilot reads `data.widgetTree` from that response for
+`--print widget-tree`.
+
+Observed behavior against `examples/smoke_app`:
+
+- `get_view_details.widgetTree` is a toolkit view-details tree, not a guaranteed
+  complete source-level Flutter Widget tree.
+- The tree contains many framework/runtime wrapper nodes such as `RootWidget`,
+  `View`, `RawView`, `_FocusInheritedScope`, `Semantics`, `Actions`, and
+  `Shortcuts`.
+- The tree exposed `SmokeApp`, but did not expose `SmokeHomePage` in the tested
+  run even though `SmokeHomePage` exists in `examples/smoke_app/lib/main.dart`.
+- `semantic_snapshot` exposed the text field as `type: textField` with label
+  `Email` and value `smoke@example.com`, but `get_view_details.widgetTree` did
+  not reliably expose an app-level `TextField` node in the terminal-relevant
+  portion of the returned tree.
+
+Implications:
+
+- `--print snapshot` remains the reliable path for visible text, text fields,
+  buttons, scrollables, and interaction-oriented state.
+- `--print widget-tree` should be treated as raw or near-raw runtime hierarchy
+  context, not as a complete source Widget tree.
+- Flutter Pilot's terminal renderer may filter framework wrapper nodes for
+  readability, but it must keep raw `printedDiagnostics` in `run_report.json`
+  so the underlying toolkit response remains available.
+- If future work needs source-level widgets such as `SmokeHomePage`, recalibrate
+  whether `flutter-mcp-toolkit` can expose `ext.flutter.inspector.getRootWidgetTree`,
+  `ext.flutter.inspector.getRootWidgetSummaryTree`, or `ext.flutter.debugDumpApp`
+  through a stable command/API path. The current `capabilities` output exposes
+  dump commands such as `debug_dump_render_tree` and
+  `debug_dump_semantics_tree`, but those are render/semantics trees rather than
+  source Widget trees.

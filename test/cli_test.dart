@@ -32,7 +32,7 @@ void main() {
         ]);
 
     expect(result.exitCode, isNonZero);
-    expect(result.stdout, contains('"valid":false'));
+    expect(result.stdout, contains('"valid": false'));
     expect(result.stdout, contains('steps[0].tap.byText'));
   });
 
@@ -136,5 +136,16 @@ void main() {
 
     expect(result.exitCode, isNonZero);
     expect(result.stderr, contains('[snapshot, widget-tree, errors]'));
+  });
+
+  test('run help exposes json output for raw diagnostics', () async {
+    final ProcessResult result = await Process.run(
+      Platform.resolvedExecutable,
+      ['run', 'bin/flutter_pilot.dart', 'run', '--help'],
+    );
+
+    expect(result.exitCode, 0);
+    expect(result.stdout, contains('--json'));
+    expect(result.stdout, contains('Print raw diagnostics as indented JSON'));
   });
 }
