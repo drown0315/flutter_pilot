@@ -1,0 +1,24 @@
+{
+  "widgetType": "Navigator",
+  "routeName": "CheckoutPage",
+  "element": "NavigatorState#1d43f",
+  "children": [
+    {
+      "widgetType": "CheckoutPage",
+      "state": "_CheckoutPageState#7c1d9",
+      "file": "package:shop_app/features/checkout/checkout_page.dart",
+      "children": [
+        {
+          "widgetType": "EmailTextField",
+          "label": "Email",
+          "renderObject": "RenderEditable#16c8d"
+        },
+        {
+          "widgetType": "PrimaryButton",
+          "text": "Pay now",
+          "renderObject": "RenderPointerListener#993d2"
+        }
+      ]
+    }
+  ]
+}

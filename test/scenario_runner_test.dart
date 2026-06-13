@@ -674,6 +674,25 @@ void main() {
           'route': '/login',
           'visibleText': <String>['Email', 'Password'],
         });
+        expect(report.diagnosticSummary?.toJson(), <String, Object?>{
+          'visibleText': <Object?>['Email', 'Password'],
+          'interactiveWidgets': <Object?>[],
+          'routes': <Object?>['/login'],
+          'runtimeFailures': <Object?>['A RenderFlex overflowed.'],
+        });
+        final Map<String, Object?> reportJson =
+            jsonDecode(
+                  File(
+                    '${report.runDirectoryPath}/run_report.json',
+                  ).readAsStringSync(),
+                )
+                as Map<String, Object?>;
+        expect(reportJson['diagnosticSummary'], <String, Object?>{
+          'visibleText': <Object?>['Email', 'Password'],
+          'interactiveWidgets': <Object?>[],
+          'routes': <Object?>['/login'],
+          'runtimeFailures': <Object?>['A RenderFlex overflowed.'],
+        });
         expect(
           adapter.events.map((FakeRuntimeEvent event) => event.operation),
           <RuntimeOperation>[

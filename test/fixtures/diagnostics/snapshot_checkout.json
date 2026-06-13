@@ -1,0 +1,36 @@
+{
+  "route": "/checkout",
+  "nodes": [
+    {
+      "id": "root-1",
+      "type": "scaffold",
+      "debugCreator": "Scaffold ← MaterialApp ← _WidgetsAppState",
+      "children": [
+        {
+          "id": "text-1",
+          "type": "text",
+          "text": "Checkout",
+          "visible": true,
+          "renderObject": "RenderParagraph#91b2a relayoutBoundary=up1"
+        },
+        {
+          "id": "field-1",
+          "type": "textField",
+          "label": "Email",
+          "value": "bad@example.com",
+          "enabled": true,
+          "visible": true,
+          "constraints": "BoxConstraints(w=320.0, h=48.0)"
+        },
+        {
+          "id": "button-1",
+          "type": "button",
+          "text": "Pay now",
+          "enabled": true,
+          "visible": true,
+          "diagnostics": ["SemanticsNode#14", "RenderSemanticsAnnotations"]
+        }
+      ]
+    }
+  ]
+}
