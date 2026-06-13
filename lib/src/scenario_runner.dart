@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'artifacts/artifact_store.dart';
 import 'diagnostic_reducer.dart';
+import 'html_timeline_report.dart';
 import 'runtime/runtime_contract.dart';
 import 'scenario.dart';
 
@@ -297,6 +298,15 @@ class ScenarioRunner {
       failureReason: failureReason,
       printedDiagnostics: printedDiagnostics,
       diagnosticSummary: diagnosticSummary,
+    );
+    artifacts.add(
+      runArtifactWriter.writeHtmlReport(HtmlTimelineReport.render(report)),
+    );
+    artifacts.add(
+      const ArtifactReport(
+        type: ArtifactType.runReport,
+        path: 'run_report.json',
+      ),
     );
     _writeReport(runArtifactWriter, report);
     return report;

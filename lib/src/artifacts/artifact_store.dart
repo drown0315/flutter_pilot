@@ -167,6 +167,25 @@ class RunArtifactWriter {
     );
   }
 
+  /// Write the human-readable timeline report as `timeline.html`.
+  ///
+  /// Args:
+  /// `html` is the complete HTML document generated from `run_report.json`
+  /// data and relative artifact paths.
+  ///
+  /// Returns:
+  /// An artifact record with `type: htmlReport` and `path: timeline.html`.
+  ArtifactReport writeHtmlReport(String html) {
+    const String relativePath = 'timeline.html';
+    final File reportFile = File(p.join(runDirectory.path, relativePath));
+    reportFile.parent.createSync(recursive: true);
+    reportFile.writeAsStringSync(html);
+    return const ArtifactReport(
+      type: ArtifactType.htmlReport,
+      path: relativePath,
+    );
+  }
+
   /// Write metadata for one executed Step.
   ///
   /// Args:
@@ -456,6 +475,7 @@ class RunArtifactWriter {
 enum ArtifactType {
   scenario,
   runReport,
+  htmlReport,
   stepMetadata,
   screenshot,
   snapshot,

@@ -166,6 +166,45 @@ void main() {
     });
   });
 
+  test('writes an HTML timeline report by default', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('html_report_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter();
+      final Scenario scenario = Scenario(
+        name: 'timeline_report',
+        description: 'Shows the run as a timeline',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            label: 'checkpoint',
+            action: CaptureAction(
+              screenshot: false,
+              snapshot: false,
+              widgetTree: false,
+              logs: false,
+            ),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      final File htmlFile = File('${report.runDirectoryPath}/timeline.html');
+      expect(htmlFile.existsSync(), isTrue);
+      expect(htmlFile.readAsStringSync(), contains('timeline_report'));
+      expect(htmlFile.readAsStringSync(), contains('checkpoint'));
+      expect(htmlFile.readAsStringSync(), contains('capture'));
+      expect(htmlFile.readAsStringSync(), contains('passed'));
+
+      final String reportJson = _runReportFile(report).readAsStringSync();
+      expect(reportJson, contains('"type": "htmlReport"'));
+      expect(reportJson, contains('"path": "timeline.html"'));
+    });
+  });
+
   test(
     'writes default capture screenshots, snapshots, and logs as Step artifacts',
     () async {

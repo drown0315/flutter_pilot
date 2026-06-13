@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 
 import 'diagnostic_text_renderer.dart';
+import 'html_timeline_report.dart';
 import 'runtime/mcp_flutter_runtime_adapter.dart';
 import 'runtime/runtime_contract.dart';
 import 'scenario.dart';
@@ -34,7 +35,8 @@ class FlutterPilotCli {
             'Replay Flutter UI scenarios and collect debugging artifacts.',
           )
           ..addCommand(_ValidateCommand())
-          ..addCommand(_RunCommand());
+          ..addCommand(_RunCommand())
+          ..addCommand(_ReportCommand());
 
     try {
       return await runner.run(arguments) ?? 0;
@@ -43,6 +45,42 @@ class FlutterPilotCli {
       stderr.writeln();
       stderr.writeln(error.usage);
       return 64;
+    }
+  }
+}
+
+/// `report` command for regenerating HTML from an existing run directory.
+///
+/// It reads `<run-directory>/run_report.json` and writes
+/// `<run-directory>/timeline.html` without connecting to a Flutter runtime.
+class _ReportCommand extends Command<int> {
+  @override
+  String get description =>
+      'Generate an HTML timeline report from an existing run directory.';
+
+  @override
+  String get name => 'report';
+
+  @override
+  Future<int> run() async {
+    if (argResults!.rest.length != 1) {
+      throw UsageException('Expected exactly one run directory.', usage);
+    }
+    final Directory runDirectory = Directory(argResults!.rest.single);
+    if (!runDirectory.existsSync()) {
+      stderr.writeln('Run directory does not exist: ${runDirectory.path}');
+      return 1;
+    }
+    try {
+      HtmlTimelineReport.generateFromRunDirectory(runDirectory);
+      stdout.writeln('HTML report: ${runDirectory.path}/timeline.html');
+      return 0;
+    } on FileSystemException catch (error) {
+      stderr.writeln(error.message);
+      return 1;
+    } on FormatException catch (error) {
+      stderr.writeln(error.message);
+      return 1;
     }
   }
 }
@@ -145,11 +183,6 @@ class _RunCommand extends Command<int> {
         help: 'Print diagnostics after --until.',
       )
       ..addFlag(
-        'html',
-        negatable: false,
-        help: 'Also generate an HTML timeline report.',
-      )
-      ..addFlag(
         'json',
         negatable: false,
         help: 'Print raw diagnostics as indented JSON.',
@@ -228,6 +261,9 @@ class _RunCommand extends Command<int> {
       stdout.writeln(
         '$_runReportLabel ${report.runDirectoryPath}/run_report.json',
       );
+      stdout.writeln(
+        '$_htmlReportLabel ${report.runDirectoryPath}/timeline.html',
+      );
       return report.status == ScenarioRunStatus.passed ? 0 : 1;
     } on RuntimeOperationException catch (error) {
       stderr.writeln(error.message);
@@ -236,6 +272,7 @@ class _RunCommand extends Command<int> {
   }
 
   static const String _runReportLabel = 'Run report:';
+  static const String _htmlReportLabel = 'HTML report:';
 
   /// Return the runner stop point selected by a validated `--until` value.
   RunStopPoint _stopPointFromUntil(String until) {
