@@ -146,9 +146,7 @@ void main() {
       expect(report.runDirectoryPath, runDirectory.path);
 
       final File scenarioFile = File('${runDirectory.path}/scenario.json');
-      final File stepFile = File(
-        '${runDirectory.path}/steps/0001_checkpoint.json',
-      );
+      final File stepFile = File('${runDirectory.path}/step.json');
       final File reportFile = File('${runDirectory.path}/run_report.json');
       expect(scenarioFile.existsSync(), isTrue);
       expect(stepFile.existsSync(), isTrue);
@@ -159,10 +157,7 @@ void main() {
         reportFile.readAsStringSync(),
         contains('"path": "scenario.json"'),
       );
-      expect(
-        reportFile.readAsStringSync(),
-        contains('"path": "steps/0001_checkpoint.json"'),
-      );
+      expect(reportFile.readAsStringSync(), contains('"path": "step.json"'));
     });
   });
 
