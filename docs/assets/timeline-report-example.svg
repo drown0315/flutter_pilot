@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="820" viewBox="0 0 1280 820" role="img" aria-labelledby="title desc">
+  <title id="title">Flutter Pilot HTML timeline report example</title>
+  <desc id="desc">A sample timeline report showing a passed smoke_runtime run, step statuses, durations, and captured artifacts.</desc>
+  <rect width="1280" height="820" fill="#f6f7f9"/>
+  <rect x="136" y="48" width="1008" height="724" rx="8" fill="#ffffff" stroke="#d9dde3"/>
+
+  <text x="184" y="112" fill="#202124" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="36" font-weight="700">smoke_runtime</text>
+  <rect x="184" y="136" width="82" height="30" rx="15" fill="#d8f5df"/>
+  <text x="204" y="157" fill="#116329" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13" font-weight="700">PASSED</text>
+  <text x="184" y="198" fill="#4f5b67" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="18">Exercises Flutter Pilot against the sample Flutter app through mcp_flutter.</text>
+  <text x="184" y="242" fill="#59616e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="15" font-weight="700">Started</text>
+  <text x="270" y="242" fill="#202124" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="15">2026-06-13T07:32:43Z</text>
+  <text x="184" y="272" fill="#59616e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="15" font-weight="700">Duration</text>
+  <text x="270" y="272" fill="#202124" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="15">3863 ms</text>
+
+  <rect x="184" y="318" width="912" height="76" rx="8" fill="#ffffff" stroke="#d9dde3"/>
+  <text x="216" y="363" fill="#202124" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="23" font-weight="700">Step 1: enter_email</text>
+  <text x="632" y="349" fill="#59616e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="14" font-weight="700">Action</text>
+  <text x="632" y="374" fill="#202124" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="16">type</text>
+  <text x="742" y="349" fill="#59616e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="14" font-weight="700">Duration</text>
+  <text x="742" y="374" fill="#202124" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="16">773 ms</text>
+  <rect x="982" y="341" width="82" height="30" rx="15" fill="#d8f5df"/>
+  <text x="1002" y="362" fill="#116329" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13" font-weight="700">PASSED</text>
+
+  <rect x="184" y="410" width="912" height="76" rx="8" fill="#ffffff" stroke="#d9dde3"/>
+  <text x="216" y="455" fill="#202124" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="23" font-weight="700">Step 2: submit_form</text>
+  <text x="632" y="441" fill="#59616e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="14" font-weight="700">Action</text>
+  <text x="632" y="466" fill="#202124" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="16">tap</text>
+  <text x="742" y="441" fill="#59616e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="14" font-weight="700">Duration</text>
+  <text x="742" y="466" fill="#202124" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="16">280 ms</text>
+  <rect x="982" y="433" width="82" height="30" rx="15" fill="#d8f5df"/>
+  <text x="1002" y="454" fill="#116329" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13" font-weight="700">PASSED</text>
+
+  <rect x="184" y="502" width="912" height="76" rx="8" fill="#ffffff" stroke="#d9dde3"/>
+  <text x="216" y="547" fill="#202124" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="23" font-weight="700">Step 3: wait_for_error</text>
+  <text x="632" y="533" fill="#59616e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="14" font-weight="700">Action</text>
+  <text x="632" y="558" fill="#202124" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="16">waitFor</text>
+  <text x="742" y="533" fill="#59616e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="14" font-weight="700">Duration</text>
+  <text x="742" y="558" fill="#202124" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="16">94 ms</text>
+  <rect x="982" y="525" width="82" height="30" rx="15" fill="#d8f5df"/>
+  <text x="1002" y="546" fill="#116329" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13" font-weight="700">PASSED</text>
+
+  <rect x="184" y="594" width="912" height="130" rx="8" fill="#ffffff" stroke="#d9dde3"/>
+  <text x="216" y="639" fill="#202124" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="23" font-weight="700">Step 5: capture_runtime</text>
+  <text x="632" y="625" fill="#59616e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="14" font-weight="700">Action</text>
+  <text x="632" y="650" fill="#202124" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="16">capture</text>
+  <text x="742" y="625" fill="#59616e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="14" font-weight="700">Duration</text>
+  <text x="742" y="650" fill="#202124" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="16">1858 ms</text>
+  <rect x="982" y="617" width="82" height="30" rx="15" fill="#d8f5df"/>
+  <text x="1002" y="638" fill="#116329" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13" font-weight="700">PASSED</text>
+
+  <rect x="216" y="668" width="116" height="28" rx="4" fill="#eef4ff" stroke="#bfd2ff"/>
+  <text x="234" y="687" fill="#1a56db" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="14">screenshot</text>
+  <rect x="348" y="668" width="98" height="28" rx="4" fill="#eef4ff" stroke="#bfd2ff"/>
+  <text x="371" y="687" fill="#1a56db" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="14">snapshot</text>
+  <rect x="462" y="668" width="68" height="28" rx="4" fill="#eef4ff" stroke="#bfd2ff"/>
+  <text x="482" y="687" fill="#1a56db" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="14">logs</text>
+
+  <rect x="834" y="664" width="184" height="44" rx="4" fill="#f1f3f4" stroke="#d9dde3"/>
+  <text x="863" y="692" fill="#59616e" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="14">screenshot preview</text>
+</svg>
