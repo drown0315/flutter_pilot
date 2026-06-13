@@ -6,6 +6,8 @@ import 'package:path/path.dart' as p;
 
 import '../scenario.dart';
 
+const JsonEncoder _artifactJsonEncoder = JsonEncoder.withIndent('  ');
+
 /// Store for files produced by one or more Scenario runs.
 ///
 /// It contains the output root selected by the runner. Each call to
@@ -137,7 +139,9 @@ class RunArtifactWriter {
     const String relativePath = 'scenario.json';
     final File scenarioFile = File(p.join(runDirectory.path, relativePath));
     scenarioFile.parent.createSync(recursive: true);
-    scenarioFile.writeAsStringSync(jsonEncode(_scenarioToJson(scenario)));
+    scenarioFile.writeAsStringSync(
+      _artifactJsonEncoder.convert(_scenarioToJson(scenario)),
+    );
     return const ArtifactReport(
       type: ArtifactType.scenario,
       path: relativePath,
@@ -156,7 +160,7 @@ class RunArtifactWriter {
     const String relativePath = 'run_report.json';
     final File reportFile = File(p.join(runDirectory.path, relativePath));
     reportFile.parent.createSync(recursive: true);
-    reportFile.writeAsStringSync(jsonEncode(reportJson));
+    reportFile.writeAsStringSync(_artifactJsonEncoder.convert(reportJson));
     return const ArtifactReport(
       type: ArtifactType.runReport,
       path: relativePath,
@@ -183,7 +187,7 @@ class RunArtifactWriter {
     );
     final File stepFile = File(p.join(runDirectory.path, relativePath));
     stepFile.parent.createSync(recursive: true);
-    stepFile.writeAsStringSync(jsonEncode(metadata));
+    stepFile.writeAsStringSync(_artifactJsonEncoder.convert(metadata));
     return ArtifactReport(type: ArtifactType.stepMetadata, path: relativePath);
   }
 
@@ -257,7 +261,7 @@ class RunArtifactWriter {
     );
     final File snapshotFile = File(p.join(runDirectory.path, relativePath));
     snapshotFile.parent.createSync(recursive: true);
-    snapshotFile.writeAsStringSync(jsonEncode(data));
+    snapshotFile.writeAsStringSync(_artifactJsonEncoder.convert(data));
     return ArtifactReport(
       type: ArtifactType.snapshot,
       path: relativePath,
@@ -296,7 +300,7 @@ class RunArtifactWriter {
     );
     final File logsFile = File(p.join(runDirectory.path, relativePath));
     logsFile.parent.createSync(recursive: true);
-    logsFile.writeAsStringSync(jsonEncode(data));
+    logsFile.writeAsStringSync(_artifactJsonEncoder.convert(data));
     return ArtifactReport(
       type: ArtifactType.logs,
       path: relativePath,

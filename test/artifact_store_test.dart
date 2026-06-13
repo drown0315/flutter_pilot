@@ -135,15 +135,15 @@ void main() {
         File(
           '${writer.runDirectory.path}/steps/0001_submit_login.json',
         ).readAsStringSync(),
-        contains('"label":"submit_login"'),
+        contains('"label": "submit_login"'),
       );
       expect(
         File('${writer.runDirectory.path}/steps/0002.json').readAsStringSync(),
-        contains('"failureReason":"Text entry failed."'),
+        contains('"failureReason": "Text entry failed."'),
       );
       expect(
         File('${writer.runDirectory.path}/run_report.json').readAsStringSync(),
-        contains('"status":"failed"'),
+        contains('"status": "failed"'),
       );
     });
   });

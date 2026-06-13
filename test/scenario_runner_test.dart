@@ -83,7 +83,7 @@ void main() {
 
       final File reportFile = _runReportFile(report);
       expect(reportFile.existsSync(), isTrue);
-      expect(reportFile.readAsStringSync(), contains('"name":"login_error"'));
+      expect(reportFile.readAsStringSync(), contains('"name": "login_error"'));
       expect(
         adapter.events.map((FakeRuntimeEvent event) => event.operation),
         <RuntimeOperation>[
@@ -154,11 +154,14 @@ void main() {
       expect(stepFile.existsSync(), isTrue);
       expect(reportFile.existsSync(), isTrue);
       expect(scenarioFile.readAsStringSync(), contains('"capture_checkpoint"'));
-      expect(stepFile.readAsStringSync(), contains('"label":"checkpoint"'));
-      expect(reportFile.readAsStringSync(), contains('"path":"scenario.json"'));
+      expect(stepFile.readAsStringSync(), contains('"label": "checkpoint"'));
       expect(
         reportFile.readAsStringSync(),
-        contains('"path":"steps/0001_checkpoint.json"'),
+        contains('"path": "scenario.json"'),
+      );
+      expect(
+        reportFile.readAsStringSync(),
+        contains('"path": "steps/0001_checkpoint.json"'),
       );
     });
   });
@@ -276,9 +279,9 @@ void main() {
         expect(logsJson['entries'], hasLength(1));
 
         final String reportJson = _runReportFile(report).readAsStringSync();
-        expect(reportJson, contains('"type":"screenshot"'));
-        expect(reportJson, contains('"type":"snapshot"'));
-        expect(reportJson, contains('"type":"logs"'));
+        expect(reportJson, contains('"type": "screenshot"'));
+        expect(reportJson, contains('"type": "snapshot"'));
+        expect(reportJson, contains('"type": "logs"'));
         expect(reportJson, contains('"artifacts"'));
         expect(
           adapter.events.map((FakeRuntimeEvent event) => event.operation),
@@ -377,8 +380,8 @@ void main() {
         );
 
         final String reportJson = _runReportFile(report).readAsStringSync();
-        expect(reportJson, contains('"type":"screenshot"'));
-        expect(reportJson, contains('"failureReason":"Snapshot RPC failed."'));
+        expect(reportJson, contains('"type": "screenshot"'));
+        expect(reportJson, contains('"failureReason": "Snapshot RPC failed."'));
       });
     },
   );
@@ -429,7 +432,7 @@ void main() {
       );
 
       final String reportJson = _runReportFile(report).readAsStringSync();
-      expect(reportJson, isNot(contains('"type":"logs"')));
+      expect(reportJson, isNot(contains('"type": "logs"')));
     });
   });
 
@@ -528,7 +531,7 @@ void main() {
         );
 
         final String reportJson = _runReportFile(report).readAsStringSync();
-        expect(reportJson, contains('"status":"skipped"'));
+        expect(reportJson, contains('"status": "skipped"'));
       });
     },
   );
@@ -889,10 +892,10 @@ void main() {
       );
 
       final File reportFile = _runReportFile(report);
-      expect(reportFile.readAsStringSync(), contains('"status":"failed"'));
+      expect(reportFile.readAsStringSync(), contains('"status": "failed"'));
       expect(
         reportFile.readAsStringSync(),
-        contains('"failureReason":"Finder matched no widgets."'),
+        contains('"failureReason": "Finder matched no widgets."'),
       );
     });
   });
@@ -996,8 +999,8 @@ void main() {
       );
 
       final String reportJson = _runReportFile(report).readAsStringSync();
-      expect(reportJson, contains('"purpose":"failure"'));
-      expect(reportJson, isNot(contains('"type":"widgetTree"')));
+      expect(reportJson, contains('"purpose": "failure"'));
+      expect(reportJson, isNot(contains('"type": "widgetTree"')));
     });
   });
 
@@ -1054,11 +1057,11 @@ void main() {
         final String reportJson = _runReportFile(report).readAsStringSync();
         expect(
           reportJson,
-          contains('"failureReason":"Finder matched no widgets."'),
+          contains('"failureReason": "Finder matched no widgets."'),
         );
         expect(
           reportJson,
-          contains('"diagnosticFailureReason":"Screenshot RPC failed."'),
+          contains('"diagnosticFailureReason": "Screenshot RPC failed."'),
         );
       });
     },
@@ -1185,7 +1188,7 @@ void main() {
       final File reportFile = _runReportFile(report);
       expect(
         reportFile.readAsStringSync(),
-        contains('"failureReason":"Dispose failed."'),
+        contains('"failureReason": "Dispose failed."'),
       );
     });
   });
@@ -1297,7 +1300,7 @@ void main() {
       final File reportFile = _runReportFile(report);
       expect(
         reportFile.readAsStringSync(),
-        contains('"failureReason":"Initialize failed."'),
+        contains('"failureReason": "Initialize failed."'),
       );
     });
   });
