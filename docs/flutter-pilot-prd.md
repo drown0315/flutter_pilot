@@ -86,6 +86,8 @@ The result is a reproducible bug report package that can be consumed by humans, 
   - `flutter_pilot run <scenario.yaml> --target <runtime-target>`
   - `flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label>`
   - `flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label> --print <snapshot|widget-tree|errors>`
+  - `flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label> --print <snapshot|widget-tree|errors> --json`
+  - `flutter_pilot report <run-directory>`
   - `flutter_pilot diff <before-run> <after-run>`
 - The `validate` command checks Scenario YAML and schema rules without connecting to a Runtime Target.
 - The `validate` command supports human-readable output by default and machine-readable JSON output with `--json`. Validation failures exit non-zero and include field paths such as `steps[2].tap.byText`.
@@ -106,8 +108,8 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - Step labels must be unique within a Scenario. Unlabeled Steps are allowed.
 - `--until <step-or-label>` executes through the target Step and stops after that Step completes.
 - Numeric `--until` values are 1-based Step numbers.
-- `--print` must be used with `--until` in the first version. It prints the requested artifact after the target Step completes.
-- First-version `--print` values are `snapshot`, `widget-tree`, and `errors`. The option may be repeated to print several diagnostics after the same stopped Step. When multiple diagnostics are requested, output order is fixed as `snapshot`, `widget-tree`, then `errors`. Screenshots are file artifacts and are not printed to stdout.
+- `--print` must be used with `--until` in the first version. It prints the requested diagnostics after the target Step completes.
+- First-version `--print` values are `snapshot`, `widget-tree`, and `errors`. The option may be repeated to print several diagnostics after the same stopped Step. When multiple diagnostics are requested, output order is fixed as `snapshot`, `widget-tree`, then `errors`. By default, `--print` renders human-readable diagnostic text. With `--json`, it prints the raw diagnostic payload as indented JSON. Screenshots are file artifacts and are not printed to stdout.
 - `byKey` is not part of the current Scenario DSL because the calibrated `mcp_flutter` semantic Snapshot path does not expose Flutter key values reliably. Key-based Finders may be added later if the Runtime Adapter can obtain stable key data.
 - `byType` accepts the `mcp_flutter` semantic Snapshot node type, such as `textField`, `button`, `text`, `scrollable`, or `header`. It does not accept Dart widget class names such as `TextField`, `FilledButton`, or app-defined wrapper widget classes.
 - `byText` matches exact visible text. It does not perform contains, fuzzy, or regular expression matching in the first version.
@@ -119,14 +121,15 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - The `scroll` action accepts `deltaX` and `deltaY` as gesture drag deltas in logical pixels. Omitted deltas default to `0`. For example, `deltaY: -500` means dragging upward by 500 logical pixels, which usually reveals lower content. A Finder is optional for `scroll`; when omitted, Flutter Pilot scrolls the primary scrollable. When provided, the Finder must resolve to exactly one scrollable target. At least one of `deltaX` or `deltaY` must be non-zero, so `scroll: {}` and zero-delta scrolls are invalid.
 - Capture directives support screenshots, semantic snapshots, widget summaries, logs, and labels. Runtime errors are collected as part of logs in the first version.
 - Failed steps automatically trigger diagnostic capture even if the YAML did not request a capture at that point.
-- Scenario execution produces a run directory containing a structured run report and step-level artifacts.
-- `scenario.name` is metadata and does not need to be globally unique. Run directories use timestamp plus scenario name, such as `.runs/2026-06-06T12-30-00_login_error/`, to avoid overwrites and preserve chronological sorting.
+- Scenario execution produces a run directory containing a structured run report, an HTML timeline report, aggregated Step metadata, and capture artifacts.
+- `scenario.name` is metadata and does not need to be globally unique. Run directories use minute-level timestamp plus scenario name, such as `.runs/2026-06-06_12-30_login_error/`, to avoid overwrites and preserve chronological sorting.
 - When `scenario.name` is omitted, Flutter Pilot derives the run name from the Scenario file name. If no file name is available, it falls back to `scenario`.
 - Artifact bundle layout is stable and intended for both humans and AI agents.
 - The run report is JSON and records scenario metadata, runtime target metadata, steps, command inputs, command outputs, status, duration, artifact paths, failure diagnostics, and compact diagnostic summaries when printable diagnostics are collected.
-- `run` generates `run_report.json` by default. The HTML timeline report is generated only when explicitly requested, such as with `--html`.
-- The first runner slice writes `run_report.json` directly to the current working directory and may overwrite an existing file. Stable `.runs/<timestamp>_<scenario>/` directories and artifact path references are introduced by the Artifact Store slice, not by the first successful runner slice.
-- The HTML timeline report is generated from the run report and artifacts, not by rerunning the scenario.
+- `run` generates `run_report.json` and `timeline.html` by default. There is no separate `--html` flag.
+- Step metadata is written as one aggregated `step.json` file containing all Step report records, rather than one JSON file per Step. The same Step results remain embedded in `run_report.json`.
+- The first runner slice writes artifacts under stable `.runs/<timestamp>_<scenario>/` directories and records artifact paths relative to the run directory.
+- The HTML timeline report is generated from the run report and artifacts, not by rerunning the scenario. `flutter_pilot report <run-directory>` regenerates `timeline.html` from an existing run directory.
 - The diff command compares two run directories. It reports changes in step status, screenshots, visible text, semantic snapshots, widget summaries, and logs.
 - A Screenshot is a visual image artifact for human review. A Snapshot is a structured UI state artifact for programmatic and agent consumption. A Widget Tree is a raw or near-raw Flutter hierarchy artifact for deeper debugging.
 - Snapshot capture is enabled by default for capture checkpoints. Widget Tree capture is available but disabled by default because it can be large and noisy.
@@ -160,7 +163,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
    - Execute ordered steps through the adapter, record step status, durations, command results, and exit codes.
    - Support the initial action set: `tap`, `type`, `scroll`, and `waitFor`.
 4. Artifact store and structured run report
-   - Create stable run directories, persist scenario copies, step metadata, command outputs, and `run_report.json`.
+   - Create stable run directories, persist scenario copies, aggregated Step metadata, command outputs, and `run_report.json`.
    - This should land before richer captures so every feature has a consistent place to write artifacts.
 5. Capture checkpoints: screenshots and semantic snapshots
    - Implement explicit `capture` steps and optional per-step capture configuration.
@@ -175,7 +178,8 @@ The result is a reproducible bug report package that can be consumed by humans, 
    - Convert raw widget, semantic, and log data into compact agent-friendly summaries of visible text, interactive widgets, routes, logs, runtime failures, and likely suspects.
    - This should follow raw capture support because reducer tests need realistic captured fixtures.
 9. HTML timeline report
-   - Generate a visual report from existing run artifacts, with step status, action descriptions, screenshots, diagnostics, and failure highlights.
+   - Generate `timeline.html` by default from existing run artifacts, with step status, action descriptions, screenshots, diagnostics, and failure highlights.
+   - Provide `report <run-directory>` to regenerate the HTML report from existing artifacts without rerunning the Scenario.
    - This is high-value for sharing but should not block the core replay and artifact model.
 10. Before/after diff
    - Compare two run directories for status changes, visible text changes, semantic/widget summary changes, screenshot differences, resolved runtime failures from logs, and regressions.
