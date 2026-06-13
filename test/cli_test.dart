@@ -97,6 +97,68 @@ void main() {
       expect(result.exitCode, isNonZero);
       expect(result.stdout, contains('Run report:'));
       expect(result.stdout, contains('run_report.json'));
+      expect(result.stdout, contains('HTML report:'));
+      expect(result.stdout, contains('timeline.html'));
+    } finally {
+      tempDirectory.deleteSync(recursive: true);
+    }
+  });
+
+  test('run help does not expose an html flag', () async {
+    final ProcessResult result = await Process.run(
+      Platform.resolvedExecutable,
+      ['run', 'bin/flutter_pilot.dart', 'run', '--help'],
+    );
+
+    expect(result.exitCode, 0);
+    expect(result.stdout, isNot(contains('--html')));
+  });
+
+  test('report generates HTML from an existing run directory', () async {
+    final Directory tempDirectory = Directory.systemTemp.createTempSync(
+      'flutter_pilot_report_test_',
+    );
+    final Directory runDirectory = Directory('${tempDirectory.path}/run')
+      ..createSync(recursive: true);
+    try {
+      File('${runDirectory.path}/run_report.json').writeAsStringSync('''
+{
+  "scenario": {
+    "name": "existing_run"
+  },
+  "status": "failed",
+  "startedAt": "2026-06-13T10:00:00.000Z",
+  "durationMs": 42,
+  "runDirectory": "${runDirectory.path}",
+  "artifacts": [],
+  "steps": [
+    {
+      "index": 1,
+      "label": "submit",
+      "action": "tap",
+      "status": "failed",
+      "durationMs": 12,
+      "failureReason": "Finder matched no widgets."
+    }
+  ]
+}
+''');
+
+      final ProcessResult result = await Process.run(
+        Platform.resolvedExecutable,
+        ['run', 'bin/flutter_pilot.dart', 'report', runDirectory.path],
+      );
+
+      expect(result.exitCode, 0);
+      expect(result.stdout, contains('HTML report:'));
+      final File htmlFile = File('${runDirectory.path}/timeline.html');
+      expect(htmlFile.existsSync(), isTrue);
+      expect(htmlFile.readAsStringSync(), contains('existing_run'));
+      expect(
+        htmlFile.readAsStringSync(),
+        contains('Finder matched no widgets.'),
+      );
+      expect(htmlFile.readAsStringSync(), contains('step-failed'));
     } finally {
       tempDirectory.deleteSync(recursive: true);
     }
