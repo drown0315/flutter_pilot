@@ -121,8 +121,7 @@ class RunArtifactStore {
 /// copied into `run_report.json`.
 ///
 /// Example:
-/// `writeStepMetadata(index: 1, label: 'submit', ...)` writes
-/// `steps/0001_submit.json`.
+/// `writeStepMetadata([...])` writes all Step report records to `step.json`.
 class RunArtifactWriter {
   const RunArtifactWriter(this.runDirectory);
 
@@ -186,28 +185,24 @@ class RunArtifactWriter {
     );
   }
 
-  /// Write metadata for one executed Step.
+  /// Write metadata for all executed Steps as `step.json`.
   ///
   /// Args:
-  /// `index` is the 1-based Step number.
-  /// `label` is the optional Step label used in the artifact file name.
-  /// `metadata` is the JSON-compatible Step report payload.
+  /// `steps` are JSON-compatible Step report payloads in execution order.
   ///
   /// Returns:
-  /// An artifact record with a path relative to the run directory.
-  ArtifactReport writeStepMetadata({
-    required int index,
-    required String? label,
-    required Map<String, Object?> metadata,
-  }) {
-    final String relativePath = p.join(
-      'steps',
-      _stepMetadataFileName(index: index, label: label),
-    );
+  /// An artifact record with `type: stepMetadata` and `path: step.json`.
+  ArtifactReport writeStepMetadata(List<Map<String, Object?>> steps) {
+    const String relativePath = 'step.json';
     final File stepFile = File(p.join(runDirectory.path, relativePath));
     stepFile.parent.createSync(recursive: true);
-    stepFile.writeAsStringSync(_artifactJsonEncoder.convert(metadata));
-    return ArtifactReport(type: ArtifactType.stepMetadata, path: relativePath);
+    stepFile.writeAsStringSync(
+      _artifactJsonEncoder.convert(<String, Object?>{'steps': steps}),
+    );
+    return const ArtifactReport(
+      type: ArtifactType.stepMetadata,
+      path: relativePath,
+    );
   }
 
   /// Write one screenshot captured by a Step.
@@ -325,26 +320,6 @@ class RunArtifactWriter {
       path: relativePath,
       purpose: purpose,
     );
-  }
-
-  /// Return the file name for one Step metadata artifact.
-  ///
-  /// Args:
-  /// `index` is the 1-based Step number. It is padded to four digits.
-  /// `label` is appended after the padded number when present.
-  ///
-  /// Returns:
-  /// A JSON file name.
-  ///
-  /// Example:
-  /// Step `1` with label `checkpoint` returns `0001_checkpoint.json`; step `2`
-  /// without a label returns `0002.json`.
-  String _stepMetadataFileName({required int index, required String? label}) {
-    final String stepNumber = index.toString().padLeft(4, '0');
-    if (label == null) {
-      return '$stepNumber.json';
-    }
-    return '${stepNumber}_$label.json';
   }
 
   /// Return the file name for one captured Step artifact.

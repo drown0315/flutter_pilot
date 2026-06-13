@@ -604,30 +604,28 @@ class ScenarioRunner {
     runArtifactWriter.writeRunReport(report.toJson());
   }
 
-  /// Write metadata artifacts for all executed Steps.
+  /// Write one metadata artifact for all executed Steps.
   ///
   /// Args:
   /// `runArtifactWriter` is the writer scoped to the run directory.
   /// `steps` are the Step reports that were executed before the run ended.
-  /// `artifacts` is the report artifact list that receives each Step metadata
+  /// `artifacts` is the report artifact list that receives the `step.json`
   /// path.
   ///
   /// Example:
-  /// A Step report with `index: 1` and `label: 'checkpoint'` writes
-  /// `steps/0001_checkpoint.json` and appends that path to `artifacts`.
+  /// A run with two executed Steps writes both Step report records into
+  /// `step.json` and appends that path to `artifacts`.
   void _writeStepMetadataArtifacts(
     RunArtifactWriter runArtifactWriter,
     List<StepRunReport> steps,
     List<ArtifactReport> artifacts,
   ) {
-    for (final StepRunReport step in steps) {
-      final ArtifactReport artifact = runArtifactWriter.writeStepMetadata(
-        index: step.index,
-        label: step.label,
-        metadata: step.toJson(),
-      );
-      artifacts.add(artifact);
-    }
+    final ArtifactReport artifact = runArtifactWriter.writeStepMetadata(
+      <Map<String, Object?>>[
+        for (final StepRunReport step in steps) step.toJson(),
+      ],
+    );
+    artifacts.add(artifact);
   }
 
   /// Add Step capture artifact records to the run-level artifact list.

@@ -84,27 +84,23 @@ void main() {
       );
 
       final ArtifactReport scenarioArtifact = writer.writeScenario(scenario);
-      final ArtifactReport labeledStepArtifact = writer.writeStepMetadata(
-        index: 1,
-        label: 'submit_login',
-        metadata: <String, Object?>{
-          'index': 1,
-          'label': 'submit_login',
-          'action': 'tap',
-          'status': 'passed',
-          'durationMs': 12,
-        },
-      );
-      final ArtifactReport unlabeledStepArtifact = writer.writeStepMetadata(
-        index: 2,
-        label: null,
-        metadata: <String, Object?>{
-          'index': 2,
-          'action': 'type',
-          'status': 'failed',
-          'durationMs': 7,
-          'failureReason': 'Text entry failed.',
-        },
+      final ArtifactReport stepArtifact = writer.writeStepMetadata(
+        <Map<String, Object?>>[
+          <String, Object?>{
+            'index': 1,
+            'label': 'submit_login',
+            'action': 'tap',
+            'status': 'passed',
+            'durationMs': 12,
+          },
+          <String, Object?>{
+            'index': 2,
+            'action': 'type',
+            'status': 'failed',
+            'durationMs': 7,
+            'failureReason': 'Text entry failed.',
+          },
+        ],
       );
       final ArtifactReport reportArtifact = writer.writeRunReport(
         <String, Object?>{
@@ -115,9 +111,8 @@ void main() {
 
       expect(scenarioArtifact.type, ArtifactType.scenario);
       expect(scenarioArtifact.path, 'scenario.json');
-      expect(labeledStepArtifact.type, ArtifactType.stepMetadata);
-      expect(labeledStepArtifact.path, 'steps/0001_submit_login.json');
-      expect(unlabeledStepArtifact.path, 'steps/0002.json');
+      expect(stepArtifact.type, ArtifactType.stepMetadata);
+      expect(stepArtifact.path, 'step.json');
       expect(reportArtifact.type, ArtifactType.runReport);
       expect(reportArtifact.path, 'run_report.json');
 
@@ -132,13 +127,11 @@ void main() {
       expect(scenarioJson['description'], 'Reproduces login failure');
       expect(scenarioJson['steps'], hasLength(2));
       expect(
-        File(
-          '${writer.runDirectory.path}/steps/0001_submit_login.json',
-        ).readAsStringSync(),
+        File('${writer.runDirectory.path}/step.json').readAsStringSync(),
         contains('"label": "submit_login"'),
       );
       expect(
-        File('${writer.runDirectory.path}/steps/0002.json').readAsStringSync(),
+        File('${writer.runDirectory.path}/step.json').readAsStringSync(),
         contains('"failureReason": "Text entry failed."'),
       );
       expect(
