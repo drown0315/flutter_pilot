@@ -7,6 +7,7 @@ library;
 
 export 'src/cli.dart';
 export 'src/artifacts/artifact_store.dart';
+export 'src/diagnostic_reducer.dart';
 export 'src/runtime/fake_runtime_adapter.dart';
 export 'src/runtime/mcp_flutter_runtime_adapter.dart';
 export 'src/runtime/runtime_contract.dart';

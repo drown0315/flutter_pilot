@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'artifacts/artifact_store.dart';
+import 'diagnostic_reducer.dart';
 import 'runtime/runtime_contract.dart';
 import 'scenario.dart';
 
@@ -63,6 +64,7 @@ class ScenarioRunner {
         failed: true,
         failureReason: initializeFailure,
         printedDiagnostics: const <PrintedDiagnostic>[],
+        diagnosticSummary: null,
       );
     }
 
@@ -81,13 +83,16 @@ class ScenarioRunner {
     }
 
     List<PrintedDiagnostic> printedDiagnostics = const <PrintedDiagnostic>[];
+    DiagnosticSummary? diagnosticSummary;
     if (!failed) {
       try {
         printedDiagnostics = await _capturePrintedDiagnostics(printDiagnostics);
+        diagnosticSummary = _reducePrintedDiagnostics(printedDiagnostics);
       } on RuntimeOperationException catch (error) {
         failed = true;
         failureReason = error.message;
         printedDiagnostics = const <PrintedDiagnostic>[];
+        diagnosticSummary = null;
       }
     }
 
@@ -107,6 +112,7 @@ class ScenarioRunner {
       failed: failed,
       failureReason: failureReason,
       printedDiagnostics: printedDiagnostics,
+      diagnosticSummary: diagnosticSummary,
     );
   }
 
@@ -272,6 +278,7 @@ class ScenarioRunner {
     required bool failed,
     required String? failureReason,
     required List<PrintedDiagnostic> printedDiagnostics,
+    DiagnosticSummary? diagnosticSummary,
   }) {
     final List<ArtifactReport> artifacts = <ArtifactReport>[
       const ArtifactReport(type: ArtifactType.scenario, path: 'scenario.json'),
@@ -289,6 +296,7 @@ class ScenarioRunner {
       artifacts: artifacts,
       failureReason: failureReason,
       printedDiagnostics: printedDiagnostics,
+      diagnosticSummary: diagnosticSummary,
     );
     _writeReport(runArtifactWriter, report);
     return report;
@@ -667,6 +675,34 @@ class ScenarioRunner {
       ),
     };
   }
+
+  /// Reduce printable diagnostics into the compact agent-facing summary.
+  DiagnosticSummary? _reducePrintedDiagnostics(
+    List<PrintedDiagnostic> printedDiagnostics,
+  ) {
+    if (printedDiagnostics.isEmpty) {
+      return null;
+    }
+
+    Object? snapshot;
+    Object? widgetTree;
+    Object? logs;
+    for (final PrintedDiagnostic diagnostic in printedDiagnostics) {
+      switch (diagnostic.type) {
+        case PrintDiagnostic.snapshot:
+          snapshot = diagnostic.data;
+        case PrintDiagnostic.widgetTree:
+          widgetTree = diagnostic.data;
+        case PrintDiagnostic.errors:
+          logs = diagnostic.data;
+      }
+    }
+    return DiagnosticReducer.reduce(
+      snapshot: snapshot,
+      widgetTree: widgetTree,
+      logs: logs,
+    );
+  }
 }
 
 /// Overall status for one Scenario run.
@@ -743,6 +779,7 @@ class ScenarioRunReport {
     required this.runDirectoryPath,
     required this.artifacts,
     this.printedDiagnostics = const <PrintedDiagnostic>[],
+    this.diagnosticSummary,
     this.failureReason,
   });
 
@@ -765,6 +802,9 @@ class ScenarioRunReport {
   /// Diagnostic data requested for terminal output after a stopped Step.
   final List<PrintedDiagnostic> printedDiagnostics;
 
+  /// Compact agent-facing summary reduced from printed diagnostics.
+  final DiagnosticSummary? diagnosticSummary;
+
   /// Convert this report to the JSON stored in `run_report.json`.
   ///
   /// Returns:
@@ -786,6 +826,8 @@ class ScenarioRunReport {
           for (final PrintedDiagnostic diagnostic in printedDiagnostics)
             diagnostic.toJson(),
         ],
+      if (diagnosticSummary != null)
+        'diagnosticSummary': diagnosticSummary!.toJson(),
       'artifacts': <Object?>[
         for (final ArtifactReport artifact in artifacts) artifact.toJson(),
       ],

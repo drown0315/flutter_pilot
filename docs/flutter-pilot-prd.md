@@ -123,7 +123,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - `scenario.name` is metadata and does not need to be globally unique. Run directories use timestamp plus scenario name, such as `.runs/2026-06-06T12-30-00_login_error/`, to avoid overwrites and preserve chronological sorting.
 - When `scenario.name` is omitted, Flutter Pilot derives the run name from the Scenario file name. If no file name is available, it falls back to `scenario`.
 - Artifact bundle layout is stable and intended for both humans and AI agents.
-- The run report is JSON and records scenario metadata, runtime target metadata, steps, command inputs, command outputs, status, duration, artifact paths, and failure diagnostics.
+- The run report is JSON and records scenario metadata, runtime target metadata, steps, command inputs, command outputs, status, duration, artifact paths, failure diagnostics, and compact diagnostic summaries when printable diagnostics are collected.
 - `run` generates `run_report.json` by default. The HTML timeline report is generated only when explicitly requested, such as with `--html`.
 - The first runner slice writes `run_report.json` directly to the current working directory and may overwrite an existing file. Stable `.runs/<timestamp>_<scenario>/` directories and artifact path references are introduced by the Artifact Store slice, not by the first successful runner slice.
 - The HTML timeline report is generated from the run report and artifacts, not by rerunning the scenario.
@@ -132,7 +132,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - Snapshot capture is enabled by default for capture checkpoints. Widget Tree capture is available but disabled by default because it can be large and noisy.
 - The `capture` action records diagnostic artifacts at a Step. `capture: {}` uses the default bundle: `screenshot: true`, `snapshot: true`, `widgetTree: false`, and `logs: true`. Each option can be explicitly overridden.
 - Failed Steps automatically capture the same default bundle as `capture: {}`.
-- Raw Widget Tree dumps may be available, but agent-facing output should default to compact summaries of visible text, interactive widgets, routes, logs, runtime failures, and likely suspects.
+- Raw Widget Tree dumps may be available, but agent-facing output should default to compact summaries of visible text, interactive widgets, routes, logs, runtime failures, and likely suspects. The Diagnostic Reducer writes this summary as `diagnosticSummary` in the run report when `--print` captures raw Snapshot, Widget Tree, or error diagnostics.
 - Video recording is out of the initial MVP. Step screenshots and timeline reports are the primary visual artifact.
 - The implementation should be organized around deep modules:
   - Scenario model and parser: validates YAML and produces a typed scenario.
@@ -172,7 +172,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
    - Support stopping at numeric or labeled steps and printing `snapshot`, `widget-tree`, `errors`, or any repeated combination of those values in fixed output order.
    - This builds on the runner, capture, and diagnostic plumbing and makes the tool useful for iterative human and agent debugging.
 8. Diagnostic reducer
-   - Convert raw widget and semantic data into compact agent-friendly summaries of visible text, interactive widgets, routes, logs, runtime failures, and likely suspects.
+   - Convert raw widget, semantic, and log data into compact agent-friendly summaries of visible text, interactive widgets, routes, logs, runtime failures, and likely suspects.
    - This should follow raw capture support because reducer tests need realistic captured fixtures.
 9. HTML timeline report
    - Generate a visual report from existing run artifacts, with step status, action descriptions, screenshots, diagnostics, and failure highlights.

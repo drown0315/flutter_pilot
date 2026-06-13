@@ -1,0 +1,25 @@
+{
+  "entries": [
+    {
+      "level": "debug",
+      "message": "Rebuilding inherited widgets",
+      "source": "framework"
+    },
+    {
+      "level": "info",
+      "message": "Submitting checkout form"
+    },
+    {
+      "level": "error",
+      "message": "Exception caught by widgets library",
+      "error": "Null check operator used on a null value",
+      "stackTrace": "#0 CheckoutController.submit (package:shop_app/features/checkout/checkout_controller.dart:42:18)\n#1 _CheckoutPageState._submit (package:shop_app/features/checkout/checkout_page.dart:88:12)"
+    }
+  ],
+  "errors": [
+    {
+      "message": "RenderFlex overflowed by 18 pixels",
+      "library": "rendering library"
+    }
+  ]
+}
