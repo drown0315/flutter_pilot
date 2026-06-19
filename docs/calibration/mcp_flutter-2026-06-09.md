@@ -68,6 +68,30 @@ These still need to be run against the discovered target before the real
   JSON-compatible `Object` data in the first version. Stronger structures can be
   introduced after real `mcp_flutter` responses are calibrated.
 
+## Finder Support Boundary - 2026-06-19
+
+Issue: `#44 Calibrate real Finder support and document byKey boundary`
+
+The real smoke integration path should verify the Finder fields that are part
+of the current Scenario DSL: `byText`, `byType`, and combined constraints using
+both fields. `byKey` remains outside the current Scenario contract because
+`mcp_flutter` does not currently provide stable key-based Finder matching.
+
+| Product capability | Technical evidence | Status | Decision |
+| --- | --- | --- | --- |
+| `byText` Finder | `McpFlutterRuntimeAdapter` resolves text from `semantic_snapshot` node fields such as `label`, `text`, or `name`. | Supported | Current DSL and smoke integration coverage. |
+| `byType` Finder | `McpFlutterRuntimeAdapter` resolves semantic node type from `semantic_snapshot` node fields such as `type` or `widgetType`. | Supported | Current DSL and smoke integration coverage. |
+| Combined Finder constraints | The adapter applies every configured Finder field to the same semantic Snapshot node before producing a Finder Match. | Supported | Current DSL and smoke integration coverage for `byText` plus `byType`. |
+| `byKey` Finder | The calibrated `mcp_flutter` path does not expose stable key-based matching for Scenario Finders. | Unsupported | Future capability only; do not add to Scenario YAML, parser, or examples yet. |
+
+Contract decision:
+
+- Current Finder integration coverage should target `byText`, `byType`, and
+  combined `byText` plus `byType`.
+- `byKey` should stay documented as unsupported in the current Scenario DSL.
+- If a future `mcp_flutter` version exposes stable key data, recalibrate the
+  real response shape before adding `byKey` to the parser or public docs.
+
 ## Widget Tree Calibration Follow-Up - 2026-06-13
 
 Command currently used by Flutter Pilot:
