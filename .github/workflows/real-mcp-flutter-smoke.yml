@@ -31,7 +31,7 @@ jobs:
       - name: Check flutter-mcp-toolkit
         run: |
           command -v flutter-mcp-toolkit
-          flutter-mcp-toolkit --version
+          flutter-mcp-toolkit --help
 
       - name: Start smoke app
         id: smoke_app
