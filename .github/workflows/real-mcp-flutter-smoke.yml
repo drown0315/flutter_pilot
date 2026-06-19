@@ -38,18 +38,29 @@ jobs:
           set -euo pipefail
 
           mkdir -p .runs/ci
-          flutter run \
-            --machine \
-            -d macos \
-            --debug \
-            --pid-file .runs/ci/smoke_app.pid \
-            > .runs/ci/flutter_run_machine.log \
-            2> .runs/ci/flutter_run_stderr.log &
+          (
+            cd examples/smoke_app
+            flutter run \
+              --machine \
+              -d macos \
+              --debug \
+              --pid-file ../../.runs/ci/smoke_app.pid \
+              > ../../.runs/ci/flutter_run_machine.log \
+              2> ../../.runs/ci/flutter_run_stderr.log
+          ) &
 
           dart run tool/extract_flutter_machine_ws_uri.dart \
             .runs/ci/flutter_run_machine.log \
             --timeout-seconds 90 \
-            >> "$GITHUB_OUTPUT"
+            >> "$GITHUB_OUTPUT" || {
+              echo "::group::flutter run --machine output"
+              cat .runs/ci/flutter_run_machine.log || true
+              echo "::endgroup::"
+              echo "::group::flutter run stderr"
+              cat .runs/ci/flutter_run_stderr.log || true
+              echo "::endgroup::"
+              exit 1
+            }
 
       - name: Run real smoke verifier
         run: dart run tool/run_mcp_flutter_smoke.dart "${{ steps.smoke_app.outputs.vm_service_uri }}"
