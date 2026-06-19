@@ -94,16 +94,31 @@ String? _debugPortUriFromLine(String line) {
   } on FormatException {
     return null;
   }
-  if (decoded is! Map<String, Object?>) {
+  final Map<String, Object?>? event = _machineEventFromDecoded(decoded);
+  if (event == null) {
     return null;
   }
-  if (decoded['event'] != 'app.debugPort') {
+  if (event['event'] != 'app.debugPort') {
     return null;
   }
-  final Object? params = decoded['params'];
+  final Object? params = event['params'];
   if (params is! Map<String, Object?>) {
     return null;
   }
   final Object? wsUri = params['wsUri'];
   return wsUri is String && wsUri.isNotEmpty ? wsUri : null;
+}
+
+/// Normalize supported Flutter machine line shapes into one event object.
+Map<String, Object?>? _machineEventFromDecoded(Object? decoded) {
+  if (decoded is Map<String, Object?>) {
+    return decoded;
+  }
+  if (decoded is List<Object?> && decoded.length == 1) {
+    final Object? first = decoded.single;
+    if (first is Map<String, Object?>) {
+      return first;
+    }
+  }
+  return null;
 }
