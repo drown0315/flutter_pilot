@@ -26,10 +26,12 @@ jobs:
         run: flutter pub get
 
       - name: Install flutter-mcp-toolkit
-        run: dart pub global activate mcp_toolkit
+        run: curl -fsSL https://raw.githubusercontent.com/Arenukvern/mcp_flutter/main/install.sh | bash
 
-      - name: Add pub global executables to PATH
-        run: echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+      - name: Check flutter-mcp-toolkit
+        run: |
+          command -v flutter-mcp-toolkit
+          flutter-mcp-toolkit --version
 
       - name: Start smoke app
         id: smoke_app
