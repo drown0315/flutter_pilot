@@ -12,6 +12,7 @@ steps:
   - label: submit_form
     tap:
       byText: Submit smoke
+      byType: button
 
   - label: wait_for_error
     waitFor:
