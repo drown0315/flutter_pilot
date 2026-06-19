@@ -1,0 +1,71 @@
+name: Real mcp_flutter Smoke
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: Real Finder smoke
+    runs-on: macos-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Install Flutter Pilot dependencies
+        run: dart pub get
+
+      - name: Install smoke app dependencies
+        working-directory: examples/smoke_app
+        run: flutter pub get
+
+      - name: Install flutter-mcp-toolkit
+        run: dart pub global activate mcp_toolkit
+
+      - name: Add pub global executables to PATH
+        run: echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+
+      - name: Start smoke app
+        id: smoke_app
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p .runs/ci
+          flutter run \
+            --machine \
+            -d macos \
+            --debug \
+            --pid-file .runs/ci/smoke_app.pid \
+            > .runs/ci/flutter_run_machine.log \
+            2> .runs/ci/flutter_run_stderr.log &
+
+          dart run tool/extract_flutter_machine_ws_uri.dart \
+            .runs/ci/flutter_run_machine.log \
+            --timeout-seconds 90 \
+            >> "$GITHUB_OUTPUT"
+
+      - name: Run real smoke verifier
+        run: dart run tool/run_mcp_flutter_smoke.dart "${{ steps.smoke_app.outputs.vm_service_uri }}"
+
+      - name: Stop smoke app
+        if: always()
+        shell: bash
+        run: |
+          if [ -f .runs/ci/smoke_app.pid ]; then
+            kill "$(cat .runs/ci/smoke_app.pid)" || true
+          fi
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-mcp-flutter-smoke-runs
+          path: |
+            .runs
