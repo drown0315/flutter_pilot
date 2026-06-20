@@ -1,0 +1,34 @@
+{
+  "scenario": {
+    "name": "login_error"
+  },
+  "status": "passed",
+  "startedAt": "2026-06-13T10:00:00.000Z",
+  "durationMs": 42,
+  "runDirectory": "test/fixtures/run_diff/partial_artifact/before",
+  "artifacts": [
+    {
+      "type": "snapshot",
+      "path": "captures/missing_snapshot.json"
+    },
+    {
+      "type": "logs",
+      "path": "captures/missing_logs.json"
+    }
+  ],
+  "steps": [
+    {
+      "index": 1,
+      "label": "capture_login",
+      "action": "capture",
+      "status": "passed",
+      "durationMs": 12,
+      "artifacts": [
+        {
+          "type": "screenshot",
+          "path": "captures/missing_login.png"
+        }
+      ]
+    }
+  ]
+}

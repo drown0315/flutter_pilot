@@ -106,6 +106,13 @@ Regenerate the HTML timeline from an existing run directory:
 dart run flutter_pilot report .runs/<run-directory>
 ```
 
+Compare two existing run directories:
+
+```bash
+dart run flutter_pilot diff .runs/<before-run> .runs/<after-run>
+dart run flutter_pilot diff .runs/<before-run> .runs/<after-run> --json
+```
+
 ## Scenario YAML
 
 Scenario YAML is Flutter Pilot's portable description of a UI journey. It
@@ -124,6 +131,8 @@ flutter_pilot run <scenario.yaml> --target <runtime-target>
 flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label>
 flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label> --print <snapshot|widget-tree|errors>
 flutter_pilot report <run-directory>
+flutter_pilot diff <before-run> <after-run>
+flutter_pilot diff <before-run> <after-run> --json
 ```
 
 `--print` may be repeated. When several diagnostics are requested, Flutter Pilot
@@ -156,6 +165,8 @@ consistent.
 
 - [CONTEXT.md](CONTEXT.md): project vocabulary.
 - [docs/scenario-yaml.md](docs/scenario-yaml.md): Scenario YAML syntax.
+- [docs/run-diff.md](docs/run-diff.md): Run Diff command, output, outcomes,
+  Regression rules, and acceptance fixtures.
 - [docs/flutter-pilot-prd.md](docs/flutter-pilot-prd.md): product scope and
   implementation decisions.
 - [docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md](docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md):

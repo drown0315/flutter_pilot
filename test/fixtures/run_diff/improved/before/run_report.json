@@ -1,0 +1,30 @@
+{
+  "scenario": {
+    "name": "login_error"
+  },
+  "status": "failed",
+  "startedAt": "2026-06-13T10:00:00.000Z",
+  "durationMs": 42,
+  "runDirectory": "test/fixtures/run_diff/improved/before",
+  "diagnosticSummary": {
+    "visibleText": [
+      "Email",
+      "Retry"
+    ],
+    "interactiveWidgets": [],
+    "runtimeFailures": [
+      "RenderFlex overflowed by 12 pixels"
+    ]
+  },
+  "artifacts": [],
+  "steps": [
+    {
+      "index": 1,
+      "label": "submit",
+      "action": "tap",
+      "status": "failed",
+      "failureReason": "Finder matched no widgets.",
+      "durationMs": 12
+    }
+  ]
+}
