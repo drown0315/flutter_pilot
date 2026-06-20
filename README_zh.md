@@ -76,6 +76,53 @@ HTML timeline report 会把同一次 UI 旅程转换成可视化审查界面：
 
 ## 使用方式
 
+在拥有 Scenario 的 workspace 中安装 Flutter Pilot CLI：
+
+```bash
+dart pub add --dev flutter_pilot
+```
+
+Flutter Pilot 通过 `mcp_flutter` 驱动正在运行的 Flutter 应用。目标应用需要先暴露
+MCP Toolkit 运行时扩展，`flutter_pilot run` 才能和它交互。
+
+在 Flutter 应用 package 中添加运行时依赖：
+
+```bash
+flutter pub add mcp_toolkit
+```
+
+然后通过 `MCPToolkitBinding` 启动应用：
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:mcp_toolkit/mcp_toolkit.dart';
+
+Future<void> main() async {
+  await MCPToolkitBinding.instance.bootstrapFlutter(
+    runApp: () => runApp(const MyApp()),
+  );
+}
+```
+
+在 debug 模式运行 Flutter 应用，并把它的 VM service URI 作为 Runtime Target
+传给 `flutter_pilot run`。
+
+在 Flutter 应用 package 中检查 Flutter Pilot 应用侧配置：
+
+```bash
+dart run flutter_pilot doctor
+```
+
+在 Flutter 应用 package 中初始化安全的依赖配置：
+
+```bash
+dart run flutter_pilot init
+```
+
+`init` 会在缺少运行时依赖时执行 `flutter pub add mcp_toolkit`。它不会修改
+`lib/main.dart`；如果缺少 `bootstrapFlutter`，它会打印需要手动添加的 import
+和 `runApp` 包裹代码。
+
 不连接 Flutter 应用，只校验 Scenario：
 
 ```bash
@@ -115,10 +162,14 @@ Step Label、Finder、动作、等待、滚动和捕获检查点。
 ```bash
 flutter_pilot validate <scenario.yaml>
 flutter_pilot validate <scenario.yaml> --json
+flutter_pilot doctor
+flutter_pilot init
 flutter_pilot run <scenario.yaml> --target <runtime-target>
 flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label>
 flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label> --print <snapshot|widget-tree|errors>
 flutter_pilot report <run-directory>
+flutter_pilot diff <before-run> <after-run>
+flutter_pilot diff <before-run> <after-run> --json
 ```
 
 `--print` 可以重复传入。请求多个诊断输出时，Flutter Pilot 会按稳定顺序打印：

@@ -210,4 +210,254 @@ void main() {
     expect(result.stdout, contains('--json'));
     expect(result.stdout, contains('Print raw diagnostics as indented JSON'));
   });
+
+  test('doctor reports complete Flutter Pilot app setup', () async {
+    final Directory tempDirectory = Directory.systemTemp.createTempSync(
+      'flutter_pilot_doctor_test_',
+    );
+    final String packageRoot = Directory.current.absolute.path;
+    try {
+      File('${tempDirectory.path}/pubspec.yaml').writeAsStringSync('''
+name: target_app
+environment:
+  sdk: ^3.9.0
+dependencies:
+  flutter:
+    sdk: flutter
+  mcp_toolkit: ^3.0.0
+''');
+      final Directory libDirectory = Directory('${tempDirectory.path}/lib')
+        ..createSync(recursive: true);
+      File('${libDirectory.path}/main.dart').writeAsStringSync('''
+import 'package:flutter/material.dart';
+import 'package:mcp_toolkit/mcp_toolkit.dart';
+
+Future<void> main() async {
+  await MCPToolkitBinding.instance.bootstrapFlutter(
+    runApp: () => runApp(const Placeholder()),
+  );
+}
+''');
+
+      final ProcessResult result = await Process.run(
+        Platform.resolvedExecutable,
+        ['$packageRoot/bin/flutter_pilot.dart', 'doctor'],
+        workingDirectory: tempDirectory.path,
+      );
+
+      expect(result.exitCode, 0);
+      expect(result.stdout, contains('Flutter Pilot doctor'));
+      expect(result.stdout, contains('✅ Flutter Pilot app setup is complete.'));
+      expect(result.stderr, isEmpty);
+    } finally {
+      tempDirectory.deleteSync(recursive: true);
+    }
+  });
+
+  test('doctor reports missing app setup without failing the check', () async {
+    final Directory tempDirectory = Directory.systemTemp.createTempSync(
+      'flutter_pilot_doctor_missing_test_',
+    );
+    final String packageRoot = Directory.current.absolute.path;
+    try {
+      File('${tempDirectory.path}/pubspec.yaml').writeAsStringSync('''
+name: target_app
+environment:
+  sdk: ^3.9.0
+dependencies:
+  flutter:
+    sdk: flutter
+''');
+      final Directory libDirectory = Directory('${tempDirectory.path}/lib')
+        ..createSync(recursive: true);
+      File('${libDirectory.path}/main.dart').writeAsStringSync('''
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const Placeholder());
+}
+''');
+
+      final ProcessResult result = await Process.run(
+        Platform.resolvedExecutable,
+        ['$packageRoot/bin/flutter_pilot.dart', 'doctor'],
+        workingDirectory: tempDirectory.path,
+      );
+
+      expect(result.exitCode, 0);
+      expect(result.stdout, contains('Flutter Pilot doctor'));
+      expect(
+        result.stdout,
+        contains(
+          '❌ MCP Toolkit dependency missing: run `flutter pub add mcp_toolkit`',
+        ),
+      );
+      expect(
+        result.stdout,
+        contains(
+          '❌ bootstrapFlutter missing: add MCPToolkitBinding.instance.bootstrapFlutter in lib/main.dart',
+        ),
+      );
+      expect(result.stderr, isEmpty);
+    } finally {
+      tempDirectory.deleteSync(recursive: true);
+    }
+  });
+
+  test('doctor rejects non-Flutter packages', () async {
+    final Directory tempDirectory = Directory.systemTemp.createTempSync(
+      'flutter_pilot_doctor_non_flutter_test_',
+    );
+    final String packageRoot = Directory.current.absolute.path;
+    try {
+      File('${tempDirectory.path}/pubspec.yaml').writeAsStringSync('''
+name: dart_package
+environment:
+  sdk: ^3.9.0
+dependencies:
+  path: ^1.9.1
+''');
+
+      final ProcessResult result = await Process.run(
+        Platform.resolvedExecutable,
+        ['$packageRoot/bin/flutter_pilot.dart', 'doctor'],
+        workingDirectory: tempDirectory.path,
+      );
+
+      expect(result.exitCode, 1);
+      expect(result.stdout, isEmpty);
+      expect(
+        result.stderr,
+        contains(
+          'Flutter Pilot only supports Flutter packages. Run this command from a directory with a pubspec.yaml that declares dependencies.flutter.sdk: flutter.',
+        ),
+      );
+    } finally {
+      tempDirectory.deleteSync(recursive: true);
+    }
+  });
+
+  test(
+    'doctor rejects directories without pubspec as non-Flutter packages',
+    () async {
+      final Directory tempDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_doctor_no_pubspec_test_',
+      );
+      final String packageRoot = Directory.current.absolute.path;
+      try {
+        final ProcessResult result = await Process.run(
+          Platform.resolvedExecutable,
+          ['$packageRoot/bin/flutter_pilot.dart', 'doctor'],
+          workingDirectory: tempDirectory.path,
+        );
+
+        expect(result.exitCode, 1);
+        expect(result.stdout, isEmpty);
+        expect(
+          result.stderr,
+          contains(
+            'Flutter Pilot only supports Flutter packages. Run this command from a directory with a pubspec.yaml that declares dependencies.flutter.sdk: flutter.',
+          ),
+        );
+      } finally {
+        tempDirectory.deleteSync(recursive: true);
+      }
+    },
+  );
+
+  test('init reports existing complete Flutter Pilot app setup', () async {
+    final Directory tempDirectory = Directory.systemTemp.createTempSync(
+      'flutter_pilot_init_existing_test_',
+    );
+    final String packageRoot = Directory.current.absolute.path;
+    try {
+      File('${tempDirectory.path}/pubspec.yaml').writeAsStringSync('''
+name: target_app
+environment:
+  sdk: ^3.9.0
+dependencies:
+  flutter:
+    sdk: flutter
+  mcp_toolkit: ^3.0.0
+''');
+      final Directory libDirectory = Directory('${tempDirectory.path}/lib')
+        ..createSync(recursive: true);
+      File('${libDirectory.path}/main.dart').writeAsStringSync('''
+Future<void> main() async {
+  await MCPToolkitBinding.instance.bootstrapFlutter(
+    runApp: () {},
+  );
+}
+''');
+
+      final ProcessResult result = await Process.run(
+        Platform.resolvedExecutable,
+        ['$packageRoot/bin/flutter_pilot.dart', 'init'],
+        workingDirectory: tempDirectory.path,
+      );
+
+      expect(result.exitCode, 0);
+      expect(result.stdout, contains('Flutter Pilot init'));
+      expect(
+        result.stdout,
+        contains('✅ MCP Toolkit dependency already exists.'),
+      );
+      expect(result.stdout, contains('✅ bootstrapFlutter already exists.'));
+      expect(result.stderr, isEmpty);
+    } finally {
+      tempDirectory.deleteSync(recursive: true);
+    }
+  });
+
+  test(
+    'init prints bootstrap guidance when entrypoint is not bootstrapped',
+    () async {
+      final Directory tempDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_init_bootstrap_test_',
+      );
+      final String packageRoot = Directory.current.absolute.path;
+      try {
+        File('${tempDirectory.path}/pubspec.yaml').writeAsStringSync('''
+name: target_app
+environment:
+  sdk: ^3.9.0
+dependencies:
+  flutter:
+    sdk: flutter
+  mcp_toolkit: ^3.0.0
+''');
+        final Directory libDirectory = Directory('${tempDirectory.path}/lib')
+          ..createSync(recursive: true);
+        File('${libDirectory.path}/main.dart').writeAsStringSync('''
+void main() {
+  runApp(const Placeholder());
+}
+''');
+
+        final ProcessResult result = await Process.run(
+          Platform.resolvedExecutable,
+          ['$packageRoot/bin/flutter_pilot.dart', 'init'],
+          workingDirectory: tempDirectory.path,
+        );
+
+        expect(result.exitCode, 0);
+        expect(
+          result.stdout,
+          contains(
+            '❌ bootstrapFlutter missing: add MCPToolkitBinding.instance.bootstrapFlutter in lib/main.dart',
+          ),
+        );
+        expect(
+          result.stdout,
+          contains("import 'package:mcp_toolkit/mcp_toolkit.dart';"),
+        );
+        expect(
+          result.stdout,
+          contains('await MCPToolkitBinding.instance.bootstrapFlutter('),
+        );
+      } finally {
+        tempDirectory.deleteSync(recursive: true);
+      }
+    },
+  );
 }

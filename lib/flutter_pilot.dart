@@ -7,6 +7,7 @@ library;
 
 export 'src/cli.dart';
 export 'src/artifacts/artifact_store.dart';
+export 'src/app_setup.dart';
 export 'src/diagnostic_reducer.dart';
 export 'src/diagnostic_text_renderer.dart';
 export 'src/html_timeline_report.dart';
