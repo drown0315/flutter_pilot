@@ -7,6 +7,7 @@ import 'diagnostic_text_renderer.dart';
 import 'html_timeline_report.dart';
 import 'runtime/mcp_flutter_runtime_adapter.dart';
 import 'runtime/runtime_contract.dart';
+import 'run_diff.dart';
 import 'scenario.dart';
 import 'scenario_parser.dart';
 import 'scenario_runner.dart';
@@ -36,7 +37,8 @@ class FlutterPilotCli {
           )
           ..addCommand(_ValidateCommand())
           ..addCommand(_RunCommand())
-          ..addCommand(_ReportCommand());
+          ..addCommand(_ReportCommand())
+          ..addCommand(_DiffCommand());
 
     try {
       return await runner.run(arguments) ?? 0;
@@ -45,6 +47,39 @@ class FlutterPilotCli {
       stderr.writeln();
       stderr.writeln(error.usage);
       return 64;
+    }
+  }
+}
+
+/// `diff` command for comparing two existing Scenario Run directories.
+///
+/// It reads each directory's `run_report.json`, generates a Step-focused Run
+/// Diff, and prints human-readable output. Regressions are report content, not
+/// process failures, so successful diff generation exits `0`.
+class _DiffCommand extends Command<int> {
+  @override
+  String get description => 'Compare two Scenario Run directories.';
+
+  @override
+  String get name => 'diff';
+
+  @override
+  Future<int> run() async {
+    if (argResults!.rest.length != 2) {
+      throw UsageException('Expected before and after run directories.', usage);
+    }
+    final Directory beforeRunDirectory = Directory(argResults!.rest[0]);
+    final Directory afterRunDirectory = Directory(argResults!.rest[1]);
+    try {
+      final RunDiff diff = RunDiffEngine.diffDirectories(
+        beforeRunDirectory: beforeRunDirectory,
+        afterRunDirectory: afterRunDirectory,
+      );
+      stdout.writeln(RunDiffTextRenderer.render(diff));
+      return 0;
+    } on RunDiffException catch (error) {
+      stderr.writeln(error.message);
+      return 1;
     }
   }
 }
