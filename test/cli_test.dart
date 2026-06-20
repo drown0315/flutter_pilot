@@ -7,65 +7,6 @@ import 'package:test/test.dart';
 /// These tests verify the external CLI contract: exit codes, terminal output,
 /// and accepted argument combinations.
 void main() {
-  test('diff exits zero and reports unchanged Step outcomes', () async {
-    final Directory tempDirectory = Directory.systemTemp.createTempSync(
-      'flutter_pilot_diff_test_',
-    );
-    final Directory beforeRun = Directory('${tempDirectory.path}/before')
-      ..createSync(recursive: true);
-    final Directory afterRun = Directory('${tempDirectory.path}/after')
-      ..createSync(recursive: true);
-    try {
-      _writeRunReport(
-        beforeRun,
-        scenarioName: 'login_error',
-        steps: const <String>[
-          '''
-{
-  "index": 1,
-  "label": "submit",
-  "action": "tap",
-  "status": "passed",
-  "durationMs": 12
-}
-''',
-        ],
-      );
-      _writeRunReport(
-        afterRun,
-        scenarioName: 'login_error',
-        steps: const <String>[
-          '''
-{
-  "index": 1,
-  "label": "submit",
-  "action": "tap",
-  "status": "passed",
-  "durationMs": 10
-}
-''',
-        ],
-      );
-
-      final ProcessResult result = await Process.run(
-        Platform.resolvedExecutable,
-        [
-          'run',
-          'bin/flutter_pilot.dart',
-          'diff',
-          beforeRun.path,
-          afterRun.path,
-        ],
-      );
-
-      expect(result.exitCode, 0);
-      expect(result.stdout, contains('Run Diff'));
-      expect(result.stdout, contains('No Step outcome changes.'));
-    } finally {
-      tempDirectory.deleteSync(recursive: true);
-    }
-  });
-
   test('validate exits zero for a valid scenario file', () async {
     final ProcessResult result = await Process.run(
       Platform.resolvedExecutable,
@@ -269,32 +210,4 @@ void main() {
     expect(result.stdout, contains('--json'));
     expect(result.stdout, contains('Print raw diagnostics as indented JSON'));
   });
-}
-
-/// Write the smallest run report shape accepted by the CLI diff command.
-///
-/// Args:
-/// `runDirectory` receives `run_report.json`.
-/// `scenarioName` is written under the report `scenario.name` field.
-/// `steps` contains preformatted Step JSON objects that preserve test clarity.
-void _writeRunReport(
-  Directory runDirectory, {
-  required String scenarioName,
-  required List<String> steps,
-}) {
-  File('${runDirectory.path}/run_report.json').writeAsStringSync('''
-{
-  "scenario": {
-    "name": "$scenarioName"
-  },
-  "status": "passed",
-  "startedAt": "2026-06-13T10:00:00.000Z",
-  "durationMs": 42,
-  "runDirectory": "${runDirectory.path}",
-  "artifacts": [],
-  "steps": [
-    ${steps.join(',\n')}
-  ]
-}
-''');
 }

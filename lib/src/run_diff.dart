@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'diagnostic_reducer.dart';
+
 /// Failure while loading or comparing Scenario Run reports.
 ///
 /// The CLI renders the message as an execution error. Usage errors, such as
@@ -21,6 +23,7 @@ class RunDiffException implements Exception {
 /// - warnings that do not stop diff generation, such as Scenario name changes
 /// - Step findings grouped by Regression, resolved, missing, added, and action
 ///   change categories
+/// - run-level visible text and runtime failure differences
 ///
 /// Renderers use this object for both terminal text and stable JSON output.
 class RunDiff {
@@ -33,6 +36,10 @@ class RunDiff {
     required this.missingSteps,
     required this.addedSteps,
     required this.actionChanges,
+    required this.visibleTextAdded,
+    required this.visibleTextRemoved,
+    required this.resolvedRuntimeFailures,
+    required this.newRuntimeFailures,
   });
 
   /// Baseline Scenario Run directory used as the before side of the diff.
@@ -59,24 +66,39 @@ class RunDiff {
   /// Matched Steps whose action changed between before and after runs.
   final List<RunDiffStepFinding> actionChanges;
 
+  /// User-visible text present after the change and absent before it.
+  final List<String> visibleTextAdded;
+
+  /// User-visible text present before the change and absent after it.
+  final List<String> visibleTextRemoved;
+
+  /// Runtime failures that were present before and absent after.
+  final List<String> resolvedRuntimeFailures;
+
+  /// Runtime failures that were absent before and present after.
+  final List<String> newRuntimeFailures;
+
   /// Return the overall Run Diff classification for automation and CI.
   ///
   /// The priority order is:
-  /// - `regressed` when any Regression exists
-  /// - `improved` when resolved Steps exist and there are no Regressions
+  /// - `regressed` when any Step or runtime Regression exists
+  /// - `improved` when resolved Steps or runtime failures exist and there are
+  ///   no Regressions
   /// - `changed` when only neutral findings or warnings exist
   /// - `unchanged` when there are no findings or warnings
   String get outcome {
-    if (regressions.isNotEmpty) {
+    if (regressions.isNotEmpty || newRuntimeFailures.isNotEmpty) {
       return 'regressed';
     }
-    if (resolvedSteps.isNotEmpty) {
+    if (resolvedSteps.isNotEmpty || resolvedRuntimeFailures.isNotEmpty) {
       return 'improved';
     }
     if (warnings.isNotEmpty ||
         missingSteps.isNotEmpty ||
         addedSteps.isNotEmpty ||
-        actionChanges.isNotEmpty) {
+        actionChanges.isNotEmpty ||
+        visibleTextAdded.isNotEmpty ||
+        visibleTextRemoved.isNotEmpty) {
       return 'changed';
     }
     return 'unchanged';
@@ -168,17 +190,19 @@ class RunDiffStepIdentity {
   }
 }
 
-/// Load Scenario Run reports and compare their Step outcomes.
+/// Load Scenario Run reports and compare Step outcomes plus diagnostics.
 class RunDiffEngine {
   RunDiffEngine._();
 
   /// Compare two run directories using their `run_report.json` files.
   ///
   /// This method:
-  /// 1. loads the minimal report fields needed for Step outcome comparison
-  /// 2. records non-fatal warnings such as Scenario name differences
+  /// 1. loads Step reports and reduced diagnostic data
+  /// 2. records non-fatal warnings such as Scenario name differences and
+  ///    missing diagnostic artifacts
   /// 3. aligns before and after Steps by Step Label or Step index
-  /// 4. groups Step differences into renderer-ready finding lists
+  /// 4. groups Step, visible text, and runtime failure differences into
+  ///    renderer-ready finding lists
   ///
   /// Args:
   /// `beforeRunDirectory` is the baseline Scenario Run directory.
@@ -186,7 +210,8 @@ class RunDiffEngine {
   /// the baseline.
   ///
   /// Returns:
-  /// A `RunDiff` with warnings and Step findings.
+  /// A `RunDiff` with warnings, Step findings, visible text changes, and
+  /// runtime failure changes.
   ///
   /// Throws:
   /// `RunDiffException` when either directory or report cannot be loaded.
@@ -196,7 +221,10 @@ class RunDiffEngine {
   }) {
     final _RunReport beforeReport = _RunReportLoader.load(beforeRunDirectory);
     final _RunReport afterReport = _RunReportLoader.load(afterRunDirectory);
-    final List<String> warnings = <String>[];
+    final List<String> warnings = <String>[
+      ...beforeReport.warnings,
+      ...afterReport.warnings,
+    ];
     if (beforeReport.scenarioName != afterReport.scenarioName) {
       warnings.add(
         'Scenario names differ: ${beforeReport.scenarioName} vs ${afterReport.scenarioName}.',
@@ -205,6 +233,22 @@ class RunDiffEngine {
     final _StepAlignment alignment = _alignSteps(
       beforeReport.steps,
       afterReport.steps,
+    );
+    final List<String> visibleTextAdded = _listDifference(
+      afterReport.visibleText,
+      beforeReport.visibleText,
+    );
+    final List<String> visibleTextRemoved = _listDifference(
+      beforeReport.visibleText,
+      afterReport.visibleText,
+    );
+    final List<String> resolvedRuntimeFailures = _listDifference(
+      beforeReport.runtimeFailures,
+      afterReport.runtimeFailures,
+    );
+    final List<String> newRuntimeFailures = _listDifference(
+      afterReport.runtimeFailures,
+      beforeReport.runtimeFailures,
     );
     final List<RunDiffStepFinding> regressions = <RunDiffStepFinding>[
       for (final _AlignedRunReportStep alignedStep in alignment.alignedSteps)
@@ -288,7 +332,24 @@ class RunDiffEngine {
       missingSteps: missingSteps,
       addedSteps: addedSteps,
       actionChanges: actionChanges,
+      visibleTextAdded: visibleTextAdded,
+      visibleTextRemoved: visibleTextRemoved,
+      resolvedRuntimeFailures: resolvedRuntimeFailures,
+      newRuntimeFailures: newRuntimeFailures,
     );
+  }
+
+  /// Return values present in `left` that do not appear in `right`.
+  ///
+  /// The original order from `left` is preserved so rendered output follows
+  /// the report order. Duplicate values are collapsed by the diagnostic
+  /// reducer before Run Diff sees them.
+  static List<String> _listDifference(List<String> left, List<String> right) {
+    final Set<String> rightValues = right.toSet();
+    return <String>[
+      for (final String value in left)
+        if (!rightValues.contains(value)) value,
+    ];
   }
 
   /// Align before-run Steps to after-run Steps.
@@ -380,17 +441,33 @@ class RunDiffTextRenderer {
     }
     buffer.writeln();
     if (diff.regressions.isEmpty &&
+        diff.newRuntimeFailures.isEmpty &&
         diff.resolvedSteps.isEmpty &&
+        diff.resolvedRuntimeFailures.isEmpty &&
         diff.missingSteps.isEmpty &&
         diff.addedSteps.isEmpty &&
-        diff.actionChanges.isEmpty) {
-      buffer.writeln('No Step outcome changes.');
+        diff.actionChanges.isEmpty &&
+        diff.visibleTextAdded.isEmpty &&
+        diff.visibleTextRemoved.isEmpty) {
+      buffer.writeln('No Run Diff changes.');
     } else {
-      _writeFindings(buffer, 'Regressions:', diff.regressions);
+      _writeFindings(buffer, 'Step Regressions:', diff.regressions);
+      _writeStrings(
+        buffer,
+        'New Runtime Failure Regressions:',
+        diff.newRuntimeFailures,
+      );
       _writeFindings(buffer, 'Resolved Steps:', diff.resolvedSteps);
+      _writeStrings(
+        buffer,
+        'Resolved Runtime Failures:',
+        diff.resolvedRuntimeFailures,
+      );
       _writeFindings(buffer, 'Missing Steps:', diff.missingSteps);
       _writeFindings(buffer, 'Added Steps:', diff.addedSteps);
       _writeFindings(buffer, 'Action Changes:', diff.actionChanges);
+      _writeStrings(buffer, 'Visible Text Added:', diff.visibleTextAdded);
+      _writeStrings(buffer, 'Visible Text Removed:', diff.visibleTextRemoved);
     }
     return buffer.toString().trimRight();
   }
@@ -415,6 +492,26 @@ class RunDiffTextRenderer {
       if (finding.failureReason != null) {
         buffer.writeln('  Reason: ${finding.failureReason}');
       }
+    }
+  }
+
+  /// Write one titled string section when the section has content.
+  ///
+  /// Args:
+  /// `buffer` receives terminal lines.
+  /// `title` is the section heading.
+  /// `values` are already compact user-facing values from the Run Diff.
+  static void _writeStrings(
+    StringBuffer buffer,
+    String title,
+    List<String> values,
+  ) {
+    if (values.isEmpty) {
+      return;
+    }
+    buffer.writeln(title);
+    for (final String value in values) {
+      buffer.writeln('- $value');
     }
   }
 }
@@ -449,6 +546,10 @@ class RunDiffJsonRenderer {
       'missingSteps': _findingsToJson(diff.missingSteps),
       'addedSteps': _findingsToJson(diff.addedSteps),
       'actionChanges': _findingsToJson(diff.actionChanges),
+      'visibleTextAdded': diff.visibleTextAdded,
+      'visibleTextRemoved': diff.visibleTextRemoved,
+      'resolvedRuntimeFailures': diff.resolvedRuntimeFailures,
+      'newRuntimeFailures': diff.newRuntimeFailures,
     };
     return const JsonEncoder.withIndent('  ').convert(payload);
   }
@@ -513,19 +614,34 @@ class _AlignedRunReportStep {
   final _RunReportStep after;
 }
 
-/// Minimal report data needed by Step outcome Run Diff.
+/// Minimal report data needed by Run Diff.
 ///
-/// It contains the Scenario name used for warnings and the Step list used for
-/// alignment. Other run report fields are intentionally ignored by this Step
-/// outcome slice.
+/// It contains the Scenario name used for warnings, the Step list used for
+/// alignment, and reduced diagnostic summaries used for run-level visible text
+/// and runtime failure comparison.
 class _RunReport {
-  const _RunReport({required this.scenarioName, required this.steps});
+  const _RunReport({
+    required this.scenarioName,
+    required this.steps,
+    required this.visibleText,
+    required this.runtimeFailures,
+    required this.warnings,
+  });
 
   /// Scenario name from `run_report.json`, used for mismatch warnings.
   final String scenarioName;
 
   /// Step reports in timeline order.
   final List<_RunReportStep> steps;
+
+  /// Run-level visible text from diagnostic summaries or artifact fallback.
+  final List<String> visibleText;
+
+  /// Run-level runtime failures from diagnostic summaries or artifact fallback.
+  final List<String> runtimeFailures;
+
+  /// Non-fatal report or artifact loading warnings from this run.
+  final List<String> warnings;
 }
 
 /// Minimal Step report fields used by the Step outcome diff.
@@ -636,13 +752,149 @@ class _RunReportLoader {
         'Unsupported run_report.json shape in ${runDirectory.path}: missing steps list.',
       );
     }
+    final Object? diagnosticSummary = decoded['diagnosticSummary'];
+    final Map<String, Object?>? summary =
+        diagnosticSummary is Map<String, Object?> ? diagnosticSummary : null;
+    final _ArtifactDiagnostics artifactDiagnostics = _readArtifactDiagnostics(
+      decoded,
+      runDirectory.path,
+    );
+    final DiagnosticSummary reducedArtifactSummary = DiagnosticReducer.reduce(
+      snapshot: artifactDiagnostics.snapshot,
+      logs: artifactDiagnostics.logs,
+    );
     return _RunReport(
       scenarioName: scenario['name'] as String,
       steps: <_RunReportStep>[
         for (int stepIndex = 0; stepIndex < steps.length; stepIndex++)
           _readStep(steps[stepIndex], stepIndex, runDirectory.path),
       ],
+      visibleText: summary == null
+          ? reducedArtifactSummary.visibleText
+          : _readStringList(summary, 'visibleText'),
+      runtimeFailures: summary == null
+          ? reducedArtifactSummary.runtimeFailures
+          : _readStringList(summary, 'runtimeFailures'),
+      warnings: artifactDiagnostics.warnings,
     );
+  }
+
+  /// Read Snapshot and Logs artifact payloads referenced by `run_report.json`.
+  ///
+  /// Args:
+  /// `report` is the decoded run report object.
+  /// `runDirectoryPath` resolves artifact paths, which are stored relative to
+  /// the run directory.
+  ///
+  /// Returns:
+  /// Decoded Snapshot and Logs payloads suitable for `DiagnosticReducer`.
+  /// Missing or malformed artifact metadata is ignored in this pass; a later
+  /// warning pass makes partial artifact directories visible to users.
+  static _ArtifactDiagnostics _readArtifactDiagnostics(
+    Map<String, Object?> report,
+    String runDirectoryPath,
+  ) {
+    final Object? artifacts = report['artifacts'];
+    if (artifacts is! List<Object?>) {
+      return const _ArtifactDiagnostics(
+        snapshot: null,
+        logs: null,
+        warnings: <String>[],
+      );
+    }
+    final List<Object?> snapshots = <Object?>[];
+    final List<Object?> logs = <Object?>[];
+    final List<String> warnings = <String>[];
+    for (final Object? artifact in artifacts) {
+      if (artifact is! Map<String, Object?>) {
+        continue;
+      }
+      final Object? type = artifact['type'];
+      final Object? path = artifact['path'];
+      if (path is! String || type is! String) {
+        continue;
+      }
+      final _ArtifactReadResult readResult = _readArtifactJson(
+        runDirectoryPath,
+        type,
+        path,
+      );
+      if (readResult.warning != null &&
+          (type == 'snapshot' || type == 'logs')) {
+        warnings.add(readResult.warning!);
+      }
+      if (type == 'snapshot') {
+        if (readResult.decoded != null) {
+          snapshots.add(readResult.decoded);
+        }
+      } else if (type == 'logs') {
+        if (readResult.decoded != null) {
+          logs.add(readResult.decoded);
+        }
+      }
+    }
+    return _ArtifactDiagnostics(
+      snapshot: snapshots.isEmpty ? null : snapshots,
+      logs: logs.isEmpty ? null : logs,
+      warnings: warnings,
+    );
+  }
+
+  /// Decode one JSON artifact relative to a run directory.
+  ///
+  /// Returns:
+  /// The decoded artifact payload, or `null` when the file cannot be read or is
+  /// not valid JSON. Artifact read failures become warnings in a later pass so
+  /// Run Diff can still compare the rest of the report.
+  static _ArtifactReadResult _readArtifactJson(
+    String runDirectoryPath,
+    String type,
+    String path,
+  ) {
+    final File artifactFile = File(p.join(runDirectoryPath, path));
+    if (!artifactFile.existsSync()) {
+      return _ArtifactReadResult(
+        decoded: null,
+        warning: 'Missing $type artifact in $runDirectoryPath: $path',
+      );
+    }
+    try {
+      return _ArtifactReadResult(
+        decoded: jsonDecode(artifactFile.readAsStringSync()),
+        warning: null,
+      );
+    } on FormatException catch (error) {
+      return _ArtifactReadResult(
+        decoded: null,
+        warning:
+            'Malformed $type artifact in $runDirectoryPath: $path (${error.message})',
+      );
+    } on FileSystemException catch (error) {
+      return _ArtifactReadResult(
+        decoded: null,
+        warning:
+            'Unreadable $type artifact in $runDirectoryPath: $path (${error.message})',
+      );
+    }
+  }
+
+  /// Read a string list from a diagnostic summary object.
+  ///
+  /// Missing summary fields return an empty list because older run reports did
+  /// not always include diagnostic summaries. Non-string list entries are
+  /// ignored so one noisy diagnostic value does not make the whole diff fail.
+  static List<String> _readStringList(
+    Map<String, Object?>? summary,
+    String key,
+  ) {
+    final Object? value = summary?[key];
+    if (value is! List<Object?>) {
+      return const <String>[];
+    }
+    return <String>[
+      for (final Object? item in value)
+        if (item is String) item,
+    ];
   }
 
   /// Parse one Step report object from `run_report.json`.
@@ -683,4 +935,37 @@ class _RunReportLoader {
       failureReason: failureReason as String?,
     );
   }
+}
+
+/// Decoded diagnostic artifact payloads from one Scenario Run.
+///
+/// Snapshot artifacts provide visible UI state, and Logs artifacts provide
+/// runtime failures. Either field can be `null` when the report did not
+/// reference that artifact type or when the artifact could not be decoded.
+class _ArtifactDiagnostics {
+  const _ArtifactDiagnostics({
+    required this.snapshot,
+    required this.logs,
+    required this.warnings,
+  });
+
+  /// Decoded Snapshot artifact payload used for visible text extraction.
+  final Object? snapshot;
+
+  /// Decoded Logs artifact payload used for runtime failure extraction.
+  final Object? logs;
+
+  /// Non-fatal warnings for missing, unreadable, or malformed artifacts.
+  final List<String> warnings;
+}
+
+/// Result from reading one referenced diagnostic artifact.
+class _ArtifactReadResult {
+  const _ArtifactReadResult({required this.decoded, required this.warning});
+
+  /// Decoded JSON payload, or `null` when the artifact could not be read.
+  final Object? decoded;
+
+  /// Warning describing the artifact read problem, or `null` on success.
+  final String? warning;
 }
