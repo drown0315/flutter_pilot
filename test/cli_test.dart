@@ -241,7 +241,7 @@ Future<void> main() async {
 
       final ProcessResult result = await Process.run(
         Platform.resolvedExecutable,
-        ['run', '$packageRoot/bin/flutter_pilot.dart', 'doctor'],
+        ['$packageRoot/bin/flutter_pilot.dart', 'doctor'],
         workingDirectory: tempDirectory.path,
       );
 
@@ -280,7 +280,7 @@ void main() {
 
       final ProcessResult result = await Process.run(
         Platform.resolvedExecutable,
-        ['run', '$packageRoot/bin/flutter_pilot.dart', 'doctor'],
+        ['$packageRoot/bin/flutter_pilot.dart', 'doctor'],
         workingDirectory: tempDirectory.path,
       );
 
@@ -320,7 +320,7 @@ dependencies:
 
       final ProcessResult result = await Process.run(
         Platform.resolvedExecutable,
-        ['run', '$packageRoot/bin/flutter_pilot.dart', 'doctor'],
+        ['$packageRoot/bin/flutter_pilot.dart', 'doctor'],
         workingDirectory: tempDirectory.path,
       );
 
@@ -347,7 +347,7 @@ dependencies:
       try {
         final ProcessResult result = await Process.run(
           Platform.resolvedExecutable,
-          ['run', '$packageRoot/bin/flutter_pilot.dart', 'doctor'],
+          ['$packageRoot/bin/flutter_pilot.dart', 'doctor'],
           workingDirectory: tempDirectory.path,
         );
 
@@ -392,7 +392,7 @@ Future<void> main() async {
 
       final ProcessResult result = await Process.run(
         Platform.resolvedExecutable,
-        ['run', '$packageRoot/bin/flutter_pilot.dart', 'init'],
+        ['$packageRoot/bin/flutter_pilot.dart', 'init'],
         workingDirectory: tempDirectory.path,
       );
 
@@ -436,7 +436,7 @@ void main() {
 
         final ProcessResult result = await Process.run(
           Platform.resolvedExecutable,
-          ['run', '$packageRoot/bin/flutter_pilot.dart', 'init'],
+          ['$packageRoot/bin/flutter_pilot.dart', 'init'],
           workingDirectory: tempDirectory.path,
         );
 
