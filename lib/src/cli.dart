@@ -54,9 +54,18 @@ class FlutterPilotCli {
 /// `diff` command for comparing two existing Scenario Run directories.
 ///
 /// It reads each directory's `run_report.json`, generates a Step-focused Run
-/// Diff, and prints human-readable output. Regressions are report content, not
-/// process failures, so successful diff generation exits `0`.
+/// Diff, and prints either human-readable output or `--json` output.
+/// Regressions are report content, not process failures, so successful diff
+/// generation exits `0`.
 class _DiffCommand extends Command<int> {
+  _DiffCommand() {
+    argParser.addFlag(
+      'json',
+      negatable: false,
+      help: 'Print machine-readable Run Diff output.',
+    );
+  }
+
   @override
   String get description => 'Compare two Scenario Run directories.';
 
@@ -65,6 +74,7 @@ class _DiffCommand extends Command<int> {
 
   @override
   Future<int> run() async {
+    final bool jsonOutput = argResults!.flag('json');
     if (argResults!.rest.length != 2) {
       throw UsageException('Expected before and after run directories.', usage);
     }
@@ -75,7 +85,11 @@ class _DiffCommand extends Command<int> {
         beforeRunDirectory: beforeRunDirectory,
         afterRunDirectory: afterRunDirectory,
       );
-      stdout.writeln(RunDiffTextRenderer.render(diff));
+      if (jsonOutput) {
+        stdout.writeln(RunDiffJsonRenderer.render(diff));
+      } else {
+        stdout.writeln(RunDiffTextRenderer.render(diff));
+      }
       return 0;
     } on RunDiffException catch (error) {
       stderr.writeln(error.message);

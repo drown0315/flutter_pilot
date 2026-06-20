@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_testkit/file_testkit.dart';
@@ -162,6 +163,59 @@ void main() {
       expect(output, isNot(contains('missing labeled Step')));
     });
   });
+
+  test(
+    'aligns unlabeled before Steps by index when after Step has a label',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final Directory beforeRun = Directory('/runs/before')
+          ..createSync(recursive: true);
+        final Directory afterRun = Directory('/runs/after')
+          ..createSync(recursive: true);
+        _writeRunReport(
+          beforeRun,
+          scenarioName: 'login_error',
+          steps: const <String>[
+            '''
+{
+  "index": 1,
+  "action": "tap",
+  "status": "failed",
+  "durationMs": 12,
+  "failureReason": "Finder matched no widgets."
+}
+''',
+          ],
+        );
+        _writeRunReport(
+          afterRun,
+          scenarioName: 'login_error',
+          steps: const <String>[
+            '''
+{
+  "index": 1,
+  "label": "submit",
+  "action": "tap",
+  "status": "passed",
+  "durationMs": 10
+}
+''',
+          ],
+        );
+
+        final RunDiff diff = RunDiffEngine.diffDirectories(
+          beforeRunDirectory: beforeRun,
+          afterRunDirectory: afterRun,
+        );
+        final String output = RunDiffTextRenderer.render(diff);
+
+        expect(output, contains('Resolved Steps:'));
+        expect(output, contains('Step 1'));
+        expect(output, isNot(contains('Missing Steps:')));
+        expect(output, isNot(contains('Added Steps:')));
+      });
+    },
+  );
 
   test(
     'distinguishes missing labeled, missing unlabeled, and added Steps',
@@ -335,6 +389,323 @@ void main() {
       tempDirectory.deleteSync(recursive: true);
     }
   });
+
+  test('diff CLI prints machine-readable Run Diff JSON', () async {
+    final Directory tempDirectory = Directory.systemTemp.createTempSync(
+      'flutter_pilot_diff_json_test_',
+    );
+    final Directory beforeRun = Directory('${tempDirectory.path}/before')
+      ..createSync(recursive: true);
+    final Directory afterRun = Directory('${tempDirectory.path}/after')
+      ..createSync(recursive: true);
+    try {
+      _writeRunReport(
+        beforeRun,
+        scenarioName: 'login_error',
+        steps: const <String>[
+          '''
+{
+  "index": 1,
+  "label": "submit",
+  "action": "tap",
+  "status": "passed",
+  "durationMs": 12
+}
+''',
+          '''
+{
+  "index": 2,
+  "label": "banner",
+  "action": "waitFor",
+  "status": "failed",
+  "durationMs": 15,
+  "failureReason": "Finder matched no widgets."
+}
+''',
+          '''
+{
+  "index": 3,
+  "action": "capture",
+  "status": "passed",
+  "durationMs": 3
+}
+''',
+          '''
+{
+  "index": 4,
+  "label": "refresh",
+  "action": "tap",
+  "status": "passed",
+  "durationMs": 9
+}
+''',
+        ],
+      );
+      _writeRunReport(
+        afterRun,
+        scenarioName: 'checkout_error',
+        steps: const <String>[
+          '''
+{
+  "index": 1,
+  "label": "submit",
+  "action": "tap",
+  "status": "failed",
+  "durationMs": 10,
+  "failureReason": "Button stayed disabled."
+}
+''',
+          '''
+{
+  "index": 2,
+  "label": "banner",
+  "action": "waitFor",
+  "status": "passed",
+  "durationMs": 8
+}
+''',
+          '''
+{
+  "index": 4,
+  "label": "refresh",
+  "action": "waitFor",
+  "status": "passed",
+  "durationMs": 7
+}
+''',
+          '''
+{
+  "index": 5,
+  "label": "confirmation",
+  "action": "waitFor",
+  "status": "passed",
+  "durationMs": 6
+}
+''',
+        ],
+      );
+
+      final ProcessResult result = await Process.run(
+        Platform.resolvedExecutable,
+        [
+          'run',
+          'bin/flutter_pilot.dart',
+          'diff',
+          beforeRun.path,
+          afterRun.path,
+          '--json',
+        ],
+      );
+      final Map<String, Object?> json =
+          jsonDecode(result.stdout as String) as Map<String, Object?>;
+      final List<Object?> regressions = json['regressions'] as List<Object?>;
+      final List<Object?> resolvedSteps =
+          json['resolvedSteps'] as List<Object?>;
+      final List<Object?> missingSteps = json['missingSteps'] as List<Object?>;
+      final List<Object?> addedSteps = json['addedSteps'] as List<Object?>;
+      final List<Object?> actionChanges =
+          json['actionChanges'] as List<Object?>;
+
+      expect(result.exitCode, 0);
+      expect(json['beforeRunDirectory'], beforeRun.path);
+      expect(json['afterRunDirectory'], afterRun.path);
+      expect(json['outcome'], 'regressed');
+      expect(
+        json['warnings'],
+        contains('Scenario names differ: login_error vs checkout_error.'),
+      );
+      expect(regressions, hasLength(1));
+      expect(
+        regressions.single,
+        containsPair('failureReason', 'Button stayed disabled.'),
+      );
+      expect(
+        regressions.single,
+        containsPair('before', {
+          'index': 1,
+          'label': 'submit',
+          'action': 'tap',
+          'status': 'passed',
+        }),
+      );
+      expect(
+        regressions.single,
+        containsPair('after', {
+          'index': 1,
+          'label': 'submit',
+          'action': 'tap',
+          'status': 'failed',
+          'failureReason': 'Button stayed disabled.',
+        }),
+      );
+      expect(resolvedSteps, hasLength(1));
+      expect(missingSteps, hasLength(1));
+      expect(addedSteps, hasLength(1));
+      expect(actionChanges, hasLength(1));
+    } finally {
+      tempDirectory.deleteSync(recursive: true);
+    }
+  });
+
+  test('JSON outcome is improved for resolved Steps only', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory beforeRun = Directory('/runs/before')
+        ..createSync(recursive: true);
+      final Directory afterRun = Directory('/runs/after')
+        ..createSync(recursive: true);
+      _writeRunReport(
+        beforeRun,
+        scenarioName: 'login_error',
+        steps: const <String>[
+          '''
+{
+  "index": 1,
+  "label": "submit",
+  "action": "tap",
+  "status": "failed",
+  "durationMs": 12,
+  "failureReason": "Finder matched no widgets."
+}
+''',
+        ],
+      );
+      _writeRunReport(
+        afterRun,
+        scenarioName: 'login_error',
+        steps: const <String>[
+          '''
+{
+  "index": 1,
+  "label": "submit",
+  "action": "tap",
+  "status": "passed",
+  "durationMs": 10
+}
+''',
+        ],
+      );
+
+      final RunDiff diff = RunDiffEngine.diffDirectories(
+        beforeRunDirectory: beforeRun,
+        afterRunDirectory: afterRun,
+      );
+      final Map<String, Object?> json =
+          jsonDecode(RunDiffJsonRenderer.render(diff)) as Map<String, Object?>;
+
+      expect(json['outcome'], 'improved');
+      expect(json['resolvedSteps'], hasLength(1));
+      expect(json['regressions'], isEmpty);
+    });
+  });
+
+  test('JSON outcome is changed for neutral-only Step changes', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory beforeRun = Directory('/runs/before')
+        ..createSync(recursive: true);
+      final Directory afterRun = Directory('/runs/after')
+        ..createSync(recursive: true);
+      _writeRunReport(
+        beforeRun,
+        scenarioName: 'login_error',
+        steps: const <String>[
+          '''
+{
+  "index": 1,
+  "label": "submit",
+  "action": "tap",
+  "status": "passed",
+  "durationMs": 12
+}
+''',
+        ],
+      );
+      _writeRunReport(
+        afterRun,
+        scenarioName: 'login_error',
+        steps: const <String>[
+          '''
+{
+  "index": 1,
+  "label": "submit",
+  "action": "waitFor",
+  "status": "passed",
+  "durationMs": 10
+}
+''',
+        ],
+      );
+
+      final RunDiff diff = RunDiffEngine.diffDirectories(
+        beforeRunDirectory: beforeRun,
+        afterRunDirectory: afterRun,
+      );
+      final Map<String, Object?> json =
+          jsonDecode(RunDiffJsonRenderer.render(diff)) as Map<String, Object?>;
+
+      expect(json['outcome'], 'changed');
+      expect(json['actionChanges'], hasLength(1));
+      expect(json['regressions'], isEmpty);
+      expect(json['resolvedSteps'], isEmpty);
+    });
+  });
+
+  test(
+    'JSON outcome is unchanged when there are no findings or warnings',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final Directory beforeRun = Directory('/runs/before')
+          ..createSync(recursive: true);
+        final Directory afterRun = Directory('/runs/after')
+          ..createSync(recursive: true);
+        _writeRunReport(
+          beforeRun,
+          scenarioName: 'login_error',
+          steps: const <String>[
+            '''
+{
+  "index": 1,
+  "label": "submit",
+  "action": "tap",
+  "status": "passed",
+  "durationMs": 12
+}
+''',
+          ],
+        );
+        _writeRunReport(
+          afterRun,
+          scenarioName: 'login_error',
+          steps: const <String>[
+            '''
+{
+  "index": 1,
+  "label": "submit",
+  "action": "tap",
+  "status": "passed",
+  "durationMs": 10
+}
+''',
+          ],
+        );
+
+        final RunDiff diff = RunDiffEngine.diffDirectories(
+          beforeRunDirectory: beforeRun,
+          afterRunDirectory: afterRun,
+        );
+        final Map<String, Object?> json =
+            jsonDecode(RunDiffJsonRenderer.render(diff))
+                as Map<String, Object?>;
+
+        expect(json['outcome'], 'unchanged');
+        expect(json['warnings'], isEmpty);
+        expect(json['regressions'], isEmpty);
+        expect(json['resolvedSteps'], isEmpty);
+        expect(json['missingSteps'], isEmpty);
+        expect(json['addedSteps'], isEmpty);
+        expect(json['actionChanges'], isEmpty);
+      });
+    },
+  );
 
   test(
     'diff CLI reports missing and malformed run reports as execution errors',
