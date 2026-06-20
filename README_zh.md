@@ -1,0 +1,160 @@
+# Flutter Pilot
+
+[English](README.md)
+
+Flutter Pilot 是一个面向 Flutter 应用的可复现 UI 调试上下文工具。它把一段
+Flutter UI 操作路径描述成可提交、可分享、可重复执行的 YAML Scenario，并把
+调试所需的上下文整理成适合开发者、CI 和 AI 编码代理阅读的产物。
+
+> 项目状态：Flutter Pilot 仍在开发中。当前实现重点是 Dart CLI、Scenario
+> YAML 解析与校验、报告生成和命令外壳；通过 `mcp_flutter` 实际驱动 Flutter
+> UI 的执行能力还在建设中。
+
+Flutter Pilot 构建在 `mcp_flutter` 之上。`mcp_flutter` 负责提供 Flutter
+运行时交互和检查能力，Flutter Pilot 则在其上增加 Scenario DSL、调试产物收集、
+运行报告和后续 diff 能力。
+
+## 它能做什么
+
+Flutter Pilot 把一次 UI 旅程视为一个可移植的 Scenario。Scenario 描述要点击
+哪些 widget、在哪里输入文本、等待什么 UI 状态、何时滚动，以及在哪些步骤捕获
+诊断产物。
+
+Runtime Target 的连接信息不会写进 YAML。相同的 Scenario 可以被校验、分享、
+提交到仓库，并通过 CLI 参数在不同的 Runtime Target 上运行。
+
+一次运行会在 `.runs/` 下生成运行目录。这个目录的目标是独立可读：开发者可以
+查看截图和 HTML timeline，CI 可以归档产物，AI 代理可以读取结构化 Snapshot、
+日志和 `run_report.json` 作为紧凑的调试上下文。
+
+## 为什么需要它
+
+Flutter UI 问题很难只靠一张截图和模糊的复现步骤交接。截图能展示外观，但不能
+说明结构化 UI 状态、最近执行过的动作、运行日志，或问题出现在哪个精确 Step。
+
+Flutter Pilot 通过可重复的 UI 旅程和周边运行时上下文，让开发者或代理能回答
+更具体的问题：
+
+- 用户在失败前做了什么？
+- 当时有哪些可见文本和语义 UI 元素？
+- 失败 Step 附近有哪些日志或运行时错误？
+- 修复前后运行是否改变了预期的 UI 状态？
+
+## 快速示例
+
+```yaml
+scenario:
+  name: login_error
+  description: Reproduce the invalid login message.
+
+steps:
+  - label: enter_email
+    type:
+      byType: textField
+      text: bad@example.com
+
+  - label: submit_login
+    tap:
+      byText: Continue
+      byType: button
+
+  - label: error_visible
+    waitFor:
+      byText: Invalid email or password
+      timeoutMs: 5000
+
+  - label: capture_failure
+    capture: {}
+```
+
+这个 Scenario 只描述 UI 旅程。Runtime Target，例如 Flutter VM service URI，
+在运行 Scenario 时通过 CLI 参数提供。
+
+HTML timeline report 会把同一次 UI 旅程转换成可视化审查界面：
+
+![Flutter Pilot HTML timeline report 示例](docs/assets/timeline-report-example.svg)
+
+## 使用方式
+
+不连接 Flutter 应用，只校验 Scenario：
+
+```bash
+dart run flutter_pilot validate examples/smoke_scenario.yaml
+```
+
+针对 Runtime Target 运行 Scenario：
+
+```bash
+dart run flutter_pilot run examples/smoke_scenario.yaml --target <vm-service-uri>
+```
+
+运行到指定 Step 后停止，并打印捕获到的诊断上下文：
+
+```bash
+dart run flutter_pilot run examples/smoke_scenario.yaml \
+  --target <vm-service-uri> \
+  --until wait_for_error \
+  --print snapshot
+```
+
+基于已有运行目录重新生成 HTML timeline：
+
+```bash
+dart run flutter_pilot report .runs/<run-directory>
+```
+
+## Scenario YAML
+
+Scenario YAML 是 Flutter Pilot 对 UI 旅程的可移植描述。它支持有序 Steps、
+Step Label、Finder、动作、等待、滚动和捕获检查点。
+
+完整语法、示例和校验规则见 [docs/scenario-yaml.md](docs/scenario-yaml.md)。
+
+## 命令
+
+```bash
+flutter_pilot validate <scenario.yaml>
+flutter_pilot validate <scenario.yaml> --json
+flutter_pilot run <scenario.yaml> --target <runtime-target>
+flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label>
+flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label> --print <snapshot|widget-tree|errors>
+flutter_pilot report <run-directory>
+```
+
+`--print` 可以重复传入。请求多个诊断输出时，Flutter Pilot 会按稳定顺序打印：
+Snapshot、Widget Tree、errors。
+
+## 产物
+
+Scenario 运行会在 `.runs/` 下写入一个运行目录。产物模型同时面向人工审查和机器
+消费。
+
+- Screenshot：用户在屏幕上看到的画面。
+- Snapshot：供工具和 AI 代理消费的结构化 UI 状态。
+- Widget Tree：按需捕获的更深层 Flutter 层级数据。
+- Logs：运行时和诊断输出。
+- `run_report.json`：机器可读的执行摘要。
+- `timeline.html`：由运行产物生成的可视化 timeline。
+
+## 开发
+
+```bash
+dart format .
+dart analyze
+dart test
+```
+
+添加 Dart 依赖时使用 `dart pub add`，保持依赖元数据一致。
+
+## 文档
+
+- [CONTEXT.md](CONTEXT.md)：项目词汇。
+- [docs/scenario-yaml.md](docs/scenario-yaml.md)：Scenario YAML 语法。
+- [docs/flutter-pilot-prd.md](docs/flutter-pilot-prd.md)：产品范围和实现决策。
+- [docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md](docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md)：
+  Dart CLI 和 YAML Scenario DSL 的架构决策。
+
+## 范围
+
+Flutter Pilot 聚焦可复现的 Flutter UI 调试产物。它不会替代 `mcp_flutter`，
+第一版也不会扩展成通用的视觉回归平台。
