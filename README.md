@@ -1,5 +1,7 @@
 # Flutter Pilot
 
+[中文](README_zh.md)
+
 Flutter Pilot turns Flutter UI journeys into reproducible, AI-readable
 debugging context.
 
