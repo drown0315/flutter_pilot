@@ -83,6 +83,7 @@ Map<String, Object?> stepReport({
   required String status,
   String? label,
   String? failureReason,
+  List<Map<String, Object?>> artifacts = const <Map<String, Object?>>[],
   int durationMs = 12,
 }) {
   return <String, Object?>{
@@ -91,6 +92,7 @@ Map<String, Object?> stepReport({
     'action': action,
     'status': status,
     'durationMs': durationMs,
+    if (artifacts.isNotEmpty) 'artifacts': artifacts,
     'failureReason': ?failureReason,
   };
 }
@@ -126,4 +128,17 @@ void writeJsonArtifact(
   final File file = File(p.join(runDirectory.path, relativePath));
   file.parent.createSync(recursive: true);
   file.writeAsStringSync(const JsonEncoder.withIndent('  ').convert(payload));
+}
+
+/// Write a binary artifact referenced by a run report.
+///
+/// `relativePath` is resolved under `runDirectory`.
+void writeBinaryArtifact(
+  Directory runDirectory,
+  String relativePath,
+  List<int> bytes,
+) {
+  final File file = File(p.join(runDirectory.path, relativePath));
+  file.parent.createSync(recursive: true);
+  file.writeAsBytesSync(bytes);
 }

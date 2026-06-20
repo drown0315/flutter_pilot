@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import 'diagnostic_reducer.dart';
@@ -36,6 +37,7 @@ class RunDiff {
     required this.missingSteps,
     required this.addedSteps,
     required this.actionChanges,
+    required this.screenshotChanges,
     required this.visibleTextAdded,
     required this.visibleTextRemoved,
     required this.resolvedRuntimeFailures,
@@ -65,6 +67,9 @@ class RunDiff {
 
   /// Matched Steps whose action changed between before and after runs.
   final List<RunDiffStepFinding> actionChanges;
+
+  /// Screenshot artifact changes that need visual review.
+  final List<RunDiffScreenshotChange> screenshotChanges;
 
   /// User-visible text present after the change and absent before it.
   final List<String> visibleTextAdded;
@@ -97,6 +102,7 @@ class RunDiff {
         missingSteps.isNotEmpty ||
         addedSteps.isNotEmpty ||
         actionChanges.isNotEmpty ||
+        screenshotChanges.isNotEmpty ||
         visibleTextAdded.isNotEmpty ||
         visibleTextRemoved.isNotEmpty) {
       return 'changed';
@@ -139,6 +145,69 @@ class RunDiffStepFinding {
 
   /// Failure reason attached to a Step Regression or resolved Step.
   final String? failureReason;
+}
+
+/// One Screenshot artifact difference between matched before and after Steps.
+///
+/// It carries:
+/// - `kind`, a stable change type: `added`, `missing`, or `changed`
+/// - `stepKey`, the Step Label or Step index used to correlate the change
+/// - optional before and after Step identities
+/// - relative artifact paths and SHA-256 hashes when the files can be read
+class RunDiffScreenshotChange {
+  const RunDiffScreenshotChange({
+    required this.kind,
+    required this.stepKey,
+    required this.description,
+    required this.before,
+    required this.after,
+    required this.beforePath,
+    required this.afterPath,
+    required this.beforeHash,
+    required this.afterHash,
+  });
+
+  /// Stable screenshot change type for JSON consumers.
+  final String kind;
+
+  /// Stable Step correlation key, such as `label:submit` or `index:2`.
+  final String stepKey;
+
+  /// Compact explanation used in the text renderer.
+  final String description;
+
+  /// Before-run Step identity, or `null` for after-only screenshots.
+  final RunDiffStepIdentity? before;
+
+  /// After-run Step identity, or `null` for before-only screenshots.
+  final RunDiffStepIdentity? after;
+
+  /// Before-run screenshot path relative to the run directory.
+  final String? beforePath;
+
+  /// After-run screenshot path relative to the run directory.
+  final String? afterPath;
+
+  /// SHA-256 hash of the before-run screenshot file.
+  final String? beforeHash;
+
+  /// SHA-256 hash of the after-run screenshot file.
+  final String? afterHash;
+
+  /// Convert the Screenshot change to the stable JSON object shape.
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'kind': kind,
+      'stepKey': stepKey,
+      'description': description,
+      'before': before?.toJson(),
+      'after': after?.toJson(),
+      'beforePath': beforePath,
+      'afterPath': afterPath,
+      'beforeHash': beforeHash,
+      'afterHash': afterHash,
+    };
+  }
 }
 
 /// Stable Step identity exposed in machine-readable Run Diff output.
@@ -323,6 +392,8 @@ class RunDiffEngine {
             after: alignedStep.after.identity,
           ),
     ];
+    final List<RunDiffScreenshotChange> screenshotChanges =
+        _diffScreenshotArtifacts(alignment);
     return RunDiff(
       beforeRunDirectory: beforeRunDirectory.path,
       afterRunDirectory: afterRunDirectory.path,
@@ -332,6 +403,7 @@ class RunDiffEngine {
       missingSteps: missingSteps,
       addedSteps: addedSteps,
       actionChanges: actionChanges,
+      screenshotChanges: screenshotChanges,
       visibleTextAdded: visibleTextAdded,
       visibleTextRemoved: visibleTextRemoved,
       resolvedRuntimeFailures: resolvedRuntimeFailures,
@@ -349,6 +421,105 @@ class RunDiffEngine {
     return <String>[
       for (final String value in left)
         if (!rightValues.contains(value)) value,
+    ];
+  }
+
+  /// Compare Screenshot artifacts from aligned, missing, and added Steps.
+  ///
+  /// The first version compares file presence and SHA-256 hashes only. It does
+  /// not decode image pixels, apply thresholds, or create visual heatmaps.
+  static List<RunDiffScreenshotChange> _diffScreenshotArtifacts(
+    _StepAlignment alignment,
+  ) {
+    return <RunDiffScreenshotChange>[
+      for (final _AlignedRunReportStep alignedStep in alignment.alignedSteps)
+        ..._diffAlignedScreenshotArtifact(alignedStep),
+      for (final _RunReportStep missingStep in alignment.missingBeforeSteps)
+        if (missingStep.screenshot != null)
+          RunDiffScreenshotChange(
+            kind: 'missing',
+            stepKey: missingStep.key.value,
+            description: '${missingStep.name}: screenshot missing in after run',
+            before: missingStep.identity,
+            after: null,
+            beforePath: missingStep.screenshot!.path,
+            afterPath: null,
+            beforeHash: missingStep.screenshot!.hash,
+            afterHash: null,
+          ),
+      for (final _RunReportStep addedStep in alignment.addedAfterSteps)
+        if (addedStep.screenshot != null)
+          RunDiffScreenshotChange(
+            kind: 'added',
+            stepKey: addedStep.key.value,
+            description: '${addedStep.name}: screenshot added in after run',
+            before: null,
+            after: addedStep.identity,
+            beforePath: null,
+            afterPath: addedStep.screenshot!.path,
+            beforeHash: null,
+            afterHash: addedStep.screenshot!.hash,
+          ),
+    ];
+  }
+
+  /// Compare the Screenshot artifact for one matched Step pair.
+  static List<RunDiffScreenshotChange> _diffAlignedScreenshotArtifact(
+    _AlignedRunReportStep alignedStep,
+  ) {
+    final _ScreenshotArtifact? beforeScreenshot = alignedStep.before.screenshot;
+    final _ScreenshotArtifact? afterScreenshot = alignedStep.after.screenshot;
+    if (beforeScreenshot == null && afterScreenshot == null) {
+      return const <RunDiffScreenshotChange>[];
+    }
+    final String stepKey = alignedStep.before.key.value;
+    if (beforeScreenshot == null) {
+      return <RunDiffScreenshotChange>[
+        RunDiffScreenshotChange(
+          kind: 'added',
+          stepKey: stepKey,
+          description:
+              '${alignedStep.after.name}: screenshot added in after run',
+          before: alignedStep.before.identity,
+          after: alignedStep.after.identity,
+          beforePath: null,
+          afterPath: afterScreenshot!.path,
+          beforeHash: null,
+          afterHash: afterScreenshot.hash,
+        ),
+      ];
+    }
+    if (afterScreenshot == null) {
+      return <RunDiffScreenshotChange>[
+        RunDiffScreenshotChange(
+          kind: 'missing',
+          stepKey: stepKey,
+          description:
+              '${alignedStep.before.name}: screenshot missing in after run',
+          before: alignedStep.before.identity,
+          after: alignedStep.after.identity,
+          beforePath: beforeScreenshot.path,
+          afterPath: null,
+          beforeHash: beforeScreenshot.hash,
+          afterHash: null,
+        ),
+      ];
+    }
+    if (beforeScreenshot.hash == afterScreenshot.hash) {
+      return const <RunDiffScreenshotChange>[];
+    }
+    return <RunDiffScreenshotChange>[
+      RunDiffScreenshotChange(
+        kind: 'changed',
+        stepKey: stepKey,
+        description: '${alignedStep.before.name}: screenshot changed',
+        before: alignedStep.before.identity,
+        after: alignedStep.after.identity,
+        beforePath: beforeScreenshot.path,
+        afterPath: afterScreenshot.path,
+        beforeHash: beforeScreenshot.hash,
+        afterHash: afterScreenshot.hash,
+      ),
     ];
   }
 
@@ -447,6 +618,7 @@ class RunDiffTextRenderer {
         diff.missingSteps.isEmpty &&
         diff.addedSteps.isEmpty &&
         diff.actionChanges.isEmpty &&
+        diff.screenshotChanges.isEmpty &&
         diff.visibleTextAdded.isEmpty &&
         diff.visibleTextRemoved.isEmpty) {
       buffer.writeln('No Run Diff changes.');
@@ -466,6 +638,11 @@ class RunDiffTextRenderer {
       _writeFindings(buffer, 'Missing Steps:', diff.missingSteps);
       _writeFindings(buffer, 'Added Steps:', diff.addedSteps);
       _writeFindings(buffer, 'Action Changes:', diff.actionChanges);
+      _writeScreenshotChanges(
+        buffer,
+        'Screenshot Changes:',
+        diff.screenshotChanges,
+      );
       _writeStrings(buffer, 'Visible Text Added:', diff.visibleTextAdded);
       _writeStrings(buffer, 'Visible Text Removed:', diff.visibleTextRemoved);
     }
@@ -514,6 +691,21 @@ class RunDiffTextRenderer {
       buffer.writeln('- $value');
     }
   }
+
+  /// Write Screenshot artifact changes when visual review is needed.
+  static void _writeScreenshotChanges(
+    StringBuffer buffer,
+    String title,
+    List<RunDiffScreenshotChange> changes,
+  ) {
+    if (changes.isEmpty) {
+      return;
+    }
+    buffer.writeln(title);
+    for (final RunDiffScreenshotChange change in changes) {
+      buffer.writeln('- ${change.description}');
+    }
+  }
 }
 
 /// Machine-readable renderer for Run Diff automation output.
@@ -546,6 +738,10 @@ class RunDiffJsonRenderer {
       'missingSteps': _findingsToJson(diff.missingSteps),
       'addedSteps': _findingsToJson(diff.addedSteps),
       'actionChanges': _findingsToJson(diff.actionChanges),
+      'screenshotChanges': <Map<String, Object?>>[
+        for (final RunDiffScreenshotChange change in diff.screenshotChanges)
+          change.toJson(),
+      ],
       'visibleTextAdded': diff.visibleTextAdded,
       'visibleTextRemoved': diff.visibleTextRemoved,
       'resolvedRuntimeFailures': diff.resolvedRuntimeFailures,
@@ -656,6 +852,7 @@ class _RunReportStep {
     required this.action,
     required this.status,
     required this.failureReason,
+    required this.screenshot,
   });
 
   /// 1-based Step index recorded by the Scenario Runner.
@@ -672,6 +869,9 @@ class _RunReportStep {
 
   /// Failure explanation recorded by the runner when the Step failed.
   final String? failureReason;
+
+  /// First Screenshot artifact recorded for this Step, when present and read.
+  final _ScreenshotArtifact? screenshot;
 
   String get name => label == null ? 'Step $index' : 'Step $index "$label"';
 
@@ -755,6 +955,11 @@ class _RunReportLoader {
     final Object? diagnosticSummary = decoded['diagnosticSummary'];
     final Map<String, Object?>? summary =
         diagnosticSummary is Map<String, Object?> ? diagnosticSummary : null;
+    final List<String> stepWarnings = <String>[];
+    final List<_RunReportStep> runSteps = <_RunReportStep>[
+      for (int stepIndex = 0; stepIndex < steps.length; stepIndex++)
+        _readStep(steps[stepIndex], stepIndex, runDirectory.path, stepWarnings),
+    ];
     final _ArtifactDiagnostics artifactDiagnostics = _readArtifactDiagnostics(
       decoded,
       runDirectory.path,
@@ -765,17 +970,14 @@ class _RunReportLoader {
     );
     return _RunReport(
       scenarioName: scenario['name'] as String,
-      steps: <_RunReportStep>[
-        for (int stepIndex = 0; stepIndex < steps.length; stepIndex++)
-          _readStep(steps[stepIndex], stepIndex, runDirectory.path),
-      ],
+      steps: runSteps,
       visibleText: summary == null
           ? reducedArtifactSummary.visibleText
           : _readStringList(summary, 'visibleText'),
       runtimeFailures: summary == null
           ? reducedArtifactSummary.runtimeFailures
           : _readStringList(summary, 'runtimeFailures'),
-      warnings: artifactDiagnostics.warnings,
+      warnings: <String>[...artifactDiagnostics.warnings, ...stepWarnings],
     );
   }
 
@@ -902,6 +1104,7 @@ class _RunReportLoader {
     Object? step,
     int stepIndex,
     String runDirectoryPath,
+    List<String> warnings,
   ) {
     if (step is! Map<String, Object?>) {
       throw RunDiffException(
@@ -933,8 +1136,97 @@ class _RunReportLoader {
       action: step['action'] as String,
       status: step['status'] as String,
       failureReason: failureReason as String?,
+      screenshot: _readStepScreenshot(step, runDirectoryPath, warnings),
     );
   }
+
+  /// Read the first Screenshot artifact referenced by one Step report.
+  ///
+  /// Missing or unreadable files produce a report warning and return `null`.
+  /// This keeps partial run directories diffable while making the missing
+  /// Screenshot visible in the Run Diff warnings.
+  static _ScreenshotArtifact? _readStepScreenshot(
+    Map<String, Object?> step,
+    String runDirectoryPath,
+    List<String> warnings,
+  ) {
+    final Object? artifacts = step['artifacts'];
+    if (artifacts is! List<Object?>) {
+      return null;
+    }
+    for (final Object? artifact in artifacts) {
+      if (artifact is! Map<String, Object?>) {
+        continue;
+      }
+      final Object? type = artifact['type'];
+      final Object? path = artifact['path'];
+      if (type == 'screenshot' && path is String) {
+        final _ScreenshotReadResult readResult = _readScreenshotArtifact(
+          runDirectoryPath,
+          path,
+        );
+        if (readResult.warning != null) {
+          warnings.add(readResult.warning!);
+        }
+        return readResult.screenshot;
+      }
+    }
+    return null;
+  }
+
+  /// Read one Screenshot artifact and calculate its SHA-256 hash.
+  static _ScreenshotReadResult _readScreenshotArtifact(
+    String runDirectoryPath,
+    String path,
+  ) {
+    final File artifactFile = File(p.join(runDirectoryPath, path));
+    if (!artifactFile.existsSync()) {
+      return _ScreenshotReadResult(
+        screenshot: null,
+        warning: 'Missing screenshot artifact in $runDirectoryPath: $path',
+      );
+    }
+    try {
+      return _ScreenshotReadResult(
+        screenshot: _ScreenshotArtifact(
+          path: path,
+          hash: sha256.convert(artifactFile.readAsBytesSync()).toString(),
+        ),
+        warning: null,
+      );
+    } on FileSystemException catch (error) {
+      return _ScreenshotReadResult(
+        screenshot: null,
+        warning:
+            'Unreadable screenshot artifact in $runDirectoryPath: $path (${error.message})',
+      );
+    }
+  }
+}
+
+/// Result from reading one Screenshot artifact file.
+class _ScreenshotReadResult {
+  const _ScreenshotReadResult({
+    required this.screenshot,
+    required this.warning,
+  });
+
+  /// Screenshot metadata, or `null` when the file could not be read.
+  final _ScreenshotArtifact? screenshot;
+
+  /// Warning describing the read problem, or `null` on success.
+  final String? warning;
+}
+
+/// Screenshot artifact metadata used for hash-only Run Diff comparison.
+class _ScreenshotArtifact {
+  const _ScreenshotArtifact({required this.path, required this.hash});
+
+  /// Screenshot path relative to the run directory.
+  final String path;
+
+  /// SHA-256 hash of the screenshot file contents.
+  final String hash;
 }
 
 /// Decoded diagnostic artifact payloads from one Scenario Run.
