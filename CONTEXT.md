@@ -67,3 +67,11 @@ _Avoid_: Snapshot
 **Capture Action**:
 An action that records diagnostic artifacts at a specific Step in a Scenario. Its default bundle includes Screenshot, Snapshot, and Logs, but not Widget Tree. Runtime errors are collected as part of Logs rather than as a separate first-version artifact.
 _Avoid_: Screenshot step, dump step
+
+**Run Diff**:
+A comparison between two Scenario Runs that explains how Step outcomes, visible UI state, diagnostic failures, and visual artifacts changed.
+_Avoid_: Directory diff, visual diff
+
+**Regression**:
+A Run Diff finding where a Scenario Run has become worse than the run it is compared against, such as a previously passing path failing or a new diagnostic failure appearing.
+_Avoid_: Change, difference

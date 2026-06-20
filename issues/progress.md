@@ -1,6 +1,6 @@
 # Flutter Pilot Issue Progress
 
-Last reviewed: 2026-06-13
+Last reviewed: 2026-06-20
 
 This file tracks implementation progress against the local issue breakdown and
 the GitHub issue list. Use code reality as the source of truth when GitHub issue
@@ -33,7 +33,7 @@ only after checking the code completion status below.
 | 10. Implement `--print` Diagnostics After `--until` | `#10`, `#24` | Complete | `--print` requires `--until`, supports repeated `snapshot`, `widget-tree`, and `errors` diagnostics after the stopped Step, prints a single JSON object in fixed Snapshot, Widget Tree, Errors order, records printed diagnostics in the run report, and still rejects screenshot stdout output. |
 | 11. Add Diagnostic Reducer | `#11`, `#25` | Complete | Added a public Diagnostic Reducer that turns raw Snapshot, Widget Tree, and Logs payloads into compact summaries of visible text, interactive widgets, routes, useful logs, runtime failures, and likely suspects. `--print` runs now also store the reduced `diagnosticSummary` in `run_report.json`. |
 | 12. Generate HTML Timeline Report | `#12`, `#26` | Complete | `run` now generates `timeline.html` by default, records an `htmlReport` artifact in `run_report.json`, renders Step action/status/duration/failure details with screenshot previews and JSON artifact links, and `report <run-directory>` regenerates HTML from existing run artifacts without replaying the Scenario. Implemented in commit `79009df`. |
-| 13. Compare Before/After Run Directories | `#13`, `#27` | Not complete | No diff command or run-directory comparison exists yet. |
+| 13. Compare Before/After Run Directories | `#13`, `#27` | Complete | `diff <before-run> <after-run>` now compares Step outcomes, run-level visible text, runtime failures, and Screenshot artifact presence/hash changes from `run_report.json`, diagnostic summaries, Snapshot artifacts, Logs artifacts, and Step Screenshot artifacts. It prints human-readable output or `--json`, reports warnings, Regressions, resolved Steps, missing Steps, added Steps, action changes, visible text changes, resolved runtime failures, new runtime failure Regressions, Screenshot changes, detailed Step identities, and overall outcomes, preserves exit code `0` for successful diff generation even with Regressions, and includes user documentation plus fixed acceptance fixtures. |
 | 14. Add Real Flutter Smoke Scenario Through `mcp_flutter` | `#14`, `#28` | Complete | Added `examples/smoke_app`, `examples/smoke_scenario.yaml`, a real `McpFlutterRuntimeAdapter`, and `tool/run_mcp_flutter_smoke.dart`. A local macOS smoke run passed and wrote snapshot/log artifacts plus `run_report.json`. |
 
 ## Recommended GitHub Cleanup

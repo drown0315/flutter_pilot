@@ -1,0 +1,29 @@
+{
+  "scenario": {
+    "name": "login_error"
+  },
+  "status": "failed",
+  "startedAt": "2026-06-13T10:05:00.000Z",
+  "durationMs": 38,
+  "runDirectory": "test/fixtures/run_diff/regressed/after",
+  "diagnosticSummary": {
+    "visibleText": [
+      "Email"
+    ],
+    "interactiveWidgets": [],
+    "runtimeFailures": [
+      "setState() called after dispose()"
+    ]
+  },
+  "artifacts": [],
+  "steps": [
+    {
+      "index": 1,
+      "label": "submit",
+      "action": "tap",
+      "status": "failed",
+      "failureReason": "Button stayed disabled.",
+      "durationMs": 8
+    }
+  ]
+}

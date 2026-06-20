@@ -184,17 +184,19 @@ void main() {
     },
   );
 
-  test('captures Widget Tree from view details', () async {
+  test('captures Widget Tree from semantic snapshot data', () async {
     final McpFlutterRuntimeAdapter adapter = McpFlutterRuntimeAdapter(
       target: RuntimeTarget(
         vmServiceUri: Uri.parse('ws://127.0.0.1:1234/example=/ws'),
       ),
       commandRunner: (McpFlutterCommandCall call) async {
-        expect(call.name, 'get_view_details');
+        expect(call.name, 'semantic_snapshot');
         return <String, Object?>{
           'ok': true,
           'data': <String, Object?>{
-            'widgetTree': <String, Object?>{'widgetType': 'SmokeApp'},
+            'nodes': <Object?>[
+              <String, Object?>{'type': 'text', 'label': 'Smoke App'},
+            ],
           },
         };
       },
@@ -202,6 +204,39 @@ void main() {
 
     final WidgetTreeCapture widgetTree = await adapter.captureWidgetTree();
 
-    expect(widgetTree.data, <String, Object?>{'widgetType': 'SmokeApp'});
+    expect(widgetTree.data, <String, Object?>{
+      'nodes': <Object?>[
+        <String, Object?>{'type': 'text', 'label': 'Smoke App'},
+      ],
+    });
   });
+
+  test(
+    'reports semantic snapshot widget tree failures as widget tree failures',
+    () async {
+      final McpFlutterRuntimeAdapter adapter = McpFlutterRuntimeAdapter(
+        target: RuntimeTarget(
+          vmServiceUri: Uri.parse('ws://127.0.0.1:1234/example=/ws'),
+        ),
+        commandRunner: (McpFlutterCommandCall call) async {
+          expect(call.name, 'semantic_snapshot');
+          throw const RuntimeOperationException(
+            operation: RuntimeOperation.captureSnapshot,
+            message: 'semantic snapshot failed',
+          );
+        },
+      );
+
+      await expectLater(
+        adapter.captureWidgetTree(),
+        throwsA(
+          isA<RuntimeOperationException>().having(
+            (RuntimeOperationException error) => error.operation,
+            'operation',
+            RuntimeOperation.captureWidgetTree,
+          ),
+        ),
+      );
+    },
+  );
 }

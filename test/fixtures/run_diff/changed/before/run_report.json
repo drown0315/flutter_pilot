@@ -1,0 +1,31 @@
+{
+  "scenario": {
+    "name": "login_error"
+  },
+  "status": "passed",
+  "startedAt": "2026-06-13T10:00:00.000Z",
+  "durationMs": 42,
+  "runDirectory": "test/fixtures/run_diff/changed/before",
+  "diagnosticSummary": {
+    "visibleText": [
+      "Retry"
+    ],
+    "interactiveWidgets": []
+  },
+  "artifacts": [],
+  "steps": [
+    {
+      "index": 1,
+      "label": "capture_login",
+      "action": "capture",
+      "status": "passed",
+      "durationMs": 12,
+      "artifacts": [
+        {
+          "type": "screenshot",
+          "path": "captures/login.png"
+        }
+      ]
+    }
+  ]
+}

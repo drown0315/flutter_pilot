@@ -94,14 +94,16 @@ Contract decision:
 
 ## Widget Tree Calibration Follow-Up - 2026-06-13
 
-Command currently used by Flutter Pilot:
+Command previously used by Flutter Pilot:
 
 ```bash
 flutter-mcp-toolkit exec --name get_view_details --args '{"connection":{"mode":"uri","uri":"ws://127.0.0.1:<port>/<token>/ws"}}'
 ```
 
-Flutter Pilot reads `data.widgetTree` from that response for
-`--print widget-tree`.
+Flutter Pilot previously read `data.widgetTree` from that response for
+`--print widget-tree`. The runtime adapter now uses `semantic_snapshot` for
+that compatibility path as well, so printed widget-tree diagnostics come from
+the same semantic data source as Snapshot capture.
 
 Observed behavior against `examples/smoke_app`:
 
@@ -121,8 +123,8 @@ Implications:
 
 - `--print snapshot` remains the reliable path for visible text, text fields,
   buttons, scrollables, and interaction-oriented state.
-- `--print widget-tree` should be treated as raw or near-raw runtime hierarchy
-  context, not as a complete source Widget tree.
+- `--print widget-tree` should be treated as semantic runtime context, not as a
+  complete source Widget tree.
 - Flutter Pilot's terminal renderer may filter framework wrapper nodes for
   readability, but it must keep raw `printedDiagnostics` in `run_report.json`
   so the underlying toolkit response remains available.

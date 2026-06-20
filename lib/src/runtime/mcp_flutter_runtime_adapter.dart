@@ -222,25 +222,31 @@ class McpFlutterRuntimeAdapter implements RuntimeAdapter {
 
   @override
   Future<SnapshotCapture> captureSnapshot() async {
-    final Object? data = await _execute(
-      RuntimeOperation.captureSnapshot,
-      'semantic_snapshot',
-      const <String, Object?>{},
+    return SnapshotCapture(
+      data: await _captureSemanticSnapshot(RuntimeOperation.captureSnapshot),
     );
-    return SnapshotCapture(data: data ?? const <String, Object?>{});
   }
 
   @override
   Future<WidgetTreeCapture> captureWidgetTree() async {
+    return WidgetTreeCapture(
+      data: await _captureSemanticSnapshot(RuntimeOperation.captureWidgetTree),
+    );
+  }
+
+  /// Capture `semantic_snapshot` data for Snapshot and widget-tree outputs.
+  ///
+  /// Flutter Pilot keeps separate public capture types because Scenario output
+  /// still distinguishes Snapshot from widget-tree diagnostics. The current
+  /// `mcp_flutter` integration uses the semantic snapshot command for both
+  /// paths because `get_view_details` is not reliable enough as widget context.
+  Future<Object> _captureSemanticSnapshot(RuntimeOperation operation) async {
     final Object? data = await _execute(
-      RuntimeOperation.captureWidgetTree,
-      'get_view_details',
+      operation,
+      'semantic_snapshot',
       const <String, Object?>{},
     );
-    if (data is Map<String, Object?> && data['widgetTree'] != null) {
-      return WidgetTreeCapture(data: data['widgetTree']!);
-    }
-    return WidgetTreeCapture(data: data ?? const <String, Object?>{});
+    return data ?? const <String, Object?>{};
   }
 
   @override
@@ -259,18 +265,28 @@ class McpFlutterRuntimeAdapter implements RuntimeAdapter {
     String name,
     Map<String, Object?> arguments,
   ) async {
-    final Map<String, Object?> envelope = await commandRunner(
-      McpFlutterCommandCall(
-        name: name,
-        arguments: <String, Object?>{
-          ...arguments,
-          'connection': <String, Object?>{
-            'mode': 'uri',
-            'uri': target.vmServiceUri.toString(),
+    final Map<String, Object?> envelope;
+    try {
+      envelope = await commandRunner(
+        McpFlutterCommandCall(
+          name: name,
+          arguments: <String, Object?>{
+            ...arguments,
+            'connection': <String, Object?>{
+              'mode': 'uri',
+              'uri': target.vmServiceUri.toString(),
+            },
           },
-        },
-      ),
-    );
+        ),
+      );
+    } on RuntimeOperationException catch (error) {
+      throw RuntimeOperationException(
+        operation: operation,
+        message: error.message,
+        cause: error.cause,
+        rawOutput: error.rawOutput,
+      );
+    }
     if (envelope['ok'] == true) {
       return envelope['data'];
     }
@@ -451,7 +467,6 @@ class McpFlutterRuntimeAdapter implements RuntimeAdapter {
       'get_screenshots' => RuntimeOperation.captureScreenshot,
       'capture_ui_snapshot' => RuntimeOperation.captureScreenshot,
       'semantic_snapshot' => RuntimeOperation.captureSnapshot,
-      'get_view_details' => RuntimeOperation.captureWidgetTree,
       'get_app_errors' => RuntimeOperation.collectLogs,
       'get_extension_rpcs' => RuntimeOperation.initialize,
       _ => RuntimeOperation.initialize,
