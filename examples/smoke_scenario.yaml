@@ -19,9 +19,6 @@ steps:
       byText: Smoke validation failed
       timeoutMs: 5000
 
-  - label: scroll_list
-    scroll:
-      deltaY: -300
 
   - label: capture_runtime
     capture:

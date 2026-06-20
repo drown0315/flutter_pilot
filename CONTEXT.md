@@ -12,6 +12,10 @@ _Avoid_: Flow, script, test case
 The running Flutter app instance that a Scenario is executed against. Connection details for the Runtime Target are provided outside the Scenario.
 _Avoid_: Target configuration, environment block
 
+**Target App Package**:
+The Flutter app package in the current working directory that is expected to expose the runtime capabilities Flutter Pilot needs before it can be used as a Runtime Target.
+_Avoid_: Scenario workspace, CLI workspace, project root
+
 **Runtime Adapter**:
 The narrow interface between the Flutter Pilot runner and a concrete Flutter runtime bridge. It maps Scenario Finders, actions, and capture requests to executable runtime operations, then converts runtime results back into Flutter Pilot types.
 _Avoid_: Runtime Target, driver, bridge

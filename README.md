@@ -79,6 +79,38 @@ The HTML timeline report turns the same journey into a visual review surface:
 
 ## Usage
 
+Install the Flutter Pilot CLI in the workspace that owns your Scenarios:
+
+```bash
+dart pub add --dev flutter_pilot
+```
+
+Flutter Pilot drives a running Flutter app through `mcp_flutter`. The target
+app must expose the MCP Toolkit runtime extension before `flutter_pilot run`
+can interact with it.
+
+In the Flutter app package, add the runtime dependency:
+
+```bash
+flutter pub add mcp_toolkit
+```
+
+Then bootstrap the app through `MCPToolkitBinding`:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:mcp_toolkit/mcp_toolkit.dart';
+
+Future<void> main() async {
+  await MCPToolkitBinding.instance.bootstrapFlutter(
+    runApp: () => runApp(const MyApp()),
+  );
+}
+```
+
+Run the Flutter app in debug mode and pass its VM service URI to
+`flutter_pilot run` as the Runtime Target.
+
 Validate a Scenario without connecting to a Flutter app:
 
 ```bash
