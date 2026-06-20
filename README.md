@@ -111,6 +111,22 @@ Future<void> main() async {
 Run the Flutter app in debug mode and pass its VM service URI to
 `flutter_pilot run` as the Runtime Target.
 
+Check app-side Flutter Pilot setup from the Flutter app package:
+
+```bash
+dart run flutter_pilot doctor
+```
+
+Initialize the safe dependency setup from the Flutter app package:
+
+```bash
+dart run flutter_pilot init
+```
+
+`init` runs `flutter pub add mcp_toolkit` when the runtime dependency is
+missing. It does not edit `lib/main.dart`; when `bootstrapFlutter` is missing,
+it prints the import and `runApp` wrapper to add manually.
+
 Validate a Scenario without connecting to a Flutter app:
 
 ```bash
@@ -159,6 +175,8 @@ examples, and validation rules.
 ```bash
 flutter_pilot validate <scenario.yaml>
 flutter_pilot validate <scenario.yaml> --json
+flutter_pilot doctor
+flutter_pilot init
 flutter_pilot run <scenario.yaml> --target <runtime-target>
 flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label>
 flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label> --print <snapshot|widget-tree|errors>
