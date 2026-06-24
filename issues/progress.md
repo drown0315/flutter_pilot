@@ -50,7 +50,7 @@ Source: `issues/0.0.4-screen-recorder.md`
 | Local issue | GitHub issue | Status | Notes |
 | --- | --- | --- | --- |
 | 1. Scaffold `screen_recorder` Core API With Fake Backend | `#58` | Complete | Independent `packages/screen_recorder` Dart package exists with public library API, fake backend, Recording Device/Session/Result models, output naming rules, stable `ScreenRecorderException` codes, same-device active recording rejection, discard behavior, and package tests. Implemented in commit `6186234`. |
-| 2. Add Android Recording Device Support Through ADB | `#59` | Not started | Blocked only by #58, which is complete. |
+| 2. Add Android Recording Device Support Through ADB | `#59` | Complete | Android backend discovers online ADB devices, resolves selectors by id/name/case-insensitive name prefix, starts `adb shell screenrecord` to a device-side temporary MP4, stops by killing the managed process, pulls the final local `.mp4`, cleans device-side temp files, discards without pulling, and reports missing ADB or pull failures through stable `ScreenRecorderException` codes with raw output. |
 | 3. Add iOS Simulator Recording Device Support Through `simctl` | `#60` | Not started | Blocked only by #58, which is complete. |
 | 4. Add Physical iOS Recording Device Support With Native Helper | `#61` | Not started | Blocked only by #58, which is complete. |
 | 5. Wire Default Multi-Backend Recording Device Resolution Priority | `#62` | Not started | Blocked by #59, #60, and #61. |
