@@ -215,6 +215,27 @@ class ScreenRecorder {
     return ScreenRecorder._(_FakeRecordingBackend(devices));
   }
 
+  /// Creates the default recorder using all supported backend families.
+  ///
+  /// Resolution searches Android, then iOS Simulator, then physical iOS. The
+  /// first backend with a matching Recording Device owns the session.
+  factory ScreenRecorder.defaultRecorder({
+    ScreenRecorderCommandRunner? commandRunner,
+    RecordingDevicePlatform? platform,
+  }) {
+    final ScreenRecorderCommandRunner runner =
+        commandRunner ?? _ProcessCommandRunner();
+    final List<_RecordingBackend> backends = <_RecordingBackend>[
+      if (platform == null || platform == RecordingDevicePlatform.android)
+        _AndroidRecordingBackend(runner),
+      if (platform == null || platform == RecordingDevicePlatform.iosSimulator)
+        _IosSimulatorRecordingBackend(runner),
+      if (platform == null || platform == RecordingDevicePlatform.iosPhysical)
+        _IosPhysicalRecordingBackend(runner),
+    ];
+    return ScreenRecorder._(_CompositeRecordingBackend(backends));
+  }
+
   /// Creates a recorder that discovers and records Android devices through ADB.
   ///
   /// `commandRunner` may be supplied by tests to avoid invoking host tools.
@@ -521,6 +542,90 @@ abstract interface class _RecordingBackend {
 
   /// Stops the backend-owned recording process and removes saved artifacts.
   Future<void> discard(RecordingSession session);
+}
+
+class _CompositeRecordingBackend implements _RecordingBackend {
+  _CompositeRecordingBackend(this._backends);
+
+  final List<_RecordingBackend> _backends;
+  final Map<String, _RecordingBackend> _sessionBackends =
+      <String, _RecordingBackend>{};
+
+  @override
+  Future<List<RecordingDevice>> listDevices() async {
+    final List<RecordingDevice> devices = <RecordingDevice>[];
+    for (final _RecordingBackend backend in _backends) {
+      devices.addAll(await backend.listDevices());
+    }
+    return devices;
+  }
+
+  @override
+  Future<RecordingDevice> resolveDevice(String selector) async {
+    ScreenRecorderException? lastDeviceNotFound;
+    for (final _RecordingBackend backend in _backends) {
+      try {
+        return await backend.resolveDevice(selector);
+      } on ScreenRecorderException catch (error) {
+        if (error.code != ScreenRecorderErrorCode.deviceNotFound) {
+          rethrow;
+        }
+        lastDeviceNotFound = error;
+      }
+    }
+    throw lastDeviceNotFound ??
+        ScreenRecorderException(
+          code: ScreenRecorderErrorCode.deviceNotFound,
+          message: 'No Recording Device matched selector: $selector',
+          deviceSelector: selector,
+        );
+  }
+
+  @override
+  Future<void> start(
+    RecordingSession session, {
+    required bool overwrite,
+  }) async {
+    for (final _RecordingBackend backend in _backends) {
+      final List<RecordingDevice> devices = await backend.listDevices();
+      if (devices.contains(session.device)) {
+        _sessionBackends[session.id] = backend;
+        await backend.start(session, overwrite: overwrite);
+        return;
+      }
+    }
+    throw ScreenRecorderException(
+      code: ScreenRecorderErrorCode.startFailed,
+      message: 'No backend was found for ${session.device.name}.',
+      deviceSelector: session.device.id,
+    );
+  }
+
+  @override
+  Future<void> stop(RecordingSession session) async {
+    final _RecordingBackend? backend = _sessionBackends.remove(session.id);
+    if (backend == null) {
+      throw ScreenRecorderException(
+        code: ScreenRecorderErrorCode.stopFailed,
+        message: 'No backend was found for Recording Session ${session.id}.',
+        deviceSelector: session.device.id,
+      );
+    }
+    await backend.stop(session);
+  }
+
+  @override
+  Future<void> discard(RecordingSession session) async {
+    final _RecordingBackend? backend = _sessionBackends.remove(session.id);
+    if (backend == null) {
+      throw ScreenRecorderException(
+        code: ScreenRecorderErrorCode.discardFailed,
+        message: 'No backend was found for Recording Session ${session.id}.',
+        deviceSelector: session.device.id,
+      );
+    }
+    await backend.discard(session);
+  }
 }
 
 /// In-memory backend used to drive tests through the public recorder API.
