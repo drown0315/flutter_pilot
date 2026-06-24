@@ -1,0 +1,12 @@
+name: screen_recorder
+description: Device-level screen recording API for selected Recording Devices.
+version: 0.0.4
+
+environment:
+  sdk: ^3.4.4
+
+dependencies:
+
+dev_dependencies:
+  lints: ^3.0.0
+  test: ^1.24.0
