@@ -5,3 +5,4 @@
 library;
 
 export 'src/screen_recorder_base.dart';
+export 'src/cli.dart';
