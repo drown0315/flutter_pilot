@@ -42,3 +42,17 @@ only after checking the code completion status below.
   completed work already represented by closed issues `#15`, `#16`, and `#17`.
 - Keep `#4` through `#14` open unless their duplicated closed issues were closed
   intentionally for a non-code reason.
+
+## Screen Recorder 0.0.4 Progress
+
+Source: `issues/0.0.4-screen-recorder.md`
+
+| Local issue | GitHub issue | Status | Notes |
+| --- | --- | --- | --- |
+| 1. Scaffold `screen_recorder` Core API With Fake Backend | `#58` | Complete | Independent `packages/screen_recorder` Dart package exists with public library API, fake backend, Recording Device/Session/Result models, output naming rules, stable `ScreenRecorderException` codes, same-device active recording rejection, discard behavior, and package tests. Implemented in commit `6186234`. |
+| 2. Add Android Recording Device Support Through ADB | `#59` | Not started | Blocked only by #58, which is complete. |
+| 3. Add iOS Simulator Recording Device Support Through `simctl` | `#60` | Not started | Blocked only by #58, which is complete. |
+| 4. Add Physical iOS Recording Device Support With Native Helper | `#61` | Not started | Blocked only by #58, which is complete. |
+| 5. Wire Default Multi-Backend Recording Device Resolution Priority | `#62` | Not started | Blocked by #59, #60, and #61. |
+| 6. Add Thin Interactive CLI For Recording Sessions | `#63` | Not started | Blocked by #62. |
+| 7. Add `screen_recorder` Documentation And Manual Smoke Checklist | `#64` | Not started | Blocked by backend and CLI issues. |
