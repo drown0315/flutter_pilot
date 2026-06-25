@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 /// Host command execution boundary used by recording backends.
@@ -20,14 +21,43 @@ class ScreenRecorderCommandResult {
   final String stderr;
 }
 
+/// Captured output for commands whose stdout is binary data.
+class ScreenRecorderByteCommandResult {
+  /// Creates captured binary stdout and text stderr for one completed command.
+  const ScreenRecorderByteCommandResult({
+    required this.exitCode,
+    required this.stdoutBytes,
+    required this.stderr,
+  });
+
+  /// Exit code reported by the host command.
+  final int exitCode;
+
+  /// Raw standard output bytes captured from the command.
+  final List<int> stdoutBytes;
+
+  /// Standard error captured as text.
+  final String stderr;
+}
+
 /// Started host process controlled by a recording backend.
 
 abstract interface class ScreenRecorderProcess {
-  /// Terminates the process with the backend's default signal.
-  bool kill();
+  /// Terminates the process with the requested signal.
+  ///
+  /// Backends use the default signal for most host processes. Android
+  /// `screenrecord` uses `sigint` so the device-side recorder can finalize the
+  /// mp4 before the file is pulled from the device.
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]);
 
   /// Completes with the process exit code after it exits.
   Future<int> get exitCode;
+
+  /// Captured stdout emitted before the process exits.
+  Future<String> get stdout;
+
+  /// Captured stderr emitted before the process exits.
+  Future<String> get stderr;
 }
 
 /// Boundary for running host commands and starting long-running processes.
@@ -35,6 +65,12 @@ abstract interface class ScreenRecorderProcess {
 abstract interface class ScreenRecorderCommandRunner {
   /// Runs a host command to completion and captures stdout/stderr.
   Future<ScreenRecorderCommandResult> run(
+    String executable,
+    List<String> arguments,
+  );
+
+  /// Runs a host command to completion and captures raw stdout bytes.
+  Future<ScreenRecorderByteCommandResult> runBytes(
     String executable,
     List<String> arguments,
   );
@@ -61,6 +97,27 @@ class ProcessCommandRunner implements ScreenRecorderCommandRunner {
   }
 
   @override
+  Future<ScreenRecorderByteCommandResult> runBytes(
+    String executable,
+    List<String> arguments,
+  ) async {
+    final ProcessResult result = await Process.run(
+      executable,
+      arguments,
+      stdoutEncoding: null,
+    );
+    final Object stdout = result.stdout;
+    final List<int> stdoutBytes = stdout is List<int>
+        ? List<int>.from(stdout)
+        : utf8.encode(stdout.toString());
+    return ScreenRecorderByteCommandResult(
+      exitCode: result.exitCode,
+      stdoutBytes: stdoutBytes,
+      stderr: result.stderr.toString(),
+    );
+  }
+
+  @override
   Future<ScreenRecorderProcess> start(
     String executable,
     List<String> arguments,
@@ -71,15 +128,27 @@ class ProcessCommandRunner implements ScreenRecorderCommandRunner {
 }
 
 class _DartIoScreenRecorderProcess implements ScreenRecorderProcess {
-  _DartIoScreenRecorderProcess(this._process);
+  _DartIoScreenRecorderProcess(this._process)
+      : _stdout = utf8.decodeStream(_process.stdout),
+        _stderr = utf8.decodeStream(_process.stderr);
 
   final Process _process;
+  final Future<String> _stdout;
+  final Future<String> _stderr;
 
   @override
   Future<int> get exitCode => _process.exitCode;
 
   @override
-  bool kill() => _process.kill();
+  Future<String> get stdout => _stdout;
+
+  @override
+  Future<String> get stderr => _stderr;
+
+  @override
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
+    return _process.kill(signal);
+  }
 }
 
 /// Backend boundary used by the core recorder to discover Recording Devices.

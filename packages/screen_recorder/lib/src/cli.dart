@@ -88,6 +88,10 @@ class ScreenRecorderCli {
       return 64;
     } on ScreenRecorderException catch (error) {
       err.writeln('${error.code.name}: ${error.message}');
+      final String? rawOutput = error.rawOutput;
+      if (rawOutput != null && rawOutput.trim().isNotEmpty) {
+        err.writeln(rawOutput.trim());
+      }
       return 64;
     } on FormatException catch (error) {
       err.writeln(error.message);

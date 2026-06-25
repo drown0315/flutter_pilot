@@ -261,6 +261,16 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
   }
 
   @override
+  Future<ScreenRecorderByteCommandResult> runBytes(
+    String executable,
+    List<String> arguments,
+  ) async {
+    throw StateError(
+      'Unexpected byte command: ${<String>[executable, ...arguments]}',
+    );
+  }
+
+  @override
   Future<ScreenRecorderProcess> start(
     String executable,
     List<String> arguments,
@@ -293,7 +303,13 @@ class _FakeScreenRecorderProcess implements ScreenRecorderProcess {
   Future<int> get exitCode => _exitCode.future;
 
   @override
-  bool kill() {
+  Future<String> get stdout async => '';
+
+  @override
+  Future<String> get stderr async => '';
+
+  @override
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
     onKill?.call();
     if (!_exitCode.isCompleted) {
       _exitCode.complete(0);

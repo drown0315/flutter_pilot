@@ -141,6 +141,7 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
   int adbDevicesCount = 0;
   int simctlListCount = 0;
   int helperListCount = 0;
+  _FakeScreenRecorderProcess? lastProcess;
 
   void addAndroidDeviceList(Map<String, String> devicesById) {
     final StringBuffer buffer = StringBuffer('List of devices attached\n');
@@ -235,6 +236,37 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
       return result;
     }
     if (executable == 'adb' &&
+        arguments.length == 5 &&
+        arguments[2] == 'shell' &&
+        arguments[3] == 'ps' &&
+        arguments[4] == '-A') {
+      return const ScreenRecorderCommandResult(
+        exitCode: 0,
+        stdout: 'shell        1234  1  screenrecord\n',
+        stderr: '',
+      );
+    }
+    if (executable == 'adb' &&
+        arguments.length == 6 &&
+        arguments[2] == 'shell' &&
+        arguments[3] == 'ls' &&
+        arguments[4] == '-l') {
+      return const ScreenRecorderCommandResult(
+        exitCode: 0,
+        stdout: '-rw-rw---- 1 shell sdcard_rw 5 screen_recorder.mp4\n',
+        stderr: '',
+      );
+    }
+    if (executable == 'adb' &&
+        arguments.length == 6 &&
+        arguments[2] == 'shell' &&
+        arguments[3] == 'kill' &&
+        arguments[4] == '-2') {
+      lastProcess?.complete();
+      return const ScreenRecorderCommandResult(
+          exitCode: 0, stdout: '', stderr: '');
+    }
+    if (executable == 'adb' &&
         arguments.length == 6 &&
         arguments[2] == 'shell' &&
         arguments[3] == 'rm' &&
@@ -266,12 +298,23 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
   }
 
   @override
+  Future<ScreenRecorderByteCommandResult> runBytes(
+    String executable,
+    List<String> arguments,
+  ) async {
+    throw StateError(
+      'Unexpected byte command: ${<String>[executable, ...arguments]}',
+    );
+  }
+
+  @override
   Future<ScreenRecorderProcess> start(
     String executable,
     List<String> arguments,
   ) async {
     startedCommands.add(<String>[executable, ...arguments]);
-    return _FakeScreenRecorderProcess();
+    lastProcess = _FakeScreenRecorderProcess();
+    return lastProcess!;
   }
 
   String _key(List<String> command) => command.join('\u{1f}');
@@ -284,10 +327,20 @@ class _FakeScreenRecorderProcess implements ScreenRecorderProcess {
   Future<int> get exitCode => _exitCode.future;
 
   @override
-  bool kill() {
+  Future<String> get stdout async => '';
+
+  @override
+  Future<String> get stderr async => '';
+
+  @override
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
+    complete();
+    return true;
+  }
+
+  void complete() {
     if (!_exitCode.isCompleted) {
       _exitCode.complete(0);
     }
-    return true;
   }
 }
