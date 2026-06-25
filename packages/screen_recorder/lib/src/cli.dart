@@ -42,14 +42,16 @@ class ScreenRecorderCli {
     final ArgParser parser = _buildParser();
     final bool restoreTerminalModes =
         _usesTerminalInput && io.stdin.hasTerminal;
-    final bool previousLineMode =
-        restoreTerminalModes ? io.stdin.lineMode : false;
-    final bool previousEchoMode =
-        restoreTerminalModes ? io.stdin.echoMode : false;
+    bool previousLineMode = false;
+    bool previousEchoMode = false;
+    bool shouldRestoreLineMode = false;
+    bool shouldRestoreEchoMode = false;
     try {
       if (restoreTerminalModes) {
-        io.stdin.lineMode = false;
-        io.stdin.echoMode = false;
+        previousLineMode = _readLineMode();
+        previousEchoMode = _readEchoMode();
+        shouldRestoreLineMode = _trySetLineMode(false);
+        shouldRestoreEchoMode = _trySetEchoMode(false);
       }
       final ArgResults results = parser.parse(arguments);
       final String? deviceSelector = results.option('device');
@@ -92,8 +94,12 @@ class ScreenRecorderCli {
       return 64;
     } finally {
       if (restoreTerminalModes) {
-        io.stdin.echoMode = previousEchoMode;
-        io.stdin.lineMode = previousLineMode;
+        if (shouldRestoreEchoMode) {
+          _trySetEchoMode(previousEchoMode);
+        }
+        if (shouldRestoreLineMode) {
+          _trySetLineMode(previousLineMode);
+        }
       }
     }
   }
@@ -122,5 +128,39 @@ class ScreenRecorderCli {
       }
     }
     return 'q';
+  }
+
+  static bool _trySetEchoMode(bool enabled) {
+    try {
+      io.stdin.echoMode = enabled;
+      return true;
+    } on io.StdinException {
+      return false;
+    }
+  }
+
+  static bool _trySetLineMode(bool enabled) {
+    try {
+      io.stdin.lineMode = enabled;
+      return true;
+    } on io.StdinException {
+      return false;
+    }
+  }
+
+  static bool _readEchoMode() {
+    try {
+      return io.stdin.echoMode;
+    } on io.StdinException {
+      return true;
+    }
+  }
+
+  static bool _readLineMode() {
+    try {
+      return io.stdin.lineMode;
+    } on io.StdinException {
+      return true;
+    }
   }
 }
