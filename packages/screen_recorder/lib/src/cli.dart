@@ -5,6 +5,7 @@ import 'dart:io' as io;
 import 'package:args/args.dart';
 
 import 'screen_recorder_base.dart';
+import 'service/screen_recorder_service.dart';
 
 /// Thin interactive CLI wrapper around the `ScreenRecorder` core API.
 ///
@@ -20,10 +21,12 @@ class ScreenRecorderCli {
     ScreenRecorder? recorder,
     Stream<List<int>>? input,
   })  : _recorder = recorder ?? ScreenRecorder.defaultRecorder(),
-        _input = input ?? io.stdin;
+        _input = input ?? io.stdin,
+        _usesTerminalInput = input == null;
 
   final ScreenRecorder _recorder;
   final Stream<List<int>> _input;
+  final bool _usesTerminalInput;
 
   /// Runs the CLI with parsed command-line arguments.
   ///
@@ -37,7 +40,17 @@ class ScreenRecorderCli {
     final StringSink out = stdout ?? io.stdout;
     final StringSink err = stderr ?? io.stderr;
     final ArgParser parser = _buildParser();
+    final bool restoreTerminalModes =
+        _usesTerminalInput && io.stdin.hasTerminal;
+    final bool previousLineMode =
+        restoreTerminalModes ? io.stdin.lineMode : false;
+    final bool previousEchoMode =
+        restoreTerminalModes ? io.stdin.echoMode : false;
     try {
+      if (restoreTerminalModes) {
+        io.stdin.lineMode = false;
+        io.stdin.echoMode = false;
+      }
       final ArgResults results = parser.parse(arguments);
       final String? deviceSelector = results.option('device');
       final String outputDirectory =
@@ -47,11 +60,16 @@ class ScreenRecorderCli {
         err.writeln('Missing required --device option.');
         return 64;
       }
+      ScreenRecorderService.validateOutputName(outputName);
 
+      out.writeln('Starting recording for $deviceSelector...');
       final RecordingSession session = await _recorder.startRecord(
         deviceSelector: deviceSelector,
         outputDirectory: outputDirectory,
         outputName: outputName,
+      );
+      out.writeln(
+        'Recording ${session.device.name}. Press s to save, q to discard.',
       );
       final String command = await _readCommand();
       if (command == 's') {
@@ -72,6 +90,11 @@ class ScreenRecorderCli {
     } on FormatException catch (error) {
       err.writeln(error.message);
       return 64;
+    } finally {
+      if (restoreTerminalModes) {
+        io.stdin.echoMode = previousEchoMode;
+        io.stdin.lineMode = previousLineMode;
+      }
     }
   }
 

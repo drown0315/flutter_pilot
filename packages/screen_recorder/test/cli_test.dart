@@ -36,6 +36,14 @@ void main() {
       expect(exitCode, 0);
       expect(
         stdout.toString(),
+        contains('Starting recording for PHK110...'),
+      );
+      expect(
+        stdout.toString(),
+        contains('Recording PHK110. Press s to save, q to discard.'),
+      );
+      expect(
+        stdout.toString(),
         contains('Saved recording: $outputDirectory/cli_recording.mp4'),
       );
       expect(stderr.toString(), isEmpty);
