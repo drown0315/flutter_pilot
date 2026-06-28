@@ -62,14 +62,14 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
   }) async {
     final String helperPath = await _ensureHelperBuilt();
     try {
-      final ScreenRecorderProcess process = await _commandRunner
-          .start(helperPath, <String>[
-            'record',
-            '--device-id',
-            session.device.id,
-            '--output',
-            session.expectedOutputPath,
-          ]);
+      final ScreenRecorderProcess process =
+          await _commandRunner.start(helperPath, <String>[
+        'record',
+        '--device-id',
+        session.device.id,
+        '--output',
+        session.expectedOutputPath,
+      ]);
       _recordings[session.id] = process;
     } on Object catch (error) {
       throw ScreenRecorderException(

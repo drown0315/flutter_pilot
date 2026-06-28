@@ -22,7 +22,11 @@ jobs:
         with:
           sdk: stable
 
-      - name: Install dependencies
+      - name: Install root dependencies
+        run: dart pub get
+
+      - name: Install screen_recorder dependencies
+        working-directory: packages/screen_recorder
         run: dart pub get
 
       - name: Check formatting

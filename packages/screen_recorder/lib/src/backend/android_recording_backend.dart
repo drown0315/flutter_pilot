@@ -148,15 +148,15 @@ class AndroidRecordingBackend implements RecordingBackend {
     RecordingSession session,
   ) async {
     try {
-      final ScreenRecorderProcess process = await _commandRunner
-          .start('scrcpy', <String>[
-            '--serial',
-            session.device.id,
-            '--no-audio',
-            '--no-playback',
-            '--no-window',
-            '--record=${session.expectedOutputPath}',
-          ]);
+      final ScreenRecorderProcess process =
+          await _commandRunner.start('scrcpy', <String>[
+        '--serial',
+        session.device.id,
+        '--no-audio',
+        '--no-playback',
+        '--no-window',
+        '--record=${session.expectedOutputPath}',
+      ]);
       final _ImmediateProcessExit? immediateExit = await _probeImmediateExit(
         process,
         timeout: _scrcpyStartProbeTimeout,
@@ -248,14 +248,14 @@ class AndroidRecordingBackend implements RecordingBackend {
     String deviceId,
     _AndroidRecordingState state,
   ) async {
-    final ScreenRecorderByteCommandResult result = await _commandRunner
-        .runBytes('adb', <String>[
-          '-s',
-          deviceId,
-          'exec-out',
-          'screencap',
-          '-p',
-        ]);
+    final ScreenRecorderByteCommandResult result =
+        await _commandRunner.runBytes('adb', <String>[
+      '-s',
+      deviceId,
+      'exec-out',
+      'screencap',
+      '-p',
+    ]);
     if (result.exitCode != 0 || result.stdoutBytes.isEmpty) {
       throw ScreenRecorderException(
         code: ScreenRecorderErrorCode.startFailed,
@@ -354,8 +354,7 @@ class AndroidRecordingBackend implements RecordingBackend {
       if (pullResult.exitCode != 0) {
         throw ScreenRecorderException(
           code: ScreenRecorderErrorCode.stopFailed,
-          message:
-              'ADB command failed: adb -s ${session.device.id} pull '
+          message: 'ADB command failed: adb -s ${session.device.id} pull '
               '$deviceTempPath ${session.expectedOutputPath}',
           backendKind: _backendKind,
           rawOutput: _joinDiagnostics(<String>[
@@ -446,8 +445,8 @@ class AndroidRecordingBackend implements RecordingBackend {
           cause: captureError,
         );
       }
-      final ScreenRecorderCommandResult
-      result = await _commandRunner.run('ffmpeg', <String>[
+      final ScreenRecorderCommandResult result =
+          await _commandRunner.run('ffmpeg', <String>[
         '-hide_banner',
         '-loglevel',
         'error',
@@ -703,24 +702,24 @@ class _AndroidStopResult {
 
 class _AndroidRecordingState {
   _AndroidRecordingState.scrcpy({required ScreenRecorderProcess this.process})
-    : variant = _AndroidRecordingVariant.scrcpy,
-      deviceTempPath = null,
-      frameDirectory = null,
-      startupDiagnostics = const <String>[];
+      : variant = _AndroidRecordingVariant.scrcpy,
+        deviceTempPath = null,
+        frameDirectory = null,
+        startupDiagnostics = const <String>[];
 
   _AndroidRecordingState.native({
     required ScreenRecorderProcess this.process,
     required String this.deviceTempPath,
-  }) : variant = _AndroidRecordingVariant.native,
-       frameDirectory = null,
-       startupDiagnostics = const <String>[];
+  })  : variant = _AndroidRecordingVariant.native,
+        frameDirectory = null,
+        startupDiagnostics = const <String>[];
 
   _AndroidRecordingState.frameCapture({
     required Directory this.frameDirectory,
     required this.startupDiagnostics,
-  }) : variant = _AndroidRecordingVariant.frameCapture,
-       process = null,
-       deviceTempPath = null;
+  })  : variant = _AndroidRecordingVariant.frameCapture,
+        process = null,
+        deviceTempPath = null;
 
   final _AndroidRecordingVariant variant;
   final ScreenRecorderProcess? process;
