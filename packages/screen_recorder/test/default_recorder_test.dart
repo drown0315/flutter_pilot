@@ -138,6 +138,7 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
   final List<List<String>> startedCommands = <List<String>>[];
   final String helperPath =
       '${Directory.systemTemp.path}${Platform.pathSeparator}screen_recorder_ios_physical_capture';
+  final String simctlPath = '/Applications/Xcode.app/usr/bin/simctl';
   int adbDevicesCount = 0;
   int simctlListCount = 0;
   int helperListCount = 0;
@@ -186,6 +187,14 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
       ScreenRecorderCommandResult(
         exitCode: 0,
         stdout: buffer.toString(),
+        stderr: '',
+      ),
+    );
+    addRun(
+      <String>['xcrun', '--find', 'simctl'],
+      ScreenRecorderCommandResult(
+        exitCode: 0,
+        stdout: '$simctlPath\n',
         stderr: '',
       ),
     );
@@ -313,7 +322,9 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
     List<String> arguments,
   ) async {
     startedCommands.add(<String>[executable, ...arguments]);
-    lastProcess = _FakeScreenRecorderProcess();
+    lastProcess = _FakeScreenRecorderProcess(
+      outputPathOnKill: executable == simctlPath ? arguments.last : null,
+    );
     return lastProcess!;
   }
 
@@ -321,7 +332,10 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
 }
 
 class _FakeScreenRecorderProcess implements ScreenRecorderProcess {
+  _FakeScreenRecorderProcess({this.outputPathOnKill});
+
   final Completer<int> _exitCode = Completer<int>();
+  final String? outputPathOnKill;
 
   @override
   Future<int> get exitCode => _exitCode.future;
@@ -334,6 +348,12 @@ class _FakeScreenRecorderProcess implements ScreenRecorderProcess {
 
   @override
   bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
+    final String? outputPath = outputPathOnKill;
+    if (outputPath != null) {
+      File(outputPath)
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(<int>[1, 2, 3]);
+    }
     complete();
     return true;
   }

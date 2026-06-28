@@ -37,11 +37,6 @@ void main() {
           name: 'iPhone 16 Pro',
           platform: RecordingDevicePlatform.iosSimulator,
         ),
-        const RecordingDevice(
-          id: '22222222-2222-2222-2222-222222222222',
-          name: 'iPhone SE',
-          platform: RecordingDevicePlatform.iosSimulator,
-        ),
       ]);
     });
 
@@ -82,16 +77,45 @@ void main() {
       expect(byName.device.id, '11111111-1111-1111-1111-111111111111');
       expect(byPrefix.device.id, '11111111-1111-1111-1111-111111111111');
       expect(
-          commandRunner.startedCommands,
+          commandRunner.runCommands,
           contains(equals(<String>[
             'xcrun',
+            '--find',
             'simctl',
+          ])));
+      expect(
+          commandRunner.startedCommands,
+          contains(equals(<String>[
+            commandRunner.simctlPath,
             'io',
             '11111111-1111-1111-1111-111111111111',
             'recordVideo',
             byId.expectedOutputPath,
           ])));
       expect(byId.expectedOutputPath, endsWith('by_id.mov'));
+    });
+
+    test('prefers exact simulator names before prefix matches', () async {
+      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+        ..addSimulatorDeviceList(<String, String>{
+          '11111111-1111-1111-1111-111111111111': 'iPhone 17 Pro',
+          '22222222-2222-2222-2222-222222222222': 'iPhone 17',
+        });
+      final ScreenRecorder recorder = ScreenRecorder.iosSimulator(
+        commandRunner: commandRunner,
+      );
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_simulator_test_')
+          .path;
+
+      final RecordingSession session = await recorder.startRecord(
+        deviceSelector: 'iPhone 17',
+        outputDirectory: outputDirectory,
+        outputName: 'exact_name',
+      );
+      await recorder.discardRecord(session);
+
+      expect(session.device.id, '22222222-2222-2222-2222-222222222222');
     });
 
     test('stops simulator recordVideo and returns a finalized mov result',
@@ -123,6 +147,7 @@ void main() {
       expect(result.mimeType, 'video/quicktime');
       expect(File(result.outputPath).readAsBytesSync(), <int>[9, 8, 7, 6]);
       expect(result.fileSizeBytes, 4);
+      expect(commandRunner.lastProcess?.killedWithSignal, ProcessSignal.sigint);
     });
 
     test('discards simulator recording and removes local output', () async {
@@ -149,6 +174,7 @@ void main() {
       await recorder.discardRecord(session);
 
       expect(File(session.expectedOutputPath).existsSync(), isFalse);
+      expect(commandRunner.lastProcess?.killedWithSignal, ProcessSignal.sigint);
     });
 
     test(
@@ -222,7 +248,10 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
       <String, ScreenRecorderCommandResult>{};
   final List<List<String>> runCommands = <List<String>>[];
   final List<List<String>> startedCommands = <List<String>>[];
+  final String simctlPath = '/Applications/Xcode.app/usr/bin/simctl';
   _FakeScreenRecorderProcess? _lastProcess;
+
+  _FakeScreenRecorderProcess? get lastProcess => _lastProcess;
 
   void addRun(List<String> command, ScreenRecorderCommandResult result) {
     _runResults[_key(command)] = result;
@@ -241,6 +270,14 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
       ScreenRecorderCommandResult(
         exitCode: 0,
         stdout: buffer.toString(),
+        stderr: '',
+      ),
+    );
+    addRun(
+      <String>['xcrun', '--find', 'simctl'],
+      ScreenRecorderCommandResult(
+        exitCode: 0,
+        stdout: '$simctlPath\n',
         stderr: '',
       ),
     );
@@ -298,6 +335,7 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
 class _FakeScreenRecorderProcess implements ScreenRecorderProcess {
   final Completer<int> _exitCode = Completer<int>();
   void Function()? onKill;
+  ProcessSignal? killedWithSignal;
 
   @override
   Future<int> get exitCode => _exitCode.future;
@@ -310,6 +348,7 @@ class _FakeScreenRecorderProcess implements ScreenRecorderProcess {
 
   @override
   bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
+    killedWithSignal = signal;
     onKill?.call();
     if (!_exitCode.isCompleted) {
       _exitCode.complete(0);

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import '../common/screen_recorder_exception.dart';
@@ -12,6 +13,8 @@ class IosSimulatorRecordingBackend implements RecordingBackend {
   IosSimulatorRecordingBackend(this._commandRunner);
 
   static const String _backendKind = 'iosSimulator';
+  static const Duration _startProbeTimeout = Duration(seconds: 1);
+  static const Duration _stopTimeout = Duration(seconds: 10);
 
   final ScreenRecorderCommandRunner _commandRunner;
   final Map<String, ScreenRecorderProcess> _recordings =
@@ -30,9 +33,12 @@ class IosSimulatorRecordingBackend implements RecordingBackend {
   Future<RecordingDevice> resolveDevice(String selector) async {
     final List<RecordingDevice> devices = await listDevices();
     for (final RecordingDevice device in devices) {
-      if (device.id == selector ||
-          device.name == selector ||
-          device.name.toLowerCase().startsWith(selector.toLowerCase())) {
+      if (device.id == selector || device.name == selector) {
+        return device;
+      }
+    }
+    for (final RecordingDevice device in devices) {
+      if (device.name.toLowerCase().startsWith(selector.toLowerCase())) {
         return device;
       }
     }
@@ -50,17 +56,35 @@ class IosSimulatorRecordingBackend implements RecordingBackend {
     required bool overwrite,
   }) async {
     try {
+      final String simctlPath = await _resolveSimctlPath();
       final ScreenRecorderProcess process = await _commandRunner.start(
-        'xcrun',
+        simctlPath,
         <String>[
-          'simctl',
           'io',
           session.device.id,
           'recordVideo',
           session.expectedOutputPath,
         ],
       );
+      final int? immediateExitCode = await _probeImmediateExit(process);
+      if (immediateExitCode != null) {
+        throw ScreenRecorderException(
+          code: ScreenRecorderErrorCode.startFailed,
+          message: 'iOS Simulator recordVideo exited immediately.',
+          backendKind: _backendKind,
+          deviceSelector: session.device.id,
+          rawOutput: _joinDiagnostics(
+            <String>[
+              'simctl exitCode: $immediateExitCode',
+              await process.stdout,
+              await process.stderr,
+            ],
+          ),
+        );
+      }
       _recordings[session.id] = process;
+    } on ScreenRecorderException {
+      rethrow;
     } on Object catch (error) {
       throw ScreenRecorderException(
         code: ScreenRecorderErrorCode.startFailed,
@@ -70,6 +94,39 @@ class IosSimulatorRecordingBackend implements RecordingBackend {
         cause: error,
       );
     }
+  }
+
+  Future<String> _resolveSimctlPath() async {
+    final ScreenRecorderCommandResult result = await _commandRunner.run(
+      'xcrun',
+      <String>['--find', 'simctl'],
+    );
+    if (result.exitCode != 0 || result.stdout.trim().isEmpty) {
+      throw ScreenRecorderException(
+        code: ScreenRecorderErrorCode.missingDependency,
+        message: 'Failed to locate simctl.',
+        backendKind: _backendKind,
+        rawOutput: '${result.stdout}${result.stderr}',
+      );
+    }
+    return result.stdout.trim();
+  }
+
+  Future<int?> _probeImmediateExit(ScreenRecorderProcess process) async {
+    final Completer<int?> exitCode = Completer<int?>();
+    final Timer timer = Timer(_startProbeTimeout, () {
+      if (!exitCode.isCompleted) {
+        exitCode.complete(null);
+      }
+    });
+    process.exitCode.then((int value) {
+      if (!exitCode.isCompleted) {
+        exitCode.complete(value);
+      }
+    });
+    final int? result = await exitCode.future;
+    timer.cancel();
+    return result;
   }
 
   @override
@@ -84,8 +141,16 @@ class IosSimulatorRecordingBackend implements RecordingBackend {
         deviceSelector: session.device.id,
       );
     }
-    process.kill();
-    await process.exitCode;
+    process.kill(ProcessSignal.sigint);
+    final int exitCode = await process.exitCode.timeout(
+      _stopTimeout,
+      onTimeout: () {
+        process.kill(ProcessSignal.sigkill);
+        return -1;
+      },
+    );
+    final String stdout = await process.stdout;
+    final String stderr = await process.stderr;
     final File outputFile = File(session.expectedOutputPath);
     if (!outputFile.existsSync() || outputFile.lengthSync() == 0) {
       throw ScreenRecorderException(
@@ -93,6 +158,16 @@ class IosSimulatorRecordingBackend implements RecordingBackend {
         message: 'iOS Simulator recording output was not created.',
         backendKind: _backendKind,
         deviceSelector: session.device.id,
+        rawOutput: _joinDiagnostics(
+          <String>[
+            'simctl exitCode: $exitCode',
+            'output exists: ${outputFile.existsSync()}',
+            if (outputFile.existsSync())
+              'output size: ${outputFile.lengthSync()}',
+            stdout,
+            stderr,
+          ],
+        ),
       );
     }
   }
@@ -109,8 +184,14 @@ class IosSimulatorRecordingBackend implements RecordingBackend {
         deviceSelector: session.device.id,
       );
     }
-    process.kill();
-    await process.exitCode;
+    process.kill(ProcessSignal.sigint);
+    await process.exitCode.timeout(
+      _stopTimeout,
+      onTimeout: () {
+        process.kill(ProcessSignal.sigkill);
+        return -1;
+      },
+    );
     final File outputFile = File(session.expectedOutputPath);
     if (outputFile.existsSync()) {
       outputFile.deleteSync();
@@ -168,7 +249,8 @@ class IosSimulatorRecordingBackend implements RecordingBackend {
         continue;
       }
       final String suffix = deviceMatch.group(4)!;
-      if (suffix.contains('unavailable')) {
+      final String state = deviceMatch.group(3)!;
+      if (suffix.contains('unavailable') || state != 'Booted') {
         continue;
       }
       devices.add(
@@ -180,5 +262,12 @@ class IosSimulatorRecordingBackend implements RecordingBackend {
       );
     }
     return devices;
+  }
+
+  static String _joinDiagnostics(List<String> values) {
+    return values
+        .map((String value) => value.trim())
+        .where((String value) => value.isNotEmpty)
+        .join('\n');
   }
 }
