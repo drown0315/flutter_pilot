@@ -9,7 +9,7 @@ import 'recording_backend.dart';
 
 class FakeRecordingBackend implements RecordingBackend {
   FakeRecordingBackend(List<RecordingDevice> devices)
-      : _devices = List<RecordingDevice>.unmodifiable(devices);
+    : _devices = List<RecordingDevice>.unmodifiable(devices);
 
   final List<RecordingDevice> _devices;
 

@@ -41,156 +41,165 @@ ios-device-2\tOffice iPhone\tiOS Device\tApple Inc.
       ]);
     });
 
-    test('resolves physical iOS devices by id, name, and name prefix',
-        () async {
-      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
-        ..addSwiftBuild()
-        ..addPhysicalDeviceList(<String, String>{
-          'ios-device-1': 'Drown iPhone',
-        });
-      final ScreenRecorder recorder = ScreenRecorder.iosPhysical(
-        commandRunner: commandRunner,
-      );
-      final String outputDirectory = Directory.systemTemp
-          .createTempSync('screen_recorder_physical_ios_test_')
-          .path;
+    test(
+      'resolves physical iOS devices by id, name, and name prefix',
+      () async {
+        final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+          ..addSwiftBuild()
+          ..addPhysicalDeviceList(<String, String>{
+            'ios-device-1': 'Drown iPhone',
+          });
+        final ScreenRecorder recorder = ScreenRecorder.iosPhysical(
+          commandRunner: commandRunner,
+        );
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_physical_ios_test_')
+            .path;
 
-      final RecordingSession byId = await recorder.startRecord(
-        deviceSelector: 'ios-device-1',
-        outputDirectory: outputDirectory,
-        outputName: 'by_id',
-      );
-      await recorder.discardRecord(byId);
+        final RecordingSession byId = await recorder.startRecord(
+          deviceSelector: 'ios-device-1',
+          outputDirectory: outputDirectory,
+          outputName: 'by_id',
+        );
+        await recorder.discardRecord(byId);
 
-      final RecordingSession byName = await recorder.startRecord(
-        deviceSelector: 'Drown iPhone',
-        outputDirectory: outputDirectory,
-        outputName: 'by_name',
-      );
-      await recorder.discardRecord(byName);
+        final RecordingSession byName = await recorder.startRecord(
+          deviceSelector: 'Drown iPhone',
+          outputDirectory: outputDirectory,
+          outputName: 'by_name',
+        );
+        await recorder.discardRecord(byName);
 
-      final RecordingSession byPrefix = await recorder.startRecord(
-        deviceSelector: 'dro',
-        outputDirectory: outputDirectory,
-        outputName: 'by_prefix',
-      );
-      await recorder.discardRecord(byPrefix);
+        final RecordingSession byPrefix = await recorder.startRecord(
+          deviceSelector: 'dro',
+          outputDirectory: outputDirectory,
+          outputName: 'by_prefix',
+        );
+        await recorder.discardRecord(byPrefix);
 
-      expect(byId.device.id, 'ios-device-1');
-      expect(byName.device.id, 'ios-device-1');
-      expect(byPrefix.device.id, 'ios-device-1');
-      expect(
+        expect(byId.device.id, 'ios-device-1');
+        expect(byName.device.id, 'ios-device-1');
+        expect(byPrefix.device.id, 'ios-device-1');
+        expect(
           commandRunner.startedCommands,
-          contains(equals(<String>[
-            commandRunner.helperPath,
-            'record',
-            '--device-id',
-            'ios-device-1',
-            '--output',
-            byId.expectedOutputPath,
-          ])));
-      expect(byId.expectedOutputPath, endsWith('by_id.mov'));
-    });
-
-    test('stops physical iOS helper and returns a finalized mov result',
-        () async {
-      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
-        ..addSwiftBuild()
-        ..addPhysicalDeviceList(<String, String>{
-          'ios-device-1': 'Drown iPhone',
-        });
-      final ScreenRecorder recorder = ScreenRecorder.iosPhysical(
-        commandRunner: commandRunner,
-      );
-      final String outputDirectory = Directory.systemTemp
-          .createTempSync('screen_recorder_physical_ios_test_')
-          .path;
-
-      final RecordingSession session = await recorder.startRecord(
-        deviceSelector: 'Drown iPhone',
-        outputDirectory: outputDirectory,
-        outputName: 'physical_recording',
-      );
-      commandRunner.completeProcessWithFile(
-        outputPath: session.expectedOutputPath,
-        bytes: <int>[5, 4, 3, 2],
-      );
-
-      final RecordingResult result = await recorder.stopRecord(session);
-
-      expect(result.outputPath, endsWith('physical_recording.mov'));
-      expect(result.mimeType, 'video/quicktime');
-      expect(File(result.outputPath).readAsBytesSync(), <int>[5, 4, 3, 2]);
-      expect(result.fileSizeBytes, 4);
-    });
-
-    test(
-        'reports missing Swift toolchain with missing-dependency code and raw output',
-        () async {
-      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
-        ..addRun(
-          <String>['swiftc'],
-          const ScreenRecorderCommandResult(
-            exitCode: 1,
-            stdout: '',
-            stderr: 'xcrun: error: toolchain not found',
+          contains(
+            equals(<String>[
+              commandRunner.helperPath,
+              'record',
+              '--device-id',
+              'ios-device-1',
+              '--output',
+              byId.expectedOutputPath,
+            ]),
           ),
         );
-      final ScreenRecorder recorder = ScreenRecorder.iosPhysical(
-        commandRunner: commandRunner,
-      );
-
-      await expectLater(
-        recorder.listDevices(),
-        throwsA(
-          isA<ScreenRecorderException>()
-              .having(
-                (ScreenRecorderException exception) => exception.code,
-                'code',
-                ScreenRecorderErrorCode.missingDependency,
-              )
-              .having(
-                (ScreenRecorderException exception) => exception.rawOutput,
-                'rawOutput',
-                contains('toolchain not found'),
-              ),
-        ),
-      );
-    });
+        expect(byId.expectedOutputPath, endsWith('by_id.mov'));
+      },
+    );
 
     test(
-        'reports helper list failures with permission-denied code and raw output',
-        () async {
-      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
-        ..addSwiftBuild()
-        ..addHelperList(
-          const ScreenRecorderCommandResult(
-            exitCode: 3,
-            stdout: '',
-            stderr: 'camera permission denied',
+      'stops physical iOS helper and returns a finalized mov result',
+      () async {
+        final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+          ..addSwiftBuild()
+          ..addPhysicalDeviceList(<String, String>{
+            'ios-device-1': 'Drown iPhone',
+          });
+        final ScreenRecorder recorder = ScreenRecorder.iosPhysical(
+          commandRunner: commandRunner,
+        );
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_physical_ios_test_')
+            .path;
+
+        final RecordingSession session = await recorder.startRecord(
+          deviceSelector: 'Drown iPhone',
+          outputDirectory: outputDirectory,
+          outputName: 'physical_recording',
+        );
+        commandRunner.completeProcessWithFile(
+          outputPath: session.expectedOutputPath,
+          bytes: <int>[5, 4, 3, 2],
+        );
+
+        final RecordingResult result = await recorder.stopRecord(session);
+
+        expect(result.outputPath, endsWith('physical_recording.mov'));
+        expect(result.mimeType, 'video/quicktime');
+        expect(File(result.outputPath).readAsBytesSync(), <int>[5, 4, 3, 2]);
+        expect(result.fileSizeBytes, 4);
+      },
+    );
+
+    test(
+      'reports missing Swift toolchain with missing-dependency code and raw output',
+      () async {
+        final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+          ..addRun(
+            <String>['swiftc'],
+            const ScreenRecorderCommandResult(
+              exitCode: 1,
+              stdout: '',
+              stderr: 'xcrun: error: toolchain not found',
+            ),
+          );
+        final ScreenRecorder recorder = ScreenRecorder.iosPhysical(
+          commandRunner: commandRunner,
+        );
+
+        await expectLater(
+          recorder.listDevices(),
+          throwsA(
+            isA<ScreenRecorderException>()
+                .having(
+                  (ScreenRecorderException exception) => exception.code,
+                  'code',
+                  ScreenRecorderErrorCode.missingDependency,
+                )
+                .having(
+                  (ScreenRecorderException exception) => exception.rawOutput,
+                  'rawOutput',
+                  contains('toolchain not found'),
+                ),
           ),
         );
-      final ScreenRecorder recorder = ScreenRecorder.iosPhysical(
-        commandRunner: commandRunner,
-      );
+      },
+    );
 
-      await expectLater(
-        recorder.listDevices(),
-        throwsA(
-          isA<ScreenRecorderException>()
-              .having(
-                (ScreenRecorderException exception) => exception.code,
-                'code',
-                ScreenRecorderErrorCode.permissionDenied,
-              )
-              .having(
-                (ScreenRecorderException exception) => exception.rawOutput,
-                'rawOutput',
-                contains('camera permission denied'),
-              ),
-        ),
-      );
-    });
+    test(
+      'reports helper list failures with permission-denied code and raw output',
+      () async {
+        final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+          ..addSwiftBuild()
+          ..addHelperList(
+            const ScreenRecorderCommandResult(
+              exitCode: 3,
+              stdout: '',
+              stderr: 'camera permission denied',
+            ),
+          );
+        final ScreenRecorder recorder = ScreenRecorder.iosPhysical(
+          commandRunner: commandRunner,
+        );
+
+        await expectLater(
+          recorder.listDevices(),
+          throwsA(
+            isA<ScreenRecorderException>()
+                .having(
+                  (ScreenRecorderException exception) => exception.code,
+                  'code',
+                  ScreenRecorderErrorCode.permissionDenied,
+                )
+                .having(
+                  (ScreenRecorderException exception) => exception.rawOutput,
+                  'rawOutput',
+                  contains('camera permission denied'),
+                ),
+          ),
+        );
+      },
+    );
 
     test('reports stop failure when physical iOS output is missing', () async {
       final _FakeCommandRunner commandRunner = _FakeCommandRunner()
@@ -235,14 +244,9 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
   _FakeScreenRecorderProcess? _lastProcess;
 
   void addSwiftBuild() {
-    addRun(
-      <String>['swiftc'],
-      const ScreenRecorderCommandResult(
-        exitCode: 0,
-        stdout: '',
-        stderr: '',
-      ),
-    );
+    addRun(<String>[
+      'swiftc',
+    ], const ScreenRecorderCommandResult(exitCode: 0, stdout: '', stderr: ''));
   }
 
   void addRun(List<String> command, ScreenRecorderCommandResult result) {
@@ -286,7 +290,8 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
           (throw StateError('Unexpected helper list command'));
     }
     throw StateError(
-        'Unexpected command: ${<String>[executable, ...arguments]}');
+      'Unexpected command: ${<String>[executable, ...arguments]}',
+    );
   }
 
   @override

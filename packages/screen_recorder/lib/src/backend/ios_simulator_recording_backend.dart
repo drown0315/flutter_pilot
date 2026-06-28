@@ -26,10 +26,10 @@ class IosSimulatorRecordingBackend implements RecordingBackend {
 
   @override
   Future<List<RecordingDevice>> listDevices() async {
-    final ScreenRecorderCommandResult result = await _runSimctl(
-      <String>['list', 'devices'],
-      ScreenRecorderErrorCode.missingDependency,
-    );
+    final ScreenRecorderCommandResult result = await _runSimctl(<String>[
+      'list',
+      'devices',
+    ], ScreenRecorderErrorCode.missingDependency);
     return _parseDevices(result.stdout);
   }
 
@@ -77,13 +77,11 @@ class IosSimulatorRecordingBackend implements RecordingBackend {
           message: 'iOS Simulator recordVideo exited immediately.',
           backendKind: _backendKind,
           deviceSelector: session.device.id,
-          rawOutput: _joinDiagnostics(
-            <String>[
-              'simctl exitCode: $immediateExitCode',
-              await process.stdout,
-              await process.stderr,
-            ],
-          ),
+          rawOutput: _joinDiagnostics(<String>[
+            'simctl exitCode: $immediateExitCode',
+            await process.stdout,
+            await process.stderr,
+          ]),
         );
       }
       _recordings[session.id] = process;
@@ -166,16 +164,14 @@ class IosSimulatorRecordingBackend implements RecordingBackend {
         message: 'iOS Simulator recording output was not created.',
         backendKind: _backendKind,
         deviceSelector: session.device.id,
-        rawOutput: _joinDiagnostics(
-          <String>[
-            'simctl exitCode: $exitCode',
-            'output exists: ${outputFile.existsSync()}',
-            if (outputFile.existsSync())
-              'output size: ${outputFile.lengthSync()}',
-            stdout,
-            stderr,
-          ],
-        ),
+        rawOutput: _joinDiagnostics(<String>[
+          'simctl exitCode: $exitCode',
+          'output exists: ${outputFile.existsSync()}',
+          if (outputFile.existsSync())
+            'output size: ${outputFile.lengthSync()}',
+          stdout,
+          stderr,
+        ]),
       );
     }
   }
@@ -240,8 +236,9 @@ class IosSimulatorRecordingBackend implements RecordingBackend {
     final List<RecordingDevice> devices = <RecordingDevice>[];
     bool inIosSection = false;
     final RegExp sectionPattern = RegExp(r'^--\s+(.+)\s+--$');
-    final RegExp devicePattern =
-        RegExp(r'^\s+(.+?) \(([0-9A-Fa-f-]{36})\) \(([^)]+)\)(.*)$');
+    final RegExp devicePattern = RegExp(
+      r'^\s+(.+?) \(([0-9A-Fa-f-]{36})\) \(([^)]+)\)(.*)$',
+    );
     for (final String line in simctlOutput.split('\n')) {
       final RegExpMatch? sectionMatch = sectionPattern.firstMatch(line.trim());
       if (sectionMatch != null) {

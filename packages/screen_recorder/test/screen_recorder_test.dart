@@ -21,43 +21,47 @@ void main() {
       expect(devices, <RecordingDevice>[device]);
     });
 
-    test('starts and stops a fake Recording Session with result metadata',
-        () async {
-      final RecordingDevice device = RecordingDevice(
-        id: 'android-1',
-        name: 'PHK110',
-        platform: RecordingDevicePlatform.android,
-      );
-      final ScreenRecorder recorder = ScreenRecorder.fake(
-        devices: <RecordingDevice>[device],
-      );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_test_').path;
+    test(
+      'starts and stops a fake Recording Session with result metadata',
+      () async {
+        final RecordingDevice device = RecordingDevice(
+          id: 'android-1',
+          name: 'PHK110',
+          platform: RecordingDevicePlatform.android,
+        );
+        final ScreenRecorder recorder = ScreenRecorder.fake(
+          devices: <RecordingDevice>[device],
+        );
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_test_')
+            .path;
 
-      final RecordingSession session = await recorder.startRecord(
-        deviceSelector: 'PHK110',
-        outputDirectory: outputDirectory,
-        outputName: 'login_flow',
-      );
-      final RecordingResult result = await recorder.stopRecord(session);
+        final RecordingSession session = await recorder.startRecord(
+          deviceSelector: 'PHK110',
+          outputDirectory: outputDirectory,
+          outputName: 'login_flow',
+        );
+        final RecordingResult result = await recorder.stopRecord(session);
 
-      expect(session.device, device);
-      expect(session.expectedOutputPath, endsWith('login_flow.mp4'));
-      expect(result.session, session);
-      expect(result.outputPath, session.expectedOutputPath);
-      expect(File(result.outputPath).existsSync(), isTrue);
-      expect(result.fileSizeBytes, greaterThan(0));
-      expect(result.mimeType, 'video/mp4');
-      expect(result.stopTime.isAfter(result.startTime), isTrue);
-      expect(result.duration, result.stopTime.difference(result.startTime));
-    });
+        expect(session.device, device);
+        expect(session.expectedOutputPath, endsWith('login_flow.mp4'));
+        expect(result.session, session);
+        expect(result.outputPath, session.expectedOutputPath);
+        expect(File(result.outputPath).existsSync(), isTrue);
+        expect(result.fileSizeBytes, greaterThan(0));
+        expect(result.mimeType, 'video/mp4');
+        expect(result.stopTime.isAfter(result.startTime), isTrue);
+        expect(result.duration, result.stopTime.difference(result.startTime));
+      },
+    );
 
     test('generates an output name when none is provided', () async {
       final ScreenRecorder recorder = ScreenRecorder.fake(
         devices: <RecordingDevice>[_androidDevice()],
       );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_test_').path;
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_test_')
+          .path;
 
       final RecordingSession session = await recorder.startRecord(
         deviceSelector: 'PHK',
@@ -75,8 +79,9 @@ void main() {
       final ScreenRecorder recorder = ScreenRecorder.fake(
         devices: <RecordingDevice>[_androidDevice()],
       );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_test_').path;
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_test_')
+          .path;
 
       await expectLater(
         recorder.startRecord(
@@ -88,38 +93,42 @@ void main() {
       );
     });
 
-    test('rejects output names with path separators or file extensions',
-        () async {
-      final ScreenRecorder recorder = ScreenRecorder.fake(
-        devices: <RecordingDevice>[_androidDevice()],
-      );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_test_').path;
+    test(
+      'rejects output names with path separators or file extensions',
+      () async {
+        final ScreenRecorder recorder = ScreenRecorder.fake(
+          devices: <RecordingDevice>[_androidDevice()],
+        );
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_test_')
+            .path;
 
-      await expectLater(
-        recorder.startRecord(
-          deviceSelector: 'PHK110',
-          outputDirectory: outputDirectory,
-          outputName: 'nested/login_flow',
-        ),
-        throwsA(_hasCode(ScreenRecorderErrorCode.invalidOutputName)),
-      );
-      await expectLater(
-        recorder.startRecord(
-          deviceSelector: 'PHK110',
-          outputDirectory: outputDirectory,
-          outputName: 'login_flow.mp4',
-        ),
-        throwsA(_hasCode(ScreenRecorderErrorCode.invalidOutputName)),
-      );
-    });
+        await expectLater(
+          recorder.startRecord(
+            deviceSelector: 'PHK110',
+            outputDirectory: outputDirectory,
+            outputName: 'nested/login_flow',
+          ),
+          throwsA(_hasCode(ScreenRecorderErrorCode.invalidOutputName)),
+        );
+        await expectLater(
+          recorder.startRecord(
+            deviceSelector: 'PHK110',
+            outputDirectory: outputDirectory,
+            outputName: 'login_flow.mp4',
+          ),
+          throwsA(_hasCode(ScreenRecorderErrorCode.invalidOutputName)),
+        );
+      },
+    );
 
     test('fails on existing outputs unless overwrite is explicit', () async {
       final ScreenRecorder recorder = ScreenRecorder.fake(
         devices: <RecordingDevice>[_androidDevice()],
       );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_test_').path;
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_test_')
+          .path;
       File('$outputDirectory${Platform.pathSeparator}login_flow.mp4')
         ..createSync(recursive: true)
         ..writeAsStringSync('existing');
@@ -155,8 +164,9 @@ void main() {
           ),
         ],
       );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_test_').path;
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_test_')
+          .path;
 
       final RecordingSession firstSession = await recorder.startRecord(
         deviceSelector: 'PHK110',
@@ -176,84 +186,93 @@ void main() {
       await recorder.stopRecord(secondSession);
     });
 
-    test('rejects a second active Recording Session for the same device',
-        () async {
-      final ScreenRecorder recorder = ScreenRecorder.fake(
-        devices: <RecordingDevice>[_androidDevice()],
-      );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_test_').path;
-      final RecordingSession session = await recorder.startRecord(
-        deviceSelector: 'PHK110',
-        outputDirectory: outputDirectory,
-        outputName: 'first',
-      );
-
-      await expectLater(
-        recorder.startRecord(
-          deviceSelector: 'android-1',
+    test(
+      'rejects a second active Recording Session for the same device',
+      () async {
+        final ScreenRecorder recorder = ScreenRecorder.fake(
+          devices: <RecordingDevice>[_androidDevice()],
+        );
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_test_')
+            .path;
+        final RecordingSession session = await recorder.startRecord(
+          deviceSelector: 'PHK110',
           outputDirectory: outputDirectory,
-          outputName: 'second',
-        ),
-        throwsA(_hasCode(ScreenRecorderErrorCode.alreadyRecording)),
-      );
+          outputName: 'first',
+        );
 
-      await recorder.stopRecord(session);
-    });
+        await expectLater(
+          recorder.startRecord(
+            deviceSelector: 'android-1',
+            outputDirectory: outputDirectory,
+            outputName: 'second',
+          ),
+          throwsA(_hasCode(ScreenRecorderErrorCode.alreadyRecording)),
+        );
 
-    test('discards an active Recording Session without saving a result',
-        () async {
-      final ScreenRecorder recorder = ScreenRecorder.fake(
-        devices: <RecordingDevice>[_androidDevice()],
-      );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_test_').path;
-      final RecordingSession session = await recorder.startRecord(
-        deviceSelector: 'PHK110',
-        outputDirectory: outputDirectory,
-        outputName: 'discarded',
-      );
+        await recorder.stopRecord(session);
+      },
+    );
 
-      await recorder.discardRecord(session);
+    test(
+      'discards an active Recording Session without saving a result',
+      () async {
+        final ScreenRecorder recorder = ScreenRecorder.fake(
+          devices: <RecordingDevice>[_androidDevice()],
+        );
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_test_')
+            .path;
+        final RecordingSession session = await recorder.startRecord(
+          deviceSelector: 'PHK110',
+          outputDirectory: outputDirectory,
+          outputName: 'discarded',
+        );
 
-      expect(File(session.expectedOutputPath).existsSync(), isFalse);
+        await recorder.discardRecord(session);
 
-      final RecordingSession nextSession = await recorder.startRecord(
-        deviceSelector: 'PHK110',
-        outputDirectory: outputDirectory,
-        outputName: 'saved_after_discard',
-      );
-      final RecordingResult result = await recorder.stopRecord(nextSession);
-      expect(result.outputPath, endsWith('saved_after_discard.mp4'));
-    });
+        expect(File(session.expectedOutputPath).existsSync(), isFalse);
 
-    test('rejects stopping or discarding a session from another recorder',
-        () async {
-      final ScreenRecorder owner = ScreenRecorder.fake(
-        devices: <RecordingDevice>[_androidDevice()],
-      );
-      final ScreenRecorder other = ScreenRecorder.fake(
-        devices: <RecordingDevice>[_androidDevice()],
-      );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_test_').path;
-      final RecordingSession ownerSession = await owner.startRecord(
-        deviceSelector: 'PHK110',
-        outputDirectory: outputDirectory,
-        outputName: 'owned',
-      );
+        final RecordingSession nextSession = await recorder.startRecord(
+          deviceSelector: 'PHK110',
+          outputDirectory: outputDirectory,
+          outputName: 'saved_after_discard',
+        );
+        final RecordingResult result = await recorder.stopRecord(nextSession);
+        expect(result.outputPath, endsWith('saved_after_discard.mp4'));
+      },
+    );
 
-      await expectLater(
-        other.stopRecord(ownerSession),
-        throwsA(_hasCode(ScreenRecorderErrorCode.sessionNotFound)),
-      );
-      await expectLater(
-        other.discardRecord(ownerSession),
-        throwsA(_hasCode(ScreenRecorderErrorCode.sessionNotFound)),
-      );
+    test(
+      'rejects stopping or discarding a session from another recorder',
+      () async {
+        final ScreenRecorder owner = ScreenRecorder.fake(
+          devices: <RecordingDevice>[_androidDevice()],
+        );
+        final ScreenRecorder other = ScreenRecorder.fake(
+          devices: <RecordingDevice>[_androidDevice()],
+        );
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_test_')
+            .path;
+        final RecordingSession ownerSession = await owner.startRecord(
+          deviceSelector: 'PHK110',
+          outputDirectory: outputDirectory,
+          outputName: 'owned',
+        );
 
-      await owner.discardRecord(ownerSession);
-    });
+        await expectLater(
+          other.stopRecord(ownerSession),
+          throwsA(_hasCode(ScreenRecorderErrorCode.sessionNotFound)),
+        );
+        await expectLater(
+          other.discardRecord(ownerSession),
+          throwsA(_hasCode(ScreenRecorderErrorCode.sessionNotFound)),
+        );
+
+        await owner.discardRecord(ownerSession);
+      },
+    );
   });
 }
 

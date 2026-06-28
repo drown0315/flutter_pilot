@@ -15,8 +15,9 @@ void main() {
           <int>['s'.codeUnitAt(0)],
         ]),
       );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_cli_test_').path;
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_cli_test_')
+          .path;
       final StringBuffer stdout = StringBuffer();
       final StringBuffer stderr = StringBuffer();
 
@@ -34,10 +35,7 @@ void main() {
       );
 
       expect(exitCode, 0);
-      expect(
-        stdout.toString(),
-        contains('Starting recording for PHK110...'),
-      );
+      expect(stdout.toString(), contains('Starting recording for PHK110...'));
       expect(
         stdout.toString(),
         contains('Recording PHK110. Press s to save, q to discard.'),
@@ -57,8 +55,9 @@ void main() {
           <int>['q'.codeUnitAt(0)],
         ]),
       );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_cli_test_').path;
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_cli_test_')
+          .path;
       final StringBuffer stdout = StringBuffer();
       final StringBuffer stderr = StringBuffer();
 
@@ -84,34 +83,37 @@ void main() {
       );
     });
 
-    test('renders ScreenRecorderException codes for argument failures',
-        () async {
-      final ScreenRecorderCli cli = ScreenRecorderCli(
-        recorder: ScreenRecorder.fake(devices: <RecordingDevice>[_device()]),
-        input: Stream<List<int>>.empty(),
-      );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_cli_test_').path;
-      final StringBuffer stdout = StringBuffer();
-      final StringBuffer stderr = StringBuffer();
+    test(
+      'renders ScreenRecorderException codes for argument failures',
+      () async {
+        final ScreenRecorderCli cli = ScreenRecorderCli(
+          recorder: ScreenRecorder.fake(devices: <RecordingDevice>[_device()]),
+          input: Stream<List<int>>.empty(),
+        );
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_cli_test_')
+            .path;
+        final StringBuffer stdout = StringBuffer();
+        final StringBuffer stderr = StringBuffer();
 
-      final int exitCode = await cli.run(
-        <String>[
-          '--device',
-          'PHK110',
-          '--output-directory',
-          outputDirectory,
-          '--output-name',
-          'bad.mp4',
-        ],
-        stdout: stdout,
-        stderr: stderr,
-      );
+        final int exitCode = await cli.run(
+          <String>[
+            '--device',
+            'PHK110',
+            '--output-directory',
+            outputDirectory,
+            '--output-name',
+            'bad.mp4',
+          ],
+          stdout: stdout,
+          stderr: stderr,
+        );
 
-      expect(exitCode, 64);
-      expect(stdout.toString(), isEmpty);
-      expect(stderr.toString(), contains('invalidOutputName:'));
-    });
+        expect(exitCode, 64);
+        expect(stdout.toString(), isEmpty);
+        expect(stderr.toString(), contains('invalidOutputName:'));
+      },
+    );
   });
 }
 

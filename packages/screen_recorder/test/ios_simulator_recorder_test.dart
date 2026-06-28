@@ -77,21 +77,21 @@ void main() {
       expect(byName.device.id, '11111111-1111-1111-1111-111111111111');
       expect(byPrefix.device.id, '11111111-1111-1111-1111-111111111111');
       expect(
-          commandRunner.runCommands,
-          contains(equals(<String>[
-            'xcrun',
-            '--find',
-            'simctl',
-          ])));
+        commandRunner.runCommands,
+        contains(equals(<String>['xcrun', '--find', 'simctl'])),
+      );
       expect(
-          commandRunner.startedCommands,
-          contains(equals(<String>[
+        commandRunner.startedCommands,
+        contains(
+          equals(<String>[
             commandRunner.simctlPath,
             'io',
             '11111111-1111-1111-1111-111111111111',
             'recordVideo',
             byId.expectedOutputPath,
-          ])));
+          ]),
+        ),
+      );
       expect(byId.expectedOutputPath, endsWith('by_id.mov'));
     });
 
@@ -118,37 +118,42 @@ void main() {
       expect(session.device.id, '22222222-2222-2222-2222-222222222222');
     });
 
-    test('stops simulator recordVideo and returns a finalized mov result',
-        () async {
-      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
-        ..addSimulatorDeviceList(<String, String>{
-          '11111111-1111-1111-1111-111111111111': 'iPhone 16 Pro',
-        });
-      final ScreenRecorder recorder = ScreenRecorder.iosSimulator(
-        commandRunner: commandRunner,
-      );
-      final String outputDirectory = Directory.systemTemp
-          .createTempSync('screen_recorder_simulator_test_')
-          .path;
+    test(
+      'stops simulator recordVideo and returns a finalized mov result',
+      () async {
+        final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+          ..addSimulatorDeviceList(<String, String>{
+            '11111111-1111-1111-1111-111111111111': 'iPhone 16 Pro',
+          });
+        final ScreenRecorder recorder = ScreenRecorder.iosSimulator(
+          commandRunner: commandRunner,
+        );
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_simulator_test_')
+            .path;
 
-      final RecordingSession session = await recorder.startRecord(
-        deviceSelector: 'iPhone 16 Pro',
-        outputDirectory: outputDirectory,
-        outputName: 'sim_recording',
-      );
-      commandRunner.completeProcessWithFile(
-        outputPath: session.expectedOutputPath,
-        bytes: <int>[9, 8, 7, 6],
-      );
+        final RecordingSession session = await recorder.startRecord(
+          deviceSelector: 'iPhone 16 Pro',
+          outputDirectory: outputDirectory,
+          outputName: 'sim_recording',
+        );
+        commandRunner.completeProcessWithFile(
+          outputPath: session.expectedOutputPath,
+          bytes: <int>[9, 8, 7, 6],
+        );
 
-      final RecordingResult result = await recorder.stopRecord(session);
+        final RecordingResult result = await recorder.stopRecord(session);
 
-      expect(result.outputPath, endsWith('sim_recording.mov'));
-      expect(result.mimeType, 'video/quicktime');
-      expect(File(result.outputPath).readAsBytesSync(), <int>[9, 8, 7, 6]);
-      expect(result.fileSizeBytes, 4);
-      expect(commandRunner.lastProcess?.killedWithSignal, ProcessSignal.sigint);
-    });
+        expect(result.outputPath, endsWith('sim_recording.mov'));
+        expect(result.mimeType, 'video/quicktime');
+        expect(File(result.outputPath).readAsBytesSync(), <int>[9, 8, 7, 6]);
+        expect(result.fileSizeBytes, 4);
+        expect(
+          commandRunner.lastProcess?.killedWithSignal,
+          ProcessSignal.sigint,
+        );
+      },
+    );
 
     test('discards simulator recording and removes local output', () async {
       final _FakeCommandRunner commandRunner = _FakeCommandRunner()
@@ -178,38 +183,39 @@ void main() {
     });
 
     test(
-        'reports simctl discovery failures with missing-dependency code and raw output',
-        () async {
-      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
-        ..addRun(
-          <String>['xcrun', 'simctl', 'list', 'devices'],
-          const ScreenRecorderCommandResult(
-            exitCode: 72,
-            stdout: '',
-            stderr: 'xcrun: error: unable to find utility "simctl"',
+      'reports simctl discovery failures with missing-dependency code and raw output',
+      () async {
+        final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+          ..addRun(
+            <String>['xcrun', 'simctl', 'list', 'devices'],
+            const ScreenRecorderCommandResult(
+              exitCode: 72,
+              stdout: '',
+              stderr: 'xcrun: error: unable to find utility "simctl"',
+            ),
+          );
+        final ScreenRecorder recorder = ScreenRecorder.iosSimulator(
+          commandRunner: commandRunner,
+        );
+
+        await expectLater(
+          recorder.listDevices(),
+          throwsA(
+            isA<ScreenRecorderException>()
+                .having(
+                  (ScreenRecorderException exception) => exception.code,
+                  'code',
+                  ScreenRecorderErrorCode.missingDependency,
+                )
+                .having(
+                  (ScreenRecorderException exception) => exception.rawOutput,
+                  'rawOutput',
+                  contains('unable to find utility'),
+                ),
           ),
         );
-      final ScreenRecorder recorder = ScreenRecorder.iosSimulator(
-        commandRunner: commandRunner,
-      );
-
-      await expectLater(
-        recorder.listDevices(),
-        throwsA(
-          isA<ScreenRecorderException>()
-              .having(
-                (ScreenRecorderException exception) => exception.code,
-                'code',
-                ScreenRecorderErrorCode.missingDependency,
-              )
-              .having(
-                (ScreenRecorderException exception) => exception.rawOutput,
-                'rawOutput',
-                contains('unable to find utility'),
-              ),
-        ),
-      );
-    });
+      },
+    );
 
     test('reports stop failure when simulator output is missing', () async {
       final _FakeCommandRunner commandRunner = _FakeCommandRunner()

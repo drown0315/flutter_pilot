@@ -31,10 +31,11 @@ void main() {
           RecordingDevicePlatform.iosPhysical,
         ],
       );
-      expect(
-        devices.map((RecordingDevice device) => device.name),
-        <String>['Android Phone', 'iPhone Simulator', 'Physical iPhone'],
-      );
+      expect(devices.map((RecordingDevice device) => device.name), <String>[
+        'Android Phone',
+        'iPhone Simulator',
+        'Physical iPhone',
+      ]);
     });
 
     test('resolves Android before iOS Simulator and physical iOS', () async {
@@ -68,38 +69,40 @@ void main() {
       await recorder.discardRecord(session);
     });
 
-    test('uses platform filter to select iOS Simulator when names overlap',
-        () async {
-      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
-        ..addAndroidDeviceList(<String, String>{'android-1': 'Shared Phone'})
-        ..addSimulatorDeviceList(<String, String>{
-          '11111111-1111-1111-1111-111111111111': 'Shared Phone',
-        })
-        ..addSwiftBuild()
-        ..addPhysicalDeviceList(<String, String>{
-          'ios-device-1': 'Shared Phone',
-        });
-      final ScreenRecorder recorder = ScreenRecorder.defaultRecorder(
-        commandRunner: commandRunner,
-        platform: RecordingDevicePlatform.iosSimulator,
-      );
-      final String outputDirectory = Directory.systemTemp
-          .createTempSync('screen_recorder_default_test_')
-          .path;
+    test(
+      'uses platform filter to select iOS Simulator when names overlap',
+      () async {
+        final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+          ..addAndroidDeviceList(<String, String>{'android-1': 'Shared Phone'})
+          ..addSimulatorDeviceList(<String, String>{
+            '11111111-1111-1111-1111-111111111111': 'Shared Phone',
+          })
+          ..addSwiftBuild()
+          ..addPhysicalDeviceList(<String, String>{
+            'ios-device-1': 'Shared Phone',
+          });
+        final ScreenRecorder recorder = ScreenRecorder.defaultRecorder(
+          commandRunner: commandRunner,
+          platform: RecordingDevicePlatform.iosSimulator,
+        );
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_default_test_')
+            .path;
 
-      final RecordingSession session = await recorder.startRecord(
-        deviceSelector: 'Shared',
-        outputDirectory: outputDirectory,
-        outputName: 'simulator_only',
-      );
+        final RecordingSession session = await recorder.startRecord(
+          deviceSelector: 'Shared',
+          outputDirectory: outputDirectory,
+          outputName: 'simulator_only',
+        );
 
-      expect(session.device.platform, RecordingDevicePlatform.iosSimulator);
-      expect(session.expectedOutputPath, endsWith('simulator_only.mov'));
-      expect(commandRunner.adbDevicesCount, 0);
-      expect(commandRunner.helperListCount, 0);
+        expect(session.device.platform, RecordingDevicePlatform.iosSimulator);
+        expect(session.expectedOutputPath, endsWith('simulator_only.mov'));
+        expect(commandRunner.adbDevicesCount, 0);
+        expect(commandRunner.helperListCount, 0);
 
-      await recorder.discardRecord(session);
-    });
+        await recorder.discardRecord(session);
+      },
+    );
 
     test('reports device-not-found when no default backend matches', () async {
       final _FakeCommandRunner commandRunner = _FakeCommandRunner()
@@ -201,10 +204,9 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
   }
 
   void addSwiftBuild() {
-    addRun(
-      <String>['swiftc'],
-      const ScreenRecorderCommandResult(exitCode: 0, stdout: '', stderr: ''),
-    );
+    addRun(<String>[
+      'swiftc',
+    ], const ScreenRecorderCommandResult(exitCode: 0, stdout: '', stderr: ''));
   }
 
   void addPhysicalDeviceList(Map<String, String> devicesById) {
@@ -273,7 +275,10 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
         arguments[4] == '-2') {
       lastProcess?.complete();
       return const ScreenRecorderCommandResult(
-          exitCode: 0, stdout: '', stderr: '');
+        exitCode: 0,
+        stdout: '',
+        stderr: '',
+      );
     }
     if (executable == 'adb' &&
         arguments.length == 6 &&
@@ -281,7 +286,10 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
         arguments[3] == 'rm' &&
         arguments[4] == '-f') {
       return const ScreenRecorderCommandResult(
-          exitCode: 0, stdout: '', stderr: '');
+        exitCode: 0,
+        stdout: '',
+        stderr: '',
+      );
     }
     if (executable == 'xcrun' &&
         arguments.length == 3 &&
@@ -301,7 +309,8 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
         _runResults[_key(<String>[executable, ...arguments])];
     if (result == null) {
       throw StateError(
-          'Unexpected command: ${<String>[executable, ...arguments]}');
+        'Unexpected command: ${<String>[executable, ...arguments]}',
+      );
     }
     return result;
   }

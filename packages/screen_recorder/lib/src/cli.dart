@@ -17,12 +17,10 @@ class ScreenRecorderCli {
   ///
   /// `recorder` defaults to the multi-backend recorder. Tests can inject a fake
   /// recorder and input stream to avoid real devices and terminal interaction.
-  ScreenRecorderCli({
-    ScreenRecorder? recorder,
-    Stream<List<int>>? input,
-  })  : _recorder = recorder ?? ScreenRecorder.defaultRecorder(),
-        _input = input ?? io.stdin,
-        _usesTerminalInput = input == null;
+  ScreenRecorderCli({ScreenRecorder? recorder, Stream<List<int>>? input})
+    : _recorder = recorder ?? ScreenRecorder.defaultRecorder(),
+      _input = input ?? io.stdin,
+      _usesTerminalInput = input == null;
 
   final ScreenRecorder _recorder;
   final Stream<List<int>> _input;
@@ -118,10 +116,7 @@ class ScreenRecorderCli {
         'output-directory',
         help: 'Directory where the saved recording will be written.',
       )
-      ..addOption(
-        'output-name',
-        help: 'Output file name without extension.',
-      );
+      ..addOption('output-name', help: 'Output file name without extension.');
   }
 
   Future<String> _readCommand() async {

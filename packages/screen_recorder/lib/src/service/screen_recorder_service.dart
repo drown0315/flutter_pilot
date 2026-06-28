@@ -73,8 +73,9 @@ class ScreenRecorderService {
     await _backend.stop(sessionToStop);
     final File outputFile = File(sessionToStop.expectedOutputPath);
     final DateTime stopTime = DateTime.now().toUtc();
-    final int fileSizeBytes =
-        outputFile.existsSync() ? outputFile.lengthSync() : 0;
+    final int fileSizeBytes = outputFile.existsSync()
+        ? outputFile.lengthSync()
+        : 0;
     return RecordingResult(
       session: sessionToStop,
       outputPath: sessionToStop.expectedOutputPath,
@@ -157,8 +158,10 @@ class ScreenRecorderService {
         .toIso8601String()
         .replaceAll(RegExp(r'[^0-9]'), '')
         .substring(0, 14);
-    final String safeDeviceName =
-        device.name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+    final String safeDeviceName = device.name.toLowerCase().replaceAll(
+      RegExp(r'[^a-z0-9]+'),
+      '_',
+    );
     return 'recording_${timestamp}_$safeDeviceName';
   }
 

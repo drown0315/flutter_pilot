@@ -30,8 +30,9 @@ class ScreenRecorder {
   ///
   /// The fake backend is intended for package tests and callers that need to
   /// exercise the public API without depending on real recording tools.
-  factory ScreenRecorder.fake(
-      {List<RecordingDevice> devices = const <RecordingDevice>[]}) {
+  factory ScreenRecorder.fake({
+    List<RecordingDevice> devices = const <RecordingDevice>[],
+  }) {
     return ScreenRecorder._(
       ScreenRecorderService(FakeRecordingBackend(devices)),
     );
@@ -81,9 +82,7 @@ class ScreenRecorder {
   }) {
     return ScreenRecorder._(
       ScreenRecorderService(
-        IosSimulatorRecordingBackend(
-          commandRunner ?? ProcessCommandRunner(),
-        ),
+        IosSimulatorRecordingBackend(commandRunner ?? ProcessCommandRunner()),
       ),
     );
   }
@@ -98,9 +97,7 @@ class ScreenRecorder {
   }) {
     return ScreenRecorder._(
       ScreenRecorderService(
-        IosPhysicalRecordingBackend(
-          commandRunner ?? ProcessCommandRunner(),
-        ),
+        IosPhysicalRecordingBackend(commandRunner ?? ProcessCommandRunner()),
       ),
     );
   }

@@ -126,14 +126,12 @@ offline-1\toffline
       final RecordingResult result = await recorder.stopRecord(session);
 
       expect(result.outputPath, endsWith('android_recording.mp4'));
-      expect(
-        File(result.outputPath).readAsBytesSync(),
-        <int>[6, 7, 8, 9, 10],
-      );
+      expect(File(result.outputPath).readAsBytesSync(), <int>[6, 7, 8, 9, 10]);
       expect(result.fileSizeBytes, 5);
       expect(
-          commandRunner.startedCommands,
-          contains(equals(<String>[
+        commandRunner.startedCommands,
+        contains(
+          equals(<String>[
             'scrcpy',
             '--serial',
             'PHK110',
@@ -141,9 +139,13 @@ offline-1\toffline
             '--no-playback',
             '--no-window',
             '--record=${session.expectedOutputPath}',
-          ])));
+          ]),
+        ),
+      );
       expect(
-          commandRunner.lastProcess?.killedWithSignal, ProcessSignal.sigterm);
+        commandRunner.lastProcess?.killedWithSignal,
+        ProcessSignal.sigterm,
+      );
       expect(
         commandRunner.runCommands.any(
           (List<String> command) => command.contains('pull'),
@@ -152,234 +154,258 @@ offline-1\toffline
       );
     });
 
-    test('falls back to native screenrecord when scrcpy exits immediately',
-        () async {
-      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
-        ..addAndroidDeviceList(<String, String>{'PHK110': 'OnePlus 13'})
-        ..scrcpyStartFailure = 'scrcpy failed';
-      final ScreenRecorder recorder = ScreenRecorder.android(
-        commandRunner: commandRunner,
-      );
-      final String outputDirectory = Directory.systemTemp
-          .createTempSync('screen_recorder_android_test_')
-          .path;
+    test(
+      'falls back to native screenrecord when scrcpy exits immediately',
+      () async {
+        final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+          ..addAndroidDeviceList(<String, String>{'PHK110': 'OnePlus 13'})
+          ..scrcpyStartFailure = 'scrcpy failed';
+        final ScreenRecorder recorder = ScreenRecorder.android(
+          commandRunner: commandRunner,
+        );
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_android_test_')
+            .path;
 
-      final RecordingSession session = await recorder.startRecord(
-        deviceSelector: 'PHK110',
-        outputDirectory: outputDirectory,
-        outputName: 'native_recording',
-      );
-      commandRunner.addPullForSession(
-        session: session,
-        bytes: <int>[1, 2, 3, 4, 5],
-      );
-      final RecordingResult result = await recorder.stopRecord(session);
+        final RecordingSession session = await recorder.startRecord(
+          deviceSelector: 'PHK110',
+          outputDirectory: outputDirectory,
+          outputName: 'native_recording',
+        );
+        commandRunner.addPullForSession(
+          session: session,
+          bytes: <int>[1, 2, 3, 4, 5],
+        );
+        final RecordingResult result = await recorder.stopRecord(session);
 
-      expect(File(result.outputPath).readAsBytesSync(), <int>[1, 2, 3, 4, 5]);
-      expect(
+        expect(File(result.outputPath).readAsBytesSync(), <int>[1, 2, 3, 4, 5]);
+        expect(
           commandRunner.runCommands,
-          contains(equals(<String>[
+          contains(
+            equals(<String>[
+              'adb',
+              '-s',
+              'PHK110',
+              'pull',
+              '/sdcard/screen_recorder_${session.id}.mp4',
+              result.outputPath,
+            ]),
+          ),
+        );
+        expect(
+          commandRunner.runCommands,
+          contains(
+            equals(<String>[
+              'adb',
+              '-s',
+              'PHK110',
+              'shell',
+              'rm',
+              '-f',
+              '/sdcard/screen_recorder_${session.id}.mp4',
+            ]),
+          ),
+        );
+      },
+    );
+
+    test(
+      'falls back to host frame capture when screenrecord cannot open output',
+      () async {
+        final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+          ..addAndroidDeviceList(<String, String>{'PHK110': 'OnePlus 13'})
+          ..scrcpyStartFailure = 'scrcpy failed'
+          ..screenrecordStartFailure = 'Unable to open file: Permission denied';
+        final ScreenRecorder recorder = ScreenRecorder.android(
+          commandRunner: commandRunner,
+        );
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_android_test_')
+            .path;
+
+        final RecordingSession session = await recorder.startRecord(
+          deviceSelector: 'PHK110',
+          outputDirectory: outputDirectory,
+          outputName: 'android_fallback',
+        );
+        final RecordingResult result = await recorder.stopRecord(session);
+
+        expect(result.outputPath, endsWith('android_fallback.mp4'));
+        expect(File(result.outputPath).readAsBytesSync(), <int>[9, 8, 7, 6]);
+        expect(commandRunner.runBytesCommands, isNotEmpty);
+        expect(commandRunner.runBytesCommands.first, <String>[
+          'adb',
+          '-s',
+          'PHK110',
+          'exec-out',
+          'screencap',
+          '-p',
+        ]);
+        expect(
+          commandRunner.runCommands,
+          contains(
+            allOf(
+              contains('ffmpeg'),
+              contains('-framerate'),
+              contains('4'),
+              contains(result.outputPath),
+            ),
+          ),
+        );
+        expect(
+          commandRunner.runCommands.any(
+            (List<String> command) => command.contains('pull'),
+          ),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'discards Android screenrecord without pulling a local file',
+      () async {
+        final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+          ..addAndroidDeviceList(<String, String>{'PHK110': 'OnePlus 13'})
+          ..scrcpyStartFailure = 'scrcpy failed';
+        final ScreenRecorder recorder = ScreenRecorder.android(
+          commandRunner: commandRunner,
+        );
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_android_test_')
+            .path;
+
+        final RecordingSession session = await recorder.startRecord(
+          deviceSelector: 'PHK110',
+          outputDirectory: outputDirectory,
+          outputName: 'discarded_android',
+        );
+        await recorder.discardRecord(session);
+
+        expect(File(session.expectedOutputPath).existsSync(), isFalse);
+        expect(
+          commandRunner.runCommands.any(
+            (List<String> command) => command.contains('pull'),
+          ),
+          isFalse,
+        );
+        expect(
+          commandRunner.runCommands,
+          contains(
+            equals(<String>[
+              'adb',
+              '-s',
+              'PHK110',
+              'shell',
+              'rm',
+              '-f',
+              '/sdcard/screen_recorder_${session.id}.mp4',
+            ]),
+          ),
+        );
+      },
+    );
+
+    test(
+      'reports adb discovery failures with missing-dependency code and raw output',
+      () async {
+        final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+          ..addRun(
+            <String>['adb', 'devices'],
+            const ScreenRecorderCommandResult(
+              exitCode: 127,
+              stdout: '',
+              stderr: 'adb: command not found',
+            ),
+          );
+        final ScreenRecorder recorder = ScreenRecorder.android(
+          commandRunner: commandRunner,
+        );
+
+        await expectLater(
+          recorder.listDevices(),
+          throwsA(
+            isA<ScreenRecorderException>()
+                .having(
+                  (ScreenRecorderException exception) => exception.code,
+                  'code',
+                  ScreenRecorderErrorCode.missingDependency,
+                )
+                .having(
+                  (ScreenRecorderException exception) => exception.rawOutput,
+                  'rawOutput',
+                  contains('adb: command not found'),
+                ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'reports Android pull failures with stop-failed code and raw output',
+      () async {
+        final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+          ..addAndroidDeviceList(<String, String>{'PHK110': 'OnePlus 13'})
+          ..scrcpyStartFailure = 'scrcpy failed';
+        final ScreenRecorder recorder = ScreenRecorder.android(
+          commandRunner: commandRunner,
+        );
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_android_test_')
+            .path;
+
+        final RecordingSession session = await recorder.startRecord(
+          deviceSelector: 'PHK110',
+          outputDirectory: outputDirectory,
+          outputName: 'pull_failure',
+        );
+        commandRunner.addRun(
+          <String>[
             'adb',
             '-s',
             'PHK110',
             'pull',
             '/sdcard/screen_recorder_${session.id}.mp4',
-            result.outputPath,
-          ])));
-      expect(
-          commandRunner.runCommands,
-          contains(equals(<String>[
-            'adb',
-            '-s',
-            'PHK110',
-            'shell',
-            'rm',
-            '-f',
-            '/sdcard/screen_recorder_${session.id}.mp4',
-          ])));
-    });
-
-    test(
-        'falls back to host frame capture when screenrecord cannot open output',
-        () async {
-      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
-        ..addAndroidDeviceList(<String, String>{'PHK110': 'OnePlus 13'})
-        ..scrcpyStartFailure = 'scrcpy failed'
-        ..screenrecordStartFailure = 'Unable to open file: Permission denied';
-      final ScreenRecorder recorder = ScreenRecorder.android(
-        commandRunner: commandRunner,
-      );
-      final String outputDirectory = Directory.systemTemp
-          .createTempSync('screen_recorder_android_test_')
-          .path;
-
-      final RecordingSession session = await recorder.startRecord(
-        deviceSelector: 'PHK110',
-        outputDirectory: outputDirectory,
-        outputName: 'android_fallback',
-      );
-      final RecordingResult result = await recorder.stopRecord(session);
-
-      expect(result.outputPath, endsWith('android_fallback.mp4'));
-      expect(File(result.outputPath).readAsBytesSync(), <int>[9, 8, 7, 6]);
-      expect(commandRunner.runBytesCommands, isNotEmpty);
-      expect(
-        commandRunner.runBytesCommands.first,
-        <String>['adb', '-s', 'PHK110', 'exec-out', 'screencap', '-p'],
-      );
-      expect(
-        commandRunner.runCommands,
-        contains(
-          allOf(
-            contains('ffmpeg'),
-            contains('-framerate'),
-            contains('4'),
-            contains(result.outputPath),
-          ),
-        ),
-      );
-      expect(
-        commandRunner.runCommands.any(
-          (List<String> command) => command.contains('pull'),
-        ),
-        isFalse,
-      );
-    });
-
-    test('discards Android screenrecord without pulling a local file',
-        () async {
-      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
-        ..addAndroidDeviceList(<String, String>{'PHK110': 'OnePlus 13'})
-        ..scrcpyStartFailure = 'scrcpy failed';
-      final ScreenRecorder recorder = ScreenRecorder.android(
-        commandRunner: commandRunner,
-      );
-      final String outputDirectory = Directory.systemTemp
-          .createTempSync('screen_recorder_android_test_')
-          .path;
-
-      final RecordingSession session = await recorder.startRecord(
-        deviceSelector: 'PHK110',
-        outputDirectory: outputDirectory,
-        outputName: 'discarded_android',
-      );
-      await recorder.discardRecord(session);
-
-      expect(File(session.expectedOutputPath).existsSync(), isFalse);
-      expect(
-        commandRunner.runCommands.any(
-          (List<String> command) => command.contains('pull'),
-        ),
-        isFalse,
-      );
-      expect(
-          commandRunner.runCommands,
-          contains(equals(<String>[
-            'adb',
-            '-s',
-            'PHK110',
-            'shell',
-            'rm',
-            '-f',
-            '/sdcard/screen_recorder_${session.id}.mp4',
-          ])));
-    });
-
-    test(
-        'reports adb discovery failures with missing-dependency code and raw output',
-        () async {
-      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
-        ..addRun(
-          <String>['adb', 'devices'],
+            session.expectedOutputPath,
+          ],
           const ScreenRecorderCommandResult(
-            exitCode: 127,
+            exitCode: 1,
             stdout: '',
-            stderr: 'adb: command not found',
+            stderr: 'remote object does not exist',
           ),
         );
-      final ScreenRecorder recorder = ScreenRecorder.android(
-        commandRunner: commandRunner,
-      );
 
-      await expectLater(
-        recorder.listDevices(),
-        throwsA(
-          isA<ScreenRecorderException>()
-              .having(
-                (ScreenRecorderException exception) => exception.code,
-                'code',
-                ScreenRecorderErrorCode.missingDependency,
-              )
-              .having(
-                (ScreenRecorderException exception) => exception.rawOutput,
-                'rawOutput',
-                contains('adb: command not found'),
-              ),
-        ),
-      );
-    });
-
-    test('reports Android pull failures with stop-failed code and raw output',
-        () async {
-      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
-        ..addAndroidDeviceList(<String, String>{'PHK110': 'OnePlus 13'})
-        ..scrcpyStartFailure = 'scrcpy failed';
-      final ScreenRecorder recorder = ScreenRecorder.android(
-        commandRunner: commandRunner,
-      );
-      final String outputDirectory = Directory.systemTemp
-          .createTempSync('screen_recorder_android_test_')
-          .path;
-
-      final RecordingSession session = await recorder.startRecord(
-        deviceSelector: 'PHK110',
-        outputDirectory: outputDirectory,
-        outputName: 'pull_failure',
-      );
-      commandRunner.addRun(
-        <String>[
-          'adb',
-          '-s',
-          'PHK110',
-          'pull',
-          '/sdcard/screen_recorder_${session.id}.mp4',
-          session.expectedOutputPath,
-        ],
-        const ScreenRecorderCommandResult(
-          exitCode: 1,
-          stdout: '',
-          stderr: 'remote object does not exist',
-        ),
-      );
-
-      await expectLater(
-        recorder.stopRecord(session),
-        throwsA(
-          isA<ScreenRecorderException>()
-              .having(
-                (ScreenRecorderException exception) => exception.code,
-                'code',
-                ScreenRecorderErrorCode.stopFailed,
-              )
-              .having(
-                (ScreenRecorderException exception) => exception.rawOutput,
-                'rawOutput',
-                contains('remote object does not exist'),
-              ),
-        ),
-      );
-      expect(
+        await expectLater(
+          recorder.stopRecord(session),
+          throwsA(
+            isA<ScreenRecorderException>()
+                .having(
+                  (ScreenRecorderException exception) => exception.code,
+                  'code',
+                  ScreenRecorderErrorCode.stopFailed,
+                )
+                .having(
+                  (ScreenRecorderException exception) => exception.rawOutput,
+                  'rawOutput',
+                  contains('remote object does not exist'),
+                ),
+          ),
+        );
+        expect(
           commandRunner.runCommands,
-          contains(equals(<String>[
-            'adb',
-            '-s',
-            'PHK110',
-            'shell',
-            'rm',
-            '-f',
-            '/sdcard/screen_recorder_${session.id}.mp4',
-          ])));
-    });
+          contains(
+            equals(<String>[
+              'adb',
+              '-s',
+              'PHK110',
+              'shell',
+              'rm',
+              '-f',
+              '/sdcard/screen_recorder_${session.id}.mp4',
+            ]),
+          ),
+        );
+      },
+    );
   });
 }
 
@@ -403,14 +429,7 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
     for (final String deviceId in devicesById.keys) {
       buffer.writeln('$deviceId\tdevice');
       addRun(
-        <String>[
-          'adb',
-          '-s',
-          deviceId,
-          'shell',
-          'getprop',
-          'ro.product.model',
-        ],
+        <String>['adb', '-s', deviceId, 'shell', 'getprop', 'ro.product.model'],
         ScreenRecorderCommandResult(
           exitCode: 0,
           stdout: '${devicesById[deviceId]}\n',
@@ -433,13 +452,14 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
     required List<int> bytes,
   }) {
     _pullBytes[_key(<String>[
-      'adb',
-      '-s',
-      session.device.id,
-      'pull',
-      '/sdcard/screen_recorder_${session.id}.mp4',
-      session.expectedOutputPath,
-    ])] = bytes;
+          'adb',
+          '-s',
+          session.device.id,
+          'pull',
+          '/sdcard/screen_recorder_${session.id}.mp4',
+          session.expectedOutputPath,
+        ])] =
+        bytes;
   }
 
   @override
@@ -517,8 +537,9 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
       );
     }
     if (executable == 'ffmpeg' &&
-        arguments
-            .any((String argument) => argument.endsWith('frame_%06d.png'))) {
+        arguments.any(
+          (String argument) => argument.endsWith('frame_%06d.png'),
+        )) {
       File(arguments.last)
         ..createSync(recursive: true)
         ..writeAsBytesSync(<int>[9, 8, 7, 6]);
@@ -582,10 +603,8 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
 }
 
 class _FakeScreenRecorderProcess implements ScreenRecorderProcess {
-  _FakeScreenRecorderProcess({
-    String? immediateError,
-    this.outputPathOnKill,
-  }) : _stderr = immediateError ?? '' {
+  _FakeScreenRecorderProcess({String? immediateError, this.outputPathOnKill})
+    : _stderr = immediateError ?? '' {
     if (immediateError != null) {
       _exitCode.complete(1);
     }
