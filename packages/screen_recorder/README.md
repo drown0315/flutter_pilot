@@ -96,14 +96,19 @@ Backends choose native formats:
 Android:
 
 - `adb` available on `PATH`
+- `scrcpy` available on `PATH` for the preferred Android recording path
 - USB debugging or emulator access
 - `adb devices` shows the target device in `device` state
+- optional fallback dependencies:
+  - Android `screenrecord` support on the target device
+  - `ffmpeg` available on `PATH` for screenshot-sequence fallback recording
 
 iOS Simulator:
 
 - macOS with Xcode Command Line Tools
 - `xcrun simctl` available
-- target simulator is booted or available in `xcrun simctl list devices`
+- target simulator is booted and visible as `Booted` in
+  `xcrun simctl list devices`
 
 Physical iOS:
 
