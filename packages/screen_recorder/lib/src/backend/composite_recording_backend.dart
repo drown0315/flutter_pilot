@@ -16,7 +16,13 @@ class CompositeRecordingBackend implements RecordingBackend {
   Future<List<RecordingDevice>> listDevices() async {
     final List<RecordingDevice> devices = <RecordingDevice>[];
     for (final RecordingBackend backend in _backends) {
-      devices.addAll(await backend.listDevices());
+      try {
+        devices.addAll(await backend.listDevices());
+      } on ScreenRecorderException catch (error) {
+        if (error.code != ScreenRecorderErrorCode.missingDependency) {
+          rethrow;
+        }
+      }
     }
     return devices;
   }

@@ -27,9 +27,12 @@ class FakeRecordingBackend implements RecordingBackend {
       );
     }
     for (final RecordingDevice device in _devices) {
-      if (device.id == selector ||
-          device.name == selector ||
-          device.name.toLowerCase().startsWith(selector.toLowerCase())) {
+      if (device.id == selector || device.name == selector) {
+        return device;
+      }
+    }
+    for (final RecordingDevice device in _devices) {
+      if (device.name.toLowerCase().startsWith(selector.toLowerCase())) {
         return device;
       }
     }

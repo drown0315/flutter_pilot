@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import '../common/screen_recorder_exception.dart';
 import '../model/recording_device.dart';
@@ -12,6 +13,7 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
   IosPhysicalRecordingBackend(this._commandRunner);
 
   static const String _backendKind = 'iosPhysical';
+  static const Duration _stopTimeout = Duration(seconds: 10);
 
   final ScreenRecorderCommandRunner _commandRunner;
   final Map<String, ScreenRecorderProcess> _recordings =
@@ -33,9 +35,12 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
   Future<RecordingDevice> resolveDevice(String selector) async {
     final List<RecordingDevice> devices = await listDevices();
     for (final RecordingDevice device in devices) {
-      if (device.id == selector ||
-          device.name == selector ||
-          device.name.toLowerCase().startsWith(selector.toLowerCase())) {
+      if (device.id == selector || device.name == selector) {
+        return device;
+      }
+    }
+    for (final RecordingDevice device in devices) {
+      if (device.name.toLowerCase().startsWith(selector.toLowerCase())) {
         return device;
       }
     }
@@ -89,7 +94,13 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
       );
     }
     process.kill();
-    await process.exitCode;
+    await process.exitCode.timeout(
+      _stopTimeout,
+      onTimeout: () {
+        process.kill(ProcessSignal.sigkill);
+        return -1;
+      },
+    );
     final File outputFile = File(session.expectedOutputPath);
     if (!outputFile.existsSync() || outputFile.lengthSync() == 0) {
       throw ScreenRecorderException(
@@ -114,7 +125,13 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
       );
     }
     process.kill();
-    await process.exitCode;
+    await process.exitCode.timeout(
+      _stopTimeout,
+      onTimeout: () {
+        process.kill(ProcessSignal.sigkill);
+        return -1;
+      },
+    );
     final File outputFile = File(session.expectedOutputPath);
     if (outputFile.existsSync()) {
       outputFile.deleteSync();
@@ -126,7 +143,14 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
     if (existingPath != null) {
       return existingPath;
     }
-    final String packageRoot = Directory.current.path;
+    final Uri? packageUri = await Isolate.resolvePackageUri(
+      Uri.parse('package:screen_recorder/'));
+    final String packageRoot;
+    if (packageUri != null) {
+      packageRoot = Directory(packageUri.toFilePath()).parent.path;
+    } else {
+      packageRoot = Directory.current.path;
+    }
     final String sourcePath =
         '$packageRoot${Platform.pathSeparator}tool${Platform.pathSeparator}ios_physical${Platform.pathSeparator}ios_physical_capture.swift';
     final String outputPath =
