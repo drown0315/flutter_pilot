@@ -97,13 +97,15 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
       );
     }
     process.kill();
-    await process.exitCode.timeout(
-      _stopTimeout,
+    final int exitCode = await process.exitCode.timeout(
+      _stopTimeout + Duration(seconds: 5),
       onTimeout: () {
         process.kill(ProcessSignal.sigkill);
         return -1;
       },
     );
+    final String stdout = await process.stdout;
+    final String stderr = await process.stderr;
     final File outputFile = File(session.expectedOutputPath);
     if (!outputFile.existsSync() || outputFile.lengthSync() == 0) {
       throw ScreenRecorderException(
@@ -111,6 +113,13 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
         message: 'Physical iOS recording output was not created.',
         backendKind: _backendKind,
         deviceSelector: session.device.id,
+        rawOutput: [
+          'helper exitCode: $exitCode',
+          'output exists: ${outputFile.existsSync()}',
+          if (outputFile.existsSync()) 'output size: ${outputFile.lengthSync()}',
+          stdout,
+          stderr,
+        ].where((String s) => s.isNotEmpty).join('\n'),
       );
     }
   }
@@ -129,7 +138,7 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
     }
     process.kill();
     await process.exitCode.timeout(
-      _stopTimeout,
+      _stopTimeout + Duration(seconds: 5),
       onTimeout: () {
         process.kill(ProcessSignal.sigkill);
         return -1;
