@@ -116,7 +116,8 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
         rawOutput: [
           'helper exitCode: $exitCode',
           'output exists: ${outputFile.existsSync()}',
-          if (outputFile.existsSync()) 'output size: ${outputFile.lengthSync()}',
+          if (outputFile.existsSync())
+            'output size: ${outputFile.lengthSync()}',
           stdout,
           stderr,
         ].where((String s) => s.isNotEmpty).join('\n'),
@@ -155,8 +156,8 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
     if (existingPath != null) {
       return existingPath;
     }
-    final Uri? packageUri = await Isolate.resolvePackageUri(
-      Uri.parse('package:screen_recorder/'));
+    final Uri? packageUri =
+        await Isolate.resolvePackageUri(Uri.parse('package:screen_recorder/'));
     final String packageRoot;
     if (packageUri != null) {
       packageRoot = Directory(packageUri.toFilePath()).parent.path;
