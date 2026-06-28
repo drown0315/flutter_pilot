@@ -72,6 +72,18 @@ _Avoid_: Snapshot
 An action that records diagnostic artifacts at a specific Step in a Scenario. Its default bundle includes Screenshot, Snapshot, and Logs, but not Widget Tree. Runtime errors are collected as part of Logs rather than as a separate first-version artifact.
 _Avoid_: Screenshot step, dump step
 
+**Device Video Recording**:
+A device-level visual artifact recorded from a selected device screen during a Recording Session. It is separate from Scenario actions and Runtime Adapter operations because it records the device display rather than Flutter UI semantics. A saved session returns the final video file path only after recording stops.
+_Avoid_: Video action, Runtime Adapter video capture
+
+**Recording Session**:
+A programmatically controlled device screen recording that starts with `startRecord` and ends with `stopRecord` or discard behavior. The session represents an active recording process; the final video path belongs to the stop result, not to session start.
+_Avoid_: Timed recording, Scenario recording
+
+**Recording Device**:
+A device that can be selected by screen recording discovery and used as the source for a Recording Session. Recording Devices are discovered through platform recording backends, such as Android Debug Bridge, iOS Simulator tooling, or native iOS screen capture discovery; they are not the same as Flutter Runtime Targets.
+_Avoid_: Runtime Target, Flutter device
+
 **Run Diff**:
 A comparison between two Scenario Runs that explains how Step outcomes, visible UI state, diagnostic failures, and visual artifacts changed.
 _Avoid_: Directory diff, visual diff
