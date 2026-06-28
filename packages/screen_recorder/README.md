@@ -82,8 +82,8 @@ Callers pass `outputDirectory` and optional `outputName`.
 - `outputName` must not include a file extension.
 - When `outputName` is omitted, the package generates one from UTC time and
   device context.
-- Existing final output files fail by default unless overwrite support is used
-  by the caller API.
+- Existing final output files fail by default. Pass `overwrite: true` to
+  `startRecord` to replace an existing file.
 
 Backends choose native formats:
 
@@ -96,12 +96,14 @@ Backends choose native formats:
 Android:
 
 - `adb` available on `PATH`
-- `scrcpy` available on `PATH` for the preferred Android recording path
+- `scrcpy` available on `PATH` for the preferred Android recording path;
+  falls back to device `screenrecord`, then to host `ffmpeg` frame capture
 - USB debugging or emulator access
 - `adb devices` shows the target device in `device` state
-- optional fallback dependencies:
+- optional fallback dependencies (used when `scrcpy` is unavailable):
   - Android `screenrecord` support on the target device
   - `ffmpeg` available on `PATH` for screenshot-sequence fallback recording
+    (last resort when `screenrecord` fails with permission errors)
 
 iOS Simulator:
 

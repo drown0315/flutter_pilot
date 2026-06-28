@@ -100,5 +100,3 @@ class CompositeRecordingBackend implements RecordingBackend {
     await backend.discard(session);
   }
 }
-
-/// In-memory backend used to drive tests through the public recorder API.

@@ -146,5 +146,3 @@ class _DartIoScreenRecorderProcess implements ScreenRecorderProcess {
     return _process.kill(signal);
   }
 }
-
-/// Backend boundary used by the core recorder to discover Recording Devices.

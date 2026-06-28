@@ -23,8 +23,3 @@ class RecordingSession {
   /// Final local output path expected when the session is stopped and saved.
   final String expectedOutputPath;
 }
-
-/// Result returned after a Recording Session is stopped and saved.
-///
-/// The result confirms the final file path and carries basic metadata that
-/// downstream tools can display or attach to reports.
