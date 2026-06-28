@@ -13,6 +13,9 @@ class CompositeRecordingBackend implements RecordingBackend {
       <String, RecordingBackend>{};
 
   @override
+  RecordingDevicePlatform get platform => RecordingDevicePlatform.android;
+
+  @override
   Future<List<RecordingDevice>> listDevices() async {
     final List<RecordingDevice> devices = <RecordingDevice>[];
     for (final RecordingBackend backend in _backends) {
@@ -34,10 +37,13 @@ class CompositeRecordingBackend implements RecordingBackend {
       try {
         return await backend.resolveDevice(selector);
       } on ScreenRecorderException catch (error) {
-        if (error.code != ScreenRecorderErrorCode.deviceNotFound) {
+        if (error.code != ScreenRecorderErrorCode.deviceNotFound &&
+            error.code != ScreenRecorderErrorCode.missingDependency) {
           rethrow;
         }
-        lastDeviceNotFound = error;
+        if (error.code == ScreenRecorderErrorCode.deviceNotFound) {
+          lastDeviceNotFound = error;
+        }
       }
     }
     throw lastDeviceNotFound ??
@@ -54,12 +60,12 @@ class CompositeRecordingBackend implements RecordingBackend {
     required bool overwrite,
   }) async {
     for (final RecordingBackend backend in _backends) {
-      final List<RecordingDevice> devices = await backend.listDevices();
-      if (devices.contains(session.device)) {
-        _sessionBackends[session.id] = backend;
-        await backend.start(session, overwrite: overwrite);
-        return;
+      if (backend.platform != session.device.platform) {
+        continue;
       }
+      _sessionBackends[session.id] = backend;
+      await backend.start(session, overwrite: overwrite);
+      return;
     }
     throw ScreenRecorderException(
       code: ScreenRecorderErrorCode.startFailed,

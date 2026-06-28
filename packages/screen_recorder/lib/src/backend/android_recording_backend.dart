@@ -24,6 +24,9 @@ class AndroidRecordingBackend implements RecordingBackend {
       <String, _AndroidRecordingState>{};
 
   @override
+  RecordingDevicePlatform get platform => RecordingDevicePlatform.android;
+
+  @override
   Future<List<RecordingDevice>> listDevices() async {
     final ScreenRecorderCommandResult devicesResult = await _runAdb(
       <String>['devices'],
@@ -321,13 +324,14 @@ class AndroidRecordingBackend implements RecordingBackend {
         deviceSelector: session.device.id,
       );
     }
-    if (state.isFrameCapture) {
-      await _stopHostFrameCapture(session, state);
-      return;
-    }
-    if (state.isScrcpy) {
-      await _stopScrcpyRecording(session, state);
-      return;
+    switch (state.variant) {
+      case _AndroidRecordingVariant.frameCapture:
+        await _stopHostFrameCapture(session, state);
+        return;
+      case _AndroidRecordingVariant.scrcpy:
+        await _stopScrcpyRecording(session, state);
+        return;
+      case _AndroidRecordingVariant.native:
     }
     final ScreenRecorderProcess process = state.process!;
     final String deviceTempPath = state.deviceTempPath!;
@@ -511,42 +515,43 @@ class AndroidRecordingBackend implements RecordingBackend {
         deviceSelector: session.device.id,
       );
     }
-    if (state.isFrameCapture) {
-      state.stopRequested = true;
-      await state.captureLoop?.timeout(
-        _stopTimeout,
-        onTimeout: () => null,
-      );
-      await state.frameDirectory?.delete(recursive: true);
-      return;
+    switch (state.variant) {
+      case _AndroidRecordingVariant.frameCapture:
+        state.stopRequested = true;
+        await state.captureLoop?.timeout(
+          _stopTimeout,
+          onTimeout: () => null,
+        );
+        await state.frameDirectory?.delete(recursive: true);
+        return;
+      case _AndroidRecordingVariant.scrcpy:
+        state.process!.kill(ProcessSignal.sigterm);
+        await state.process!.exitCode.timeout(
+          _stopTimeout,
+          onTimeout: () {
+            state.process!.kill(ProcessSignal.sigkill);
+            return -1;
+          },
+        );
+        final File outputFile = File(session.expectedOutputPath);
+        if (outputFile.existsSync()) {
+          outputFile.deleteSync();
+        }
+        return;
+      case _AndroidRecordingVariant.native:
+        await _stopDeviceScreenrecord(session.device.id, state.process!);
+        await _runAdb(
+          <String>[
+            '-s',
+            session.device.id,
+            'shell',
+            'rm',
+            '-f',
+            state.deviceTempPath!
+          ],
+          ScreenRecorderErrorCode.discardFailed,
+        );
     }
-    if (state.isScrcpy) {
-      state.process!.kill(ProcessSignal.sigterm);
-      await state.process!.exitCode.timeout(
-        _stopTimeout,
-        onTimeout: () {
-          state.process!.kill(ProcessSignal.sigkill);
-          return -1;
-        },
-      );
-      final File outputFile = File(session.expectedOutputPath);
-      if (outputFile.existsSync()) {
-        outputFile.deleteSync();
-      }
-      return;
-    }
-    await _stopDeviceScreenrecord(session.device.id, state.process!);
-    await _runAdb(
-      <String>[
-        '-s',
-        session.device.id,
-        'shell',
-        'rm',
-        '-f',
-        state.deviceTempPath!
-      ],
-      ScreenRecorderErrorCode.discardFailed,
-    );
   }
 
   /*
@@ -719,22 +724,26 @@ class _AndroidStopResult {
 class _AndroidRecordingState {
   _AndroidRecordingState.scrcpy({
     required ScreenRecorderProcess this.process,
-  })  : deviceTempPath = null,
+  })  : variant = _AndroidRecordingVariant.scrcpy,
+        deviceTempPath = null,
         frameDirectory = null,
         startupDiagnostics = const <String>[];
 
   _AndroidRecordingState.native({
     required ScreenRecorderProcess this.process,
     required String this.deviceTempPath,
-  })  : frameDirectory = null,
+  })  : variant = _AndroidRecordingVariant.native,
+        frameDirectory = null,
         startupDiagnostics = const <String>[];
 
   _AndroidRecordingState.frameCapture({
     required Directory this.frameDirectory,
     required this.startupDiagnostics,
-  })  : process = null,
+  })  : variant = _AndroidRecordingVariant.frameCapture,
+        process = null,
         deviceTempPath = null;
 
+  final _AndroidRecordingVariant variant;
   final ScreenRecorderProcess? process;
   final String? deviceTempPath;
   final Directory? frameDirectory;
@@ -744,7 +753,9 @@ class _AndroidRecordingState {
   bool stopRequested = false;
   int frameCount = 0;
 
-  bool get isFrameCapture => frameDirectory != null;
+  bool get isFrameCapture => variant == _AndroidRecordingVariant.frameCapture;
 
-  bool get isScrcpy => process != null && deviceTempPath == null;
+  bool get isScrcpy => variant == _AndroidRecordingVariant.scrcpy;
 }
+
+enum _AndroidRecordingVariant { scrcpy, native, frameCapture }

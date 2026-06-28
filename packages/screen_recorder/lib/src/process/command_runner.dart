@@ -106,13 +106,9 @@ class ProcessCommandRunner implements ScreenRecorderCommandRunner {
       arguments,
       stdoutEncoding: null,
     );
-    final Object stdout = result.stdout;
-    final List<int> stdoutBytes = stdout is List<int>
-        ? List<int>.from(stdout)
-        : utf8.encode(stdout.toString());
     return ScreenRecorderByteCommandResult(
       exitCode: result.exitCode,
-      stdoutBytes: stdoutBytes,
+      stdoutBytes: result.stdout as List<int>,
       stderr: result.stderr.toString(),
     );
   }

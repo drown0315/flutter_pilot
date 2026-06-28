@@ -4,6 +4,9 @@ import '../model/recording_session.dart';
 /// Backend contract used by the recorder service.
 
 abstract interface class RecordingBackend {
+  /// The Recording Device platform family this backend supports.
+  RecordingDevicePlatform get platform;
+
   /// Returns the Recording Devices visible to this backend.
   Future<List<RecordingDevice>> listDevices();
 

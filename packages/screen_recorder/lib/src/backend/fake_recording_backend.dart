@@ -14,6 +14,9 @@ class FakeRecordingBackend implements RecordingBackend {
   final List<RecordingDevice> _devices;
 
   @override
+  RecordingDevicePlatform get platform => RecordingDevicePlatform.android;
+
+  @override
   Future<List<RecordingDevice>> listDevices() async {
     return _devices;
   }

@@ -73,7 +73,8 @@ class ScreenRecorderService {
     await _backend.stop(sessionToStop);
     final File outputFile = File(sessionToStop.expectedOutputPath);
     final DateTime stopTime = DateTime.now().toUtc();
-    final int fileSizeBytes = outputFile.lengthSync();
+    final int fileSizeBytes =
+        outputFile.existsSync() ? outputFile.lengthSync() : 0;
     return RecordingResult(
       session: sessionToStop,
       outputPath: sessionToStop.expectedOutputPath,

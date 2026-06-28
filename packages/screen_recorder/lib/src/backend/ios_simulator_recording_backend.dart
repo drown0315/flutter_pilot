@@ -19,6 +19,10 @@ class IosSimulatorRecordingBackend implements RecordingBackend {
   final ScreenRecorderCommandRunner _commandRunner;
   final Map<String, ScreenRecorderProcess> _recordings =
       <String, ScreenRecorderProcess>{};
+  String? _simctlPath;
+
+  @override
+  RecordingDevicePlatform get platform => RecordingDevicePlatform.iosSimulator;
 
   @override
   Future<List<RecordingDevice>> listDevices() async {
@@ -97,6 +101,9 @@ class IosSimulatorRecordingBackend implements RecordingBackend {
   }
 
   Future<String> _resolveSimctlPath() async {
+    if (_simctlPath != null) {
+      return _simctlPath!;
+    }
     final ScreenRecorderCommandResult result = await _commandRunner.run(
       'xcrun',
       <String>['--find', 'simctl'],
@@ -109,7 +116,8 @@ class IosSimulatorRecordingBackend implements RecordingBackend {
         rawOutput: '${result.stdout}${result.stderr}',
       );
     }
-    return result.stdout.trim();
+    _simctlPath = result.stdout.trim();
+    return _simctlPath!;
   }
 
   Future<int?> _probeImmediateExit(ScreenRecorderProcess process) async {

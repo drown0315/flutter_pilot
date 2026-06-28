@@ -21,6 +21,9 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
   String? _helperPath;
 
   @override
+  RecordingDevicePlatform get platform => RecordingDevicePlatform.iosPhysical;
+
+  @override
   Future<List<RecordingDevice>> listDevices() async {
     final String helperPath = await _ensureHelperBuilt();
     final ScreenRecorderCommandResult result = await _runHelper(
