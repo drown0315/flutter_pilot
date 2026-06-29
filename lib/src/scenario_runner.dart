@@ -3,6 +3,7 @@ import 'dart:io';
 import 'artifacts/artifact_store.dart';
 import 'diagnostic_reducer.dart';
 import 'html_timeline_report.dart';
+import 'recording/recording_contract.dart';
 import 'runtime/runtime_contract.dart';
 import 'scenario.dart';
 
@@ -22,11 +23,16 @@ import 'scenario.dart';
 /// `ScenarioRunner(adapter: adapter, outputDirectory: Directory('build'))`
 /// writes under `build/.runs/<timestamp>_<scenario>/`.
 class ScenarioRunner {
-  const ScenarioRunner({required this.adapter, required this.outputDirectory});
+  const ScenarioRunner({
+    required this.adapter,
+    this.recordingController,
+    required this.outputDirectory,
+  });
 
   static const Duration _waitForPollInterval = Duration(milliseconds: 50);
 
   final RuntimeAdapter adapter;
+  final RecordingController? recordingController;
   final Directory outputDirectory;
 
   /// Execute Scenario Steps and write a run report.
@@ -66,6 +72,23 @@ class ScenarioRunner {
         failed: true,
         failureReason: initializeFailure,
         stopPointDescription: null,
+        printedDiagnostics: const <PrintedDiagnostic>[],
+        diagnosticSummary: null,
+      );
+    }
+
+    final String? recordingStartupFailure = await _tryStartRecording(scenario);
+    if (recordingStartupFailure != null) {
+      await _tryDisposeAdapter();
+      stopwatch.stop();
+      return _finishRun(
+        scenario: scenario,
+        runArtifactWriter: runArtifactWriter,
+        startedAt: startedAt,
+        durationMs: stopwatch.elapsedMilliseconds,
+        steps: steps,
+        failed: true,
+        failureReason: recordingStartupFailure,
         printedDiagnostics: const <PrintedDiagnostic>[],
         diagnosticSummary: null,
       );
@@ -199,6 +222,28 @@ class ScenarioRunner {
       await adapter.initialize();
       return null;
     } on RuntimeOperationException catch (error) {
+      return error.message;
+    }
+  }
+
+  /// Start Scenario Recording when metadata explicitly enables it.
+  ///
+  /// Returns:
+  /// `null` when recording is omitted, disabled, has no controller, or starts
+  /// successfully. Otherwise, the recording failure message that should stop
+  /// the run before any Step executes.
+  Future<String?> _tryStartRecording(Scenario scenario) async {
+    if (scenario.recording?.enabled != true) {
+      return null;
+    }
+    final RecordingController? controller = recordingController;
+    if (controller == null) {
+      return null;
+    }
+    try {
+      await controller.start(scenario);
+      return null;
+    } on RecordingException catch (error) {
       return error.message;
     }
   }

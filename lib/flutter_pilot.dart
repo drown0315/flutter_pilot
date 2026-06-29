@@ -11,6 +11,8 @@ export 'src/app_setup.dart';
 export 'src/diagnostic_reducer.dart';
 export 'src/diagnostic_text_renderer.dart';
 export 'src/html_timeline_report.dart';
+export 'src/recording/fake_recording_controller.dart';
+export 'src/recording/recording_contract.dart';
 export 'src/runtime/fake_runtime_adapter.dart';
 export 'src/runtime/mcp_flutter_runtime_adapter.dart';
 export 'src/runtime/runtime_contract.dart';

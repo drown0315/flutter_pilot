@@ -101,6 +101,7 @@ void main() {
     });
   });
 
+
   test(
     'emits Step started and finished progress events for successful Steps',
     () async {
@@ -236,6 +237,146 @@ void main() {
     });
   });
 
+  test('starts Scenario Recording before executing the first Step', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('recording_lifecycle_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        finderResults: <String, List<FinderMatch>>{
+          'Continue': const <FinderMatch>[FinderMatch(id: 'continue-button')],
+        },
+      );
+      final FakeRecordingController recordingController =
+          FakeRecordingController(runtimeEvents: adapter.events);
+      final Scenario scenario = Scenario(
+        name: 'recorded_run',
+        recording: const ScenarioRecording(enabled: true),
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: TapAction(finder: Finder(byText: 'Continue')),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        recordingController: recordingController,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      expect(report.status, ScenarioRunStatus.passed);
+      expect(
+        recordingController.events.map(
+          (FakeRecordingEvent event) => event.operation,
+        ),
+        <RecordingOperation>[RecordingOperation.start],
+      );
+      expect(
+        adapter.events.map((FakeRuntimeEvent event) => event.operation),
+        <RuntimeOperation>[
+          RuntimeOperation.initialize,
+          RuntimeOperation.resolveFinder,
+          RuntimeOperation.performTap,
+          RuntimeOperation.dispose,
+        ],
+      );
+      expect(recordingController.events.single.runtimeEventCountAtStart, 1);
+    });
+  });
+
+  test('does not start Scenario Recording when omitted or disabled', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('recording_disabled_output');
+      final Scenario omittedScenario = Scenario(
+        name: 'recording_omitted',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: CaptureAction(
+              screenshot: false,
+              snapshot: false,
+              widgetTree: false,
+              logs: false,
+            ),
+          ),
+        ],
+      );
+      final Scenario disabledScenario = Scenario(
+        name: 'recording_disabled',
+        recording: const ScenarioRecording(enabled: false),
+        steps: omittedScenario.steps,
+      );
+      final FakeRecordingController omittedRecordingController =
+          FakeRecordingController();
+      final FakeRecordingController disabledRecordingController =
+          FakeRecordingController();
+
+      final ScenarioRunReport omittedReport = await ScenarioRunner(
+        adapter: FakeRuntimeAdapter(),
+        recordingController: omittedRecordingController,
+        outputDirectory: outputDirectory,
+      ).run(omittedScenario);
+      final ScenarioRunReport disabledReport = await ScenarioRunner(
+        adapter: FakeRuntimeAdapter(),
+        recordingController: disabledRecordingController,
+        outputDirectory: outputDirectory,
+      ).run(disabledScenario);
+
+      expect(omittedReport.status, ScenarioRunStatus.passed);
+      expect(disabledReport.status, ScenarioRunStatus.passed);
+      expect(omittedRecordingController.events, isEmpty);
+      expect(disabledRecordingController.events, isEmpty);
+    });
+  });
+
+  test(
+    'fails before executing Steps when Scenario Recording cannot start',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final Directory outputDirectory = Directory('recording_failure_output');
+        final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+          finderResults: <String, List<FinderMatch>>{
+            'Continue': const <FinderMatch>[FinderMatch(id: 'continue-button')],
+          },
+        );
+        final FakeRecordingController recordingController =
+            FakeRecordingController(
+              failure: const RecordingException(
+                operation: RecordingOperation.start,
+                message: 'Recording device is unavailable.',
+              ),
+            );
+        final Scenario scenario = Scenario(
+          name: 'recording_start_failure',
+          recording: const ScenarioRecording(enabled: true),
+          steps: const <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              action: TapAction(finder: Finder(byText: 'Continue')),
+            ),
+          ],
+        );
+
+        final ScenarioRunReport report = await ScenarioRunner(
+          adapter: adapter,
+          recordingController: recordingController,
+          outputDirectory: outputDirectory,
+        ).run(scenario);
+
+        expect(report.status, ScenarioRunStatus.failed);
+        expect(report.failureReason, 'Recording device is unavailable.');
+        expect(report.steps, isEmpty);
+        expect(
+          adapter.events.map((FakeRuntimeEvent event) => event.operation),
+          <RuntimeOperation>[
+            RuntimeOperation.initialize,
+            RuntimeOperation.dispose,
+          ],
+        );
+        expect(recordingController.events, isEmpty);
+      });
+    },
+  );
   test('creates a stable run directory with scenario metadata', () async {
     await FileTestkit.runZoned(() async {
       final Directory outputDirectory = Directory('artifact_output');
