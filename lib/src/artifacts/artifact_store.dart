@@ -354,10 +354,23 @@ class RunArtifactWriter {
     return <String, Object?>{
       'name': scenario.name,
       if (scenario.description != null) 'description': scenario.description,
+      if (scenario.recording != null)
+        'recording': _recordingToJson(scenario.recording!),
       'steps': <Object?>[
         for (final ScenarioStep step in scenario.steps) _stepToJson(step),
       ],
     };
+  }
+
+  /// Convert Scenario Recording metadata into the Scenario artifact shape.
+  ///
+  /// Args:
+  /// `recording` is the parsed Scenario-level recording configuration.
+  ///
+  /// Returns:
+  /// A JSON-compatible map that preserves the normalized `enabled` value.
+  Map<String, Object?> _recordingToJson(ScenarioRecording recording) {
+    return <String, Object?>{'enabled': recording.enabled};
   }
 
   /// Convert one Scenario Step into a JSON-compatible record.

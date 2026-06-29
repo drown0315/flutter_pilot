@@ -14,15 +14,22 @@ sealed class StepAction {
 /// It contains:
 /// - a stable Scenario name
 /// - an optional human description
+/// - optional Scenario Recording metadata
 /// - ordered steps to replay against a Flutter app
 ///
 /// Example:
 /// `Scenario(name: 'login_error', steps: [...])`
 class Scenario {
-  const Scenario({required this.name, this.description, required this.steps});
+  const Scenario({
+    required this.name,
+    this.description,
+    this.recording,
+    required this.steps,
+  });
 
   final String name;
   final String? description;
+  final ScenarioRecording? recording;
   final List<ScenarioStep> steps;
 
   /// Return a Scenario that includes steps through `stepNumber`.
@@ -40,6 +47,7 @@ class Scenario {
     return Scenario(
       name: name,
       description: description,
+      recording: recording,
       steps: steps.take(stepNumber).toList(growable: false),
     );
   }
@@ -63,6 +71,17 @@ class Scenario {
     }
     return sliceThroughStepNumber(stepIndex + 1);
   }
+}
+
+/// Scenario-level device video recording configuration.
+///
+/// It is optional Scenario metadata, not a Step action. When present with
+/// `enabled: true`, a Scenario Run should create one Recording Session for the
+/// full run duration.
+class ScenarioRecording {
+  const ScenarioRecording({required this.enabled});
+
+  final bool enabled;
 }
 
 /// One ordered Scenario step.

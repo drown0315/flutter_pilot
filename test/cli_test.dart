@@ -111,6 +111,56 @@ steps:
     }
   });
 
+  test('validate accepts and rejects Scenario Recording schema', () async {
+    final Directory tempDirectory = Directory.systemTemp.createTempSync(
+      'flutter_pilot_recording_validate_test_',
+    );
+    final String packageRoot = Directory.current.absolute.path;
+    final File validScenario = File('${tempDirectory.path}/valid.yaml')
+      ..writeAsStringSync('''
+scenario:
+  name: recording_enabled
+  recording: {}
+steps:
+  - tap:
+      byText: Continue
+''');
+    final File invalidScenario = File('${tempDirectory.path}/invalid.yaml')
+      ..writeAsStringSync('''
+scenario:
+  name: recording_shorthand
+  recording: true
+steps:
+  - tap:
+      byText: Continue
+''');
+
+    try {
+      final ProcessResult validResult = await Process.run(
+        Platform.resolvedExecutable,
+        [
+          'run',
+          '$packageRoot/bin/flutter_pilot.dart',
+          'validate',
+          validScenario.path,
+        ],
+      );
+      final ProcessResult invalidResult =
+          await Process.run(Platform.resolvedExecutable, [
+            'run',
+            '$packageRoot/bin/flutter_pilot.dart',
+            'validate',
+            invalidScenario.path,
+          ]);
+
+      expect(validResult.exitCode, 0);
+      expect(invalidResult.exitCode, isNonZero);
+      expect(invalidResult.stderr, contains('scenario.recording'));
+    } finally {
+      tempDirectory.deleteSync(recursive: true);
+    }
+  });
+
   test('run rejects unknown --until values', () async {
     final ProcessResult result =
         await Process.run(Platform.resolvedExecutable, [

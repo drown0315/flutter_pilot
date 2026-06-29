@@ -46,6 +46,68 @@ steps:
       expect(capture.logs, isTrue);
     });
 
+    test('parses optional Scenario Recording metadata', () {
+      final Scenario omitted = parseScenario('''
+scenario:
+  name: no_recording
+steps:
+  - tap:
+      byText: Continue
+''');
+      final Scenario defaultEnabled = parseScenario('''
+scenario:
+  name: default_recording
+  recording: {}
+steps:
+  - tap:
+      byText: Continue
+''');
+      final Scenario explicitlyEnabled = parseScenario('''
+scenario:
+  name: explicit_recording
+  recording:
+    enabled: true
+steps:
+  - tap:
+      byText: Continue
+''');
+      final Scenario explicitlyDisabled = parseScenario('''
+scenario:
+  name: disabled_recording
+  recording:
+    enabled: false
+steps:
+  - tap:
+      byText: Continue
+''');
+
+      expect(omitted.recording, isNull);
+      expect(defaultEnabled.recording!.enabled, isTrue);
+      expect(explicitlyEnabled.recording!.enabled, isTrue);
+      expect(explicitlyDisabled.recording!.enabled, isFalse);
+    });
+
+    test('rejects invalid Scenario Recording schema', () {
+      final List<String> shorthandPaths = invalidPaths('''
+scenario:
+  recording: true
+steps:
+  - tap:
+      byText: Continue
+''');
+      final List<String> unknownFieldPaths = invalidPaths('''
+scenario:
+  recording:
+    mode: full
+steps:
+  - tap:
+      byText: Continue
+''');
+
+      expect(shorthandPaths, contains('scenario.recording'));
+      expect(unknownFieldPaths, contains('scenario.recording.mode'));
+    });
+
     test('reports unknown fields with field paths', () {
       final List<String> paths = invalidPaths('''
 scenario:
