@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:screen_recorder/screen_recorder.dart' as screen_recorder;
 import 'package:yaml/yaml.dart';
 
 import 'app_setup.dart';
 import 'diagnostic_text_renderer.dart';
 import 'html_timeline_report.dart';
+import 'recording/screen_recorder_recording_controller.dart';
 import 'runtime/fake_runtime_adapter.dart';
 import 'runtime/mcp_flutter_runtime_adapter.dart';
 import 'runtime/runtime_contract.dart';
@@ -310,6 +312,11 @@ ScenarioRunner _createDefaultRunner(RuntimeTarget target, Scenario scenario) {
   }
   return ScenarioRunner(
     adapter: McpFlutterRuntimeAdapter(target: target),
+    recordingController: ScreenRecorderRecordingController(
+      recorder: screen_recorder.ScreenRecorder.defaultRecorder(),
+      deviceSelector: '',
+      outputDirectory: Directory.current,
+    ),
     outputDirectory: Directory.current,
   );
 }
