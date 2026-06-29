@@ -150,7 +150,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - The `capture` action records diagnostic artifacts at a Step. `capture: {}` uses the default bundle: `screenshot: true`, `snapshot: true`, `widgetTree: false`, and `logs: true`. Each option can be explicitly overridden.
 - Failed Steps automatically capture the same default bundle as `capture: {}`.
 - Raw Widget Tree dumps may be available, but agent-facing output should default to compact summaries of visible text, interactive widgets, routes, logs, runtime failures, and likely suspects. The Diagnostic Reducer writes this summary as `diagnosticSummary` in the run report when `--print` captures raw Snapshot, Widget Tree, or error diagnostics.
-- Video recording is out of the initial MVP. Step screenshots and timeline reports are the primary visual artifact.
+- Scenario-level device video recording is supported as an optional run-level artifact. The first slice only adds Scenario DSL support and run lifecycle integration for default recording behavior; device selection and richer recording parameters remain out of scope. Step screenshots and timeline reports remain the primary step-level visual artifacts.
 - The implementation should be organized around deep modules:
   - Scenario model and parser: validates YAML and produces a typed scenario.
   - Finder and action model: represents user intent independently from `mcp_flutter` command details.
@@ -221,7 +221,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 
 ## Out of Scope
 
-- Full video recording is not part of the MVP.
+- Rich video recording configuration is not part of the MVP beyond the first-slice Scenario-level recording toggle.
 - Natural language scenario generation is not part of the MVP.
 - Interactive recording of manual app usage into YAML is not part of the MVP.
 - Automatic source-code patching is not part of this PRD.
@@ -234,7 +234,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 
 - The project now has the first Dart CLI slice in place. The next product risk is no longer YAML parsing; it is defining the narrow `mcp_flutter` adapter contract and keeping runner behavior testable without a live Flutter app.
 - The strongest product positioning is not "YAML UI automation"; it is "reproducible Flutter UI debugging artifacts for humans, CI, and AI agents."
-- Step screenshots are more useful than video for the initial AI-agent use case because they can be directly associated with step metadata, widget summaries, logs, and runtime failures.
+- Step screenshots are more useful than video for the initial AI-agent use case because they can be directly associated with step metadata, widget summaries, logs, and runtime failures. Scenario-level video recording is complementary run context rather than a replacement for step-owned captures.
 - The tool should keep raw data available for advanced debugging, but default CLI and agent output should be compact and high signal.
 - The `ready-for-agent` label should be applied when this PRD is published to the issue tracker.
 - The issue tracker integration and triage label configuration are not present in the local workspace, so this PRD is maintained as a local document until publishing credentials and tracker conventions are available.
