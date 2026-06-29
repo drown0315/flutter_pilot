@@ -14,10 +14,32 @@ abstract interface class RecordingController {
   /// Throws:
   /// `RecordingException` when the Recording Session cannot be started.
   Future<void> start(Scenario scenario);
+
+  /// Stop the active Recording Session and return the saved video metadata.
+  ///
+  /// Returns:
+  /// A `RecordingResult` containing the final video path. The path belongs to
+  /// stop-time output because recording backends generally do not know the
+  /// final saved file until the session is finalized.
+  ///
+  /// Throws:
+  /// `RecordingException` when the active session cannot be stopped.
+  Future<RecordingResult> stop();
 }
 
 /// Recording operation names used for normalized run-level failures.
-enum RecordingOperation { start }
+enum RecordingOperation { start, stop }
+
+/// Final Device Video Recording produced by a Recording Session.
+///
+/// `path` is the video file path recorded in run-level artifact metadata.
+/// `mimeType` describes the encoded video format when the backend knows it.
+class RecordingResult {
+  const RecordingResult({required this.path, this.mimeType});
+
+  final String path;
+  final String? mimeType;
+}
 
 /// Failure raised when Scenario Recording cannot complete an operation.
 ///

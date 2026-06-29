@@ -8,16 +8,26 @@ import 'recording_contract.dart';
 /// can provide the Runtime Adapter event list to verify that recording startup
 /// happened before any Step requested runtime operations.
 class FakeRecordingController implements RecordingController {
-  FakeRecordingController({this.failure, List<FakeRuntimeEvent>? runtimeEvents})
-    : runtimeEvents = runtimeEvents ?? const <FakeRuntimeEvent>[];
+  FakeRecordingController({
+    this.failure,
+    RecordingResult? result,
+    List<FakeRuntimeEvent>? runtimeEvents,
+  }) : result =
+           result ??
+           const RecordingResult(
+             path: 'recordings/scenario.mp4',
+             mimeType: 'video/mp4',
+           ),
+       runtimeEvents = runtimeEvents ?? const <FakeRuntimeEvent>[];
 
   final RecordingException? failure;
+  final RecordingResult result;
   final List<FakeRuntimeEvent> runtimeEvents;
   final List<FakeRecordingEvent> events = <FakeRecordingEvent>[];
 
   @override
   Future<void> start(Scenario scenario) async {
-    if (failure != null) {
+    if (failure?.operation == RecordingOperation.start) {
       throw failure!;
     }
     events.add(
@@ -28,17 +38,31 @@ class FakeRecordingController implements RecordingController {
       ),
     );
   }
+
+  @override
+  Future<RecordingResult> stop() async {
+    if (failure?.operation == RecordingOperation.stop) {
+      throw failure!;
+    }
+    events.add(
+      FakeRecordingEvent(
+        operation: RecordingOperation.stop,
+        runtimeEventCountAtStart: runtimeEvents.length,
+      ),
+    );
+    return result;
+  }
 }
 
 /// One call recorded by `FakeRecordingController`.
 class FakeRecordingEvent {
   const FakeRecordingEvent({
     required this.operation,
-    required this.scenarioName,
+    this.scenarioName,
     required this.runtimeEventCountAtStart,
   });
 
   final RecordingOperation operation;
-  final String scenarioName;
+  final String? scenarioName;
   final int runtimeEventCountAtStart;
 }

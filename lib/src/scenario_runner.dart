@@ -74,6 +74,7 @@ class ScenarioRunner {
         stopPointDescription: null,
         printedDiagnostics: const <PrintedDiagnostic>[],
         diagnosticSummary: null,
+        recordingResult: null,
       );
     }
 
@@ -91,8 +92,11 @@ class ScenarioRunner {
         failureReason: recordingStartupFailure,
         printedDiagnostics: const <PrintedDiagnostic>[],
         diagnosticSummary: null,
+        recordingResult: null,
       );
     }
+    final bool recordingStarted =
+        scenario.recording?.enabled == true && recordingController != null;
 
     bool failed = false;
     String? failureReason = await _executeSteps(
@@ -128,6 +132,19 @@ class ScenarioRunner {
       }
     }
 
+    RecordingResult? recordingResult;
+    final String? recordingStopFailure = recordingStarted
+        ? await _tryStopRecording(
+            onResult: (RecordingResult result) {
+              recordingResult = result;
+            },
+          )
+        : null;
+    if (!failed && recordingStopFailure != null) {
+      failed = true;
+      failureReason = recordingStopFailure;
+    }
+
     final String? disposeFailure = await _tryDisposeAdapter();
     if (!failed && disposeFailure != null) {
       failed = true;
@@ -146,6 +163,7 @@ class ScenarioRunner {
       stopPointDescription: stopPointDescription,
       printedDiagnostics: printedDiagnostics,
       diagnosticSummary: diagnosticSummary,
+      recordingResult: recordingResult,
     );
   }
 
@@ -242,6 +260,30 @@ class ScenarioRunner {
     }
     try {
       await controller.start(scenario);
+      return null;
+    } on RecordingException catch (error) {
+      return error.message;
+    }
+  }
+
+  /// Stop Scenario Recording and expose the final video metadata.
+  ///
+  /// Args:
+  /// `onResult` receives the finalized Device Video Recording path when stop
+  /// succeeds.
+  ///
+  /// Returns:
+  /// `null` when stop succeeds. Otherwise, the recording failure message that
+  /// should become the run-level failure reason when no earlier failure exists.
+  Future<String?> _tryStopRecording({
+    required void Function(RecordingResult result) onResult,
+  }) async {
+    final RecordingController? controller = recordingController;
+    if (controller == null) {
+      return null;
+    }
+    try {
+      onResult(await controller.stop());
       return null;
     } on RecordingException catch (error) {
       return error.message;
@@ -368,10 +410,19 @@ class ScenarioRunner {
     required String? stopPointDescription,
     required List<PrintedDiagnostic> printedDiagnostics,
     DiagnosticSummary? diagnosticSummary,
+    RecordingResult? recordingResult,
   }) {
     final List<ArtifactReport> artifacts = <ArtifactReport>[
       const ArtifactReport(type: ArtifactType.scenario, path: 'scenario.json'),
     ];
+    if (recordingResult != null) {
+      artifacts.add(
+        ArtifactReport(
+          type: ArtifactType.deviceVideoRecording,
+          path: recordingResult.path,
+        ),
+      );
+    }
     _addStepCaptureArtifacts(steps, artifacts);
     _writeStepMetadataArtifacts(runArtifactWriter, steps, artifacts);
     final ScenarioRunReport report = ScenarioRunReport(

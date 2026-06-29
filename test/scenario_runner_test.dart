@@ -269,7 +269,7 @@ void main() {
         recordingController.events.map(
           (FakeRecordingEvent event) => event.operation,
         ),
-        <RecordingOperation>[RecordingOperation.start],
+        <RecordingOperation>[RecordingOperation.start, RecordingOperation.stop],
       );
       expect(
         adapter.events.map((FakeRuntimeEvent event) => event.operation),
@@ -280,7 +280,15 @@ void main() {
           RuntimeOperation.dispose,
         ],
       );
-      expect(recordingController.events.single.runtimeEventCountAtStart, 1);
+      expect(
+        recordingController.events
+            .firstWhere(
+              (FakeRecordingEvent event) =>
+                  event.operation == RecordingOperation.start,
+            )
+            .runtimeEventCountAtStart,
+        1,
+      );
     });
   });
 
@@ -326,6 +334,63 @@ void main() {
       expect(disabledReport.status, ScenarioRunStatus.passed);
       expect(omittedRecordingController.events, isEmpty);
       expect(disabledRecordingController.events, isEmpty);
+    });
+  });
+
+  test('stores Device Video Recording as a run-level artifact', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('recording_artifact_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        finderResults: <String, List<FinderMatch>>{
+          'Continue': const <FinderMatch>[FinderMatch(id: 'continue-button')],
+        },
+      );
+      final FakeRecordingController recordingController =
+          FakeRecordingController(
+            result: const RecordingResult(
+              path: 'recordings/full-run.mp4',
+              mimeType: 'video/mp4',
+            ),
+          );
+      final Scenario scenario = Scenario(
+        name: 'recording_artifact',
+        recording: const ScenarioRecording(enabled: true),
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: TapAction(finder: Finder(byText: 'Continue')),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        recordingController: recordingController,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      final ArtifactReport recordingArtifact = report.artifacts.singleWhere(
+        (ArtifactReport artifact) =>
+            artifact.type == ArtifactType.deviceVideoRecording,
+      );
+      expect(report.status, ScenarioRunStatus.passed);
+      expect(recordingArtifact.path, 'recordings/full-run.mp4');
+      expect(
+        report.steps.single.artifacts.map(
+          (ArtifactReport artifact) => artifact.type,
+        ),
+        isNot(contains(ArtifactType.deviceVideoRecording)),
+      );
+      expect(
+        recordingController.events.map(
+          (FakeRecordingEvent event) => event.operation,
+        ),
+        <RecordingOperation>[RecordingOperation.start, RecordingOperation.stop],
+      );
+      expect(
+        _runReportFile(report).readAsStringSync(),
+        contains('"type": "deviceVideoRecording"'),
+      );
     });
   });
 

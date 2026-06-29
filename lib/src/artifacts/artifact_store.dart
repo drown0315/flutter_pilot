@@ -498,6 +498,7 @@ enum ArtifactType {
   screenshot,
   snapshot,
   logs,
+  deviceVideoRecording,
 }
 
 /// Reason one artifact was written during a Scenario run.
