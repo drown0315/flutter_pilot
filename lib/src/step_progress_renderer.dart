@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'scenario_runner.dart';
+import 'terminal_style.dart';
 
 /// Renders deterministic plain-text Step progress for CLI output.
 ///
@@ -8,9 +9,10 @@ import 'scenario_runner.dart';
 /// supplied by the CLI so progress can go to stderr while report paths stay on
 /// stdout.
 class StepProgressRenderer {
-  StepProgressRenderer({required this.sink});
+  StepProgressRenderer({required this.sink, this.interactive = false});
 
   final IOSink sink;
+  final bool interactive;
   bool _wroteScenarioHeader = false;
 
   /// Render one runner progress event.
@@ -23,10 +25,18 @@ class StepProgressRenderer {
     _writeScenarioHeader(event);
     switch (event) {
       case StepStartedEvent():
-        sink.writeln(_startedLine(event));
+        _writeLine(_startedLine(event), replacePrevious: interactive);
       case StepFinishedEvent():
-        sink.writeln(_finishedLine(event));
+        _writeLine(_finishedLine(event), replacePrevious: interactive);
     }
+  }
+
+  /// Write one rendered line, optionally replacing the previous terminal line.
+  void _writeLine(String line, {required bool replacePrevious}) {
+    if (replacePrevious) {
+      sink.write('\r');
+    }
+    sink.writeln(line);
   }
 
   /// Print the run header once before the first Step progress line.
@@ -52,7 +62,7 @@ class StepProgressRenderer {
     return '${_prefix(report.index, event.totalSteps)} '
         '${_actionColumn(report.action)} '
         '${_labelColumn(report.label)} '
-        '${_statusText(report)}';
+        '${_statusText(report)}${_emojiSuffix(report)}';
   }
 
   /// Return the `current/total` prefix for one Step line.
@@ -72,11 +82,38 @@ class StepProgressRenderer {
 
   /// Return the final status text shown after Step completion.
   String _statusText(StepRunReport report) {
-    return switch (report.status) {
+    final String plainStatus = switch (report.status) {
       StepStatus.passed => 'ok ${report.durationMs}ms',
       StepStatus.failed =>
         'failed after ${report.durationMs}ms${_failureSuffix(report)}',
       StepStatus.skipped => 'skipped',
+    };
+    if (!interactive) {
+      return plainStatus;
+    }
+    return switch (report.status) {
+      StepStatus.passed => TerminalStyle.bold(
+        TerminalStyle.color(plainStatus, TerminalColor.green, enabled: true),
+        enabled: true,
+      ),
+      StepStatus.failed => TerminalStyle.color(
+        plainStatus,
+        TerminalColor.red,
+        enabled: true,
+      ),
+      StepStatus.skipped => TerminalStyle.dim(plainStatus, enabled: true),
+    };
+  }
+
+  /// Return a short success/failure emoji marker for interactive terminals.
+  String _emojiSuffix(StepRunReport report) {
+    if (!interactive) {
+      return '';
+    }
+    return switch (report.status) {
+      StepStatus.passed => ' ✅',
+      StepStatus.failed => ' ❌',
+      StepStatus.skipped => '',
     };
   }
 

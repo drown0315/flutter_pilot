@@ -522,7 +522,7 @@ class _RunCommand extends Command<int> {
       final bool jsonOutput = argResults!.flag('json');
       final StepProgressRenderer? progressRenderer = jsonOutput
           ? null
-          : StepProgressRenderer(sink: stderr);
+          : StepProgressRenderer(sink: stderr, interactive: stderr.hasTerminal);
       final ScenarioRunReport report = await runner.run(
         parsedScenario,
         stopPoint: stopPoint,

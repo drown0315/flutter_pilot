@@ -9,6 +9,54 @@ import 'package:test/test.dart';
 /// These tests cover presentation behavior separately from Scenario execution
 /// so runner tests can focus on progress events and report data.
 void main() {
+  test('renders interactive refresh markers when enabled', () async {
+    await FileTestkit.runZoned(() async {
+      final File output = File('refresh.log');
+      final IOSink sink = output.openWrite();
+      final StepProgressRenderer renderer = StepProgressRenderer(
+        sink: sink,
+        interactive: true,
+      );
+
+      renderer.render(
+        const StepStartedEvent(
+          scenarioName: 'login_error',
+          totalSteps: 1,
+          step: ScenarioStep(
+            index: 1,
+            label: 'submit',
+            action: CaptureAction(
+              screenshot: false,
+              snapshot: false,
+              widgetTree: false,
+              logs: false,
+            ),
+          ),
+          action: 'capture',
+        ),
+      );
+      renderer.render(
+        const StepFinishedEvent(
+          scenarioName: 'login_error',
+          totalSteps: 1,
+          report: StepRunReport(
+            index: 1,
+            label: 'submit',
+            action: 'capture',
+            status: StepStatus.passed,
+            durationMs: 8,
+          ),
+        ),
+      );
+      await sink.close();
+
+      final String rendered = output.readAsStringSync();
+      expect(rendered, contains('\r'));
+      expect(rendered, contains('\u001b['));
+      expect(TerminalStyle.stripAnsi(rendered), contains('ok 8ms'));
+    });
+  });
+
   test(
     'renders unlabeled failed Steps with a concise single-line summary',
     () async {
