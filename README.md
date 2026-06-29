@@ -190,6 +190,13 @@ flutter_pilot diff <before-run> <after-run> --json
 `--print` may be repeated. When several diagnostics are requested, Flutter Pilot
 prints them in a stable order: Snapshot, Widget Tree, then errors.
 
+Human-readable `run` executions show live Step progress with Step numbers,
+actions, labels, statuses, durations, and concise failure reasons. Interactive
+terminals may use color, emoji, and in-place status updates; CI and redirected
+output use deterministic plain text. Progress is status output on stderr, while
+final artifact paths such as `Run report:` and `HTML report:` stay on stdout.
+`run --json` suppresses progress output.
+
 ## Artifacts
 
 A Scenario run writes a run directory under `.runs/`. The artifact model is
