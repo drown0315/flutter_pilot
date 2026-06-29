@@ -45,6 +45,7 @@ class ScenarioRunner {
     Scenario scenario, {
     RunStopPoint? stopPoint,
     Set<PrintDiagnostic> printDiagnostics = const <PrintDiagnostic>{},
+    void Function(StepProgressEvent event)? onProgress,
   }) async {
     final DateTime startedAt = DateTime.now().toUtc();
     final RunArtifactWriter runArtifactWriter = RunArtifactStore(
@@ -74,6 +75,9 @@ class ScenarioRunner {
       _stepsToExecute(scenario, stopPoint),
       steps,
       runArtifactWriter,
+      scenarioName: scenario.name,
+      totalSteps: scenario.steps.length,
+      onProgress: onProgress,
     );
     if (failureReason != null) {
       failed = true;
@@ -198,20 +202,38 @@ class ScenarioRunner {
   Future<String?> _executeSteps(
     List<ScenarioStep> scenarioSteps,
     List<StepRunReport> reports,
-    RunArtifactWriter runArtifactWriter,
-  ) async {
+    RunArtifactWriter runArtifactWriter, {
+    required String scenarioName,
+    required int totalSteps,
+    void Function(StepProgressEvent event)? onProgress,
+  }) async {
     ScenarioStep? activeStep;
     Stopwatch? activeStepStopwatch;
     try {
       for (final ScenarioStep step in scenarioSteps) {
         activeStep = step;
         activeStepStopwatch = Stopwatch()..start();
+        onProgress?.call(
+          StepStartedEvent(
+            scenarioName: scenarioName,
+            totalSteps: totalSteps,
+            step: step,
+            action: _actionName(step.action),
+          ),
+        );
         final StepRunReport stepReport = await _executeStep(
           step,
           activeStepStopwatch,
           runArtifactWriter,
         );
         reports.add(stepReport);
+        onProgress?.call(
+          StepFinishedEvent(
+            scenarioName: scenarioName,
+            totalSteps: totalSteps,
+            report: stepReport,
+          ),
+        );
         if (stepReport.status == StepStatus.failed) {
           return stepReport.failureReason;
         }
@@ -225,16 +247,22 @@ class ScenarioRunner {
               step: step,
               runArtifactWriter: runArtifactWriter,
             );
-        reports.add(
-          StepRunReport(
-            index: step.index,
-            label: step.label,
-            action: _actionName(step.action),
-            status: StepStatus.failed,
-            durationMs: activeStepStopwatch?.elapsedMilliseconds ?? 0,
-            artifacts: diagnostics.artifacts,
-            failureReason: error.message,
-            diagnosticFailureReason: diagnostics.failureReason,
+        final StepRunReport failedReport = StepRunReport(
+          index: step.index,
+          label: step.label,
+          action: _actionName(step.action),
+          status: StepStatus.failed,
+          durationMs: activeStepStopwatch?.elapsedMilliseconds ?? 0,
+          artifacts: diagnostics.artifacts,
+          failureReason: error.message,
+          diagnosticFailureReason: diagnostics.failureReason,
+        );
+        reports.add(failedReport);
+        onProgress?.call(
+          StepFinishedEvent(
+            scenarioName: scenarioName,
+            totalSteps: totalSteps,
+            report: failedReport,
           ),
         );
       }
@@ -718,6 +746,45 @@ enum ScenarioRunStatus { passed, failed }
 
 /// Status for one executed Step.
 enum StepStatus { passed, failed, skipped }
+
+/// Base event emitted as the runner starts and finishes individual Steps.
+///
+/// The event stream is presentation data for CLI progress. It mirrors Step
+/// execution without changing Scenario semantics, report JSON, or Runtime
+/// Adapter operations.
+sealed class StepProgressEvent {
+  const StepProgressEvent({
+    required this.scenarioName,
+    required this.totalSteps,
+  });
+
+  final String scenarioName;
+  final int totalSteps;
+}
+
+/// Progress event emitted immediately before a Step action executes.
+class StepStartedEvent extends StepProgressEvent {
+  const StepStartedEvent({
+    required super.scenarioName,
+    required super.totalSteps,
+    required this.step,
+    required this.action,
+  });
+
+  final ScenarioStep step;
+  final String action;
+}
+
+/// Progress event emitted after a Step has a final report status.
+class StepFinishedEvent extends StepProgressEvent {
+  const StepFinishedEvent({
+    required super.scenarioName,
+    required super.totalSteps,
+    required this.report,
+  });
+
+  final StepRunReport report;
+}
 
 /// Diagnostic payload that can be printed after `--until` completes.
 enum PrintDiagnostic {

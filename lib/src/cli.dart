@@ -7,12 +7,14 @@ import 'package:yaml/yaml.dart';
 import 'app_setup.dart';
 import 'diagnostic_text_renderer.dart';
 import 'html_timeline_report.dart';
+import 'runtime/fake_runtime_adapter.dart';
 import 'runtime/mcp_flutter_runtime_adapter.dart';
 import 'runtime/runtime_contract.dart';
 import 'run_diff.dart';
 import 'scenario.dart';
 import 'scenario_parser.dart';
 import 'scenario_runner.dart';
+import 'step_progress_renderer.dart';
 
 /// Command-line entry point for Flutter Pilot.
 ///
@@ -293,11 +295,60 @@ class _ReportCommand extends Command<int> {
 }
 
 /// Build the first-version default runner used by the executable.
-ScenarioRunner _createDefaultRunner(RuntimeTarget target) {
+ScenarioRunner _createDefaultRunner(RuntimeTarget target, Scenario scenario) {
+  if (Platform.environment['FLUTTER_PILOT_TEST_RUNTIME'] == 'success') {
+    return ScenarioRunner(
+      adapter: _createSuccessfulFakeRuntimeAdapter(scenario),
+      outputDirectory: Directory.current,
+    );
+  }
   return ScenarioRunner(
     adapter: McpFlutterRuntimeAdapter(target: target),
     outputDirectory: Directory.current,
   );
+}
+
+/// Build the test-only fake Runtime Adapter used by CLI subprocess tests.
+///
+/// This hook is intentionally selected through an environment variable rather
+/// than a public CLI option so it does not become part of the user-facing
+/// command contract or appear in `--help`.
+FakeRuntimeAdapter _createSuccessfulFakeRuntimeAdapter(Scenario scenario) {
+  final Map<String, List<FinderMatch>> finderResults =
+      <String, List<FinderMatch>>{};
+  for (final ScenarioStep step in scenario.steps) {
+    final Finder? finder = _finderForAction(step.action);
+    if (finder == null) {
+      continue;
+    }
+    finderResults[_fakeRuntimeFinderKey(finder)] = <FinderMatch>[
+      FinderMatch(id: 'step-${step.index}', debugLabel: step.label),
+    ];
+  }
+  return FakeRuntimeAdapter(finderResults: finderResults);
+}
+
+/// Return the Finder used by an action, if the action resolves one.
+Finder? _finderForAction(StepAction action) {
+  return switch (action) {
+    TapAction(:final Finder finder) => finder,
+    TypeAction(:final Finder finder) => finder,
+    ScrollAction(:final Finder? finder) => finder,
+    WaitForAction(:final Finder finder) => finder,
+    CaptureAction() => null,
+  };
+}
+
+/// Convert a Finder into the key expected by `FakeRuntimeAdapter`.
+String _fakeRuntimeFinderKey(Finder finder) {
+  final List<String> parts = <String>[
+    if (finder.byText != null) 'byText=${finder.byText}',
+    if (finder.byType != null) 'byType=${finder.byType}',
+  ];
+  if (parts.length == 1) {
+    return parts.single.split('=').last;
+  }
+  return parts.join('&');
 }
 
 /// `validate` command for checking Scenario YAML without connecting to Flutter.
@@ -444,17 +495,22 @@ class _RunCommand extends Command<int> {
     }
     final ScenarioRunner runner = _createDefaultRunner(
       RuntimeTarget(vmServiceUri: targetUri),
+      parsedScenario,
     );
     try {
+      final bool jsonOutput = argResults!.flag('json');
+      final StepProgressRenderer? progressRenderer = jsonOutput
+          ? null
+          : StepProgressRenderer(sink: stderr);
       final ScenarioRunReport report = await runner.run(
         parsedScenario,
         stopPoint: stopPoint,
         printDiagnostics: _printDiagnosticsFromOptions(
           argResults!.multiOption('print'),
         ),
+        onProgress: progressRenderer?.render,
       );
       if (report.printedDiagnostics.isNotEmpty) {
-        final bool jsonOutput = argResults!.flag('json');
         if (jsonOutput) {
           stdout.writeln(
             const JsonEncoder.withIndent(
