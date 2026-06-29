@@ -22,6 +22,11 @@ Flutter Pilot treats a UI journey as a portable Scenario. A Scenario says which
 widgets to tap, where to type, what to wait for, when to scroll, and where to
 capture diagnostic artifacts.
 
+Scenario metadata can also request full-run device video recording with
+`scenario.recording`. Recording is run-level context: it starts before the first
+Step, stops during run shutdown, and is reported as a Device Video Recording
+artifact rather than a Step artifact.
+
 Runtime connection details are not stored in YAML. The same Scenario can be
 validated, shared, committed, and replayed against different Runtime Targets by
 passing target details through the CLI.
@@ -51,6 +56,7 @@ runtime context so a person or agent can answer sharper questions:
 scenario:
   name: login_error
   description: Reproduce the invalid login message.
+  recording: {}
 
 steps:
   - label: enter_email
@@ -74,6 +80,10 @@ steps:
 
 This Scenario describes the UI journey only. The Runtime Target, such as a
 Flutter VM service URI, is provided when the Scenario is run.
+
+`recording: {}` enables default Scenario Recording. Omit `recording` for no
+recording, or use `recording.enabled: false` to disable it explicitly.
+Boolean shorthand such as `recording: true` is invalid.
 
 The HTML timeline report turns the same journey into a visual review surface:
 
@@ -206,6 +216,8 @@ designed for both human review and machine consumption.
 - Snapshot: structured UI state for tools and AI agents.
 - Widget Tree: deeper Flutter hierarchy data when requested.
 - Logs: runtime and diagnostic output.
+- Device Video Recording: optional run-level video saved when
+  `scenario.recording` is enabled.
 - `run_report.json`: machine-readable execution summary.
 - `timeline.html`: visual timeline generated from run artifacts.
 
