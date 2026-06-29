@@ -18,3 +18,4 @@ export 'src/run_diff.dart';
 export 'src/scenario.dart';
 export 'src/scenario_parser.dart';
 export 'src/scenario_runner.dart';
+export 'src/step_progress_renderer.dart';

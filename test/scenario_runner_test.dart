@@ -203,6 +203,39 @@ void main() {
     },
   );
 
+  test('emits failed Step progress with unlabeled Steps', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('failed_progress_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        finderResults: <String, List<FinderMatch>>{
+          'missing': const <FinderMatch>[],
+        },
+      );
+      final List<StepProgressEvent> progressEvents = <StepProgressEvent>[];
+      final Scenario scenario = Scenario(
+        name: 'login_error',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: TapAction(finder: Finder(byText: 'missing')),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        outputDirectory: outputDirectory,
+      ).run(scenario, onProgress: progressEvents.add);
+
+      expect(report.status, ScenarioRunStatus.failed);
+      expect(report.steps.single.status, StepStatus.failed);
+      expect(progressEvents, hasLength(2));
+      expect(progressEvents.first, isA<StepStartedEvent>());
+      expect(progressEvents.last, isA<StepFinishedEvent>());
+      expect((progressEvents.last as StepFinishedEvent).report.label, isNull);
+    });
+  });
+
   test('creates a stable run directory with scenario metadata', () async {
     await FileTestkit.runZoned(() async {
       final Directory outputDirectory = Directory('artifact_output');

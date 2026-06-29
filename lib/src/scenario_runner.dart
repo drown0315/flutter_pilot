@@ -65,6 +65,7 @@ class ScenarioRunner {
         steps: steps,
         failed: true,
         failureReason: initializeFailure,
+        stopPointDescription: null,
         printedDiagnostics: const <PrintedDiagnostic>[],
         diagnosticSummary: null,
       );
@@ -86,6 +87,9 @@ class ScenarioRunner {
     if (!failed) {
       _addSkippedSteps(allSteps: scenario.steps, reports: steps);
     }
+    final String? stopPointDescription = stopPoint == null
+        ? null
+        : _describeStopPoint(stopPoint, steps);
 
     List<PrintedDiagnostic> printedDiagnostics = const <PrintedDiagnostic>[];
     DiagnosticSummary? diagnosticSummary;
@@ -116,9 +120,19 @@ class ScenarioRunner {
       steps: steps,
       failed: failed,
       failureReason: failureReason,
+      stopPointDescription: stopPointDescription,
       printedDiagnostics: printedDiagnostics,
       diagnosticSummary: diagnosticSummary,
     );
+  }
+
+  /// Describe the stop point that ended the run, if one was selected.
+  String _describeStopPoint(RunStopPoint stopPoint, List<StepRunReport> steps) {
+    return switch (stopPoint) {
+      StepNumberStopPoint(:final int stepNumber) =>
+        '$stepNumber/${steps.length}',
+      StepLabelStopPoint(:final String label) => label,
+    };
   }
 
   /// Return the Step prefix selected by an optional run stop point.
@@ -306,6 +320,7 @@ class ScenarioRunner {
     required List<StepRunReport> steps,
     required bool failed,
     required String? failureReason,
+    required String? stopPointDescription,
     required List<PrintedDiagnostic> printedDiagnostics,
     DiagnosticSummary? diagnosticSummary,
   }) {
@@ -324,6 +339,7 @@ class ScenarioRunner {
       runDirectoryPath: runArtifactWriter.runDirectory.path,
       artifacts: artifacts,
       failureReason: failureReason,
+      stopPointDescription: stopPointDescription,
       printedDiagnostics: printedDiagnostics,
       diagnosticSummary: diagnosticSummary,
     );
@@ -856,6 +872,7 @@ class ScenarioRunReport {
     this.printedDiagnostics = const <PrintedDiagnostic>[],
     this.diagnosticSummary,
     this.failureReason,
+    this.stopPointDescription,
   });
 
   final String scenarioName;
@@ -873,6 +890,9 @@ class ScenarioRunReport {
 
   /// Human-readable run-level failure reason.
   final String? failureReason;
+
+  /// Human-readable stop point description when a run ended via `--until`.
+  final String? stopPointDescription;
 
   /// Diagnostic data requested for terminal output after a stopped Step.
   final List<PrintedDiagnostic> printedDiagnostics;
@@ -896,6 +916,8 @@ class ScenarioRunReport {
       'durationMs': durationMs,
       'runDirectory': runDirectoryPath,
       if (failureReason != null) 'failureReason': failureReason,
+      if (stopPointDescription != null)
+        'stopPointDescription': stopPointDescription,
       if (printedDiagnostics.isNotEmpty)
         'printedDiagnostics': <Object?>[
           for (final PrintedDiagnostic diagnostic in printedDiagnostics)

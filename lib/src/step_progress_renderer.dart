@@ -62,14 +62,35 @@ class StepProgressRenderer {
   String _actionColumn(String action) => action.padRight(7);
 
   /// Return a fixed-width Step Label column, using `-` for unlabeled Steps.
-  String _labelColumn(String? label) => (label ?? '-').padRight(14);
+  String _labelColumn(String? label) {
+    final String value = label ?? '-';
+    if (value.length <= 14) {
+      return value.padRight(14);
+    }
+    return '${value.substring(0, 13)}…';
+  }
 
   /// Return the final status text shown after Step completion.
   String _statusText(StepRunReport report) {
     return switch (report.status) {
       StepStatus.passed => 'ok ${report.durationMs}ms',
-      StepStatus.failed => 'failed after ${report.durationMs}ms',
+      StepStatus.failed =>
+        'failed after ${report.durationMs}ms${_failureSuffix(report)}',
       StepStatus.skipped => 'skipped',
     };
+  }
+
+  /// Return a concise single-line failure summary for terminal output.
+  String _failureSuffix(StepRunReport report) {
+    final String? failureReason = report.failureReason;
+    if (failureReason == null || failureReason.isEmpty) {
+      return '';
+    }
+    final String normalized = failureReason.replaceAll(RegExp(r'\s+'), ' ');
+    final int maxSummaryLength = 80;
+    if (normalized.length <= maxSummaryLength) {
+      return ': $normalized';
+    }
+    return ': ${normalized.substring(0, maxSummaryLength - 1)}…';
   }
 }

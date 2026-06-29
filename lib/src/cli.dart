@@ -296,9 +296,15 @@ class _ReportCommand extends Command<int> {
 
 /// Build the first-version default runner used by the executable.
 ScenarioRunner _createDefaultRunner(RuntimeTarget target, Scenario scenario) {
-  if (Platform.environment['FLUTTER_PILOT_TEST_RUNTIME'] == 'success') {
+  final String? testRuntime =
+      Platform.environment['FLUTTER_PILOT_TEST_RUNTIME'];
+  if (testRuntime != null) {
     return ScenarioRunner(
-      adapter: _createSuccessfulFakeRuntimeAdapter(scenario),
+      adapter: switch (testRuntime) {
+        'success' => _createSuccessfulFakeRuntimeAdapter(scenario),
+        'failure' => _createFailureFakeRuntimeAdapter(scenario),
+        _ => _createSuccessfulFakeRuntimeAdapter(scenario),
+      },
       outputDirectory: Directory.current,
     );
   }
@@ -324,6 +330,21 @@ FakeRuntimeAdapter _createSuccessfulFakeRuntimeAdapter(Scenario scenario) {
     finderResults[_fakeRuntimeFinderKey(finder)] = <FinderMatch>[
       FinderMatch(id: 'step-${step.index}', debugLabel: step.label),
     ];
+  }
+  return FakeRuntimeAdapter(finderResults: finderResults);
+}
+
+/// Build the test-only fake Runtime Adapter that fails the first Finder match.
+FakeRuntimeAdapter _createFailureFakeRuntimeAdapter(Scenario scenario) {
+  final Map<String, List<FinderMatch>> finderResults =
+      <String, List<FinderMatch>>{};
+  for (final ScenarioStep step in scenario.steps) {
+    final Finder? finder = _finderForAction(step.action);
+    if (finder == null) {
+      continue;
+    }
+    finderResults[_fakeRuntimeFinderKey(finder)] = const <FinderMatch>[];
+    break;
   }
   return FakeRuntimeAdapter(finderResults: finderResults);
 }
@@ -521,6 +542,9 @@ class _RunCommand extends Command<int> {
           stdout.writeln(DiagnosticTextRenderer.render(report));
         }
       }
+      if (!jsonOutput) {
+        _writeRunSummary(report);
+      }
       stdout.writeln(
         '$_runReportLabel ${report.runDirectoryPath}/run_report.json',
       );
@@ -536,6 +560,34 @@ class _RunCommand extends Command<int> {
 
   static const String _runReportLabel = 'Run report:';
   static const String _htmlReportLabel = 'HTML report:';
+
+  /// Print the final human-readable run summary to stderr.
+  void _writeRunSummary(ScenarioRunReport report) {
+    if (report.status == ScenarioRunStatus.passed &&
+        report.stopPointDescription == null) {
+      stderr.writeln('Run passed.');
+      return;
+    }
+    if (report.stopPointDescription != null &&
+        report.status == ScenarioRunStatus.passed) {
+      stderr.writeln('Stopped after ${report.stopPointDescription}.');
+      return;
+    }
+    if (report.failureReason != null) {
+      stderr.writeln('Run failed at ${_failedStepText(report)}.');
+      return;
+    }
+    stderr.writeln('Run completed.');
+  }
+
+  /// Describe the Step that ended a failed run.
+  String _failedStepText(ScenarioRunReport report) {
+    final StepRunReport failedStep = report.steps.firstWhere(
+      (StepRunReport step) => step.status == StepStatus.failed,
+      orElse: () => report.steps.last,
+    );
+    return '${failedStep.index}/${report.steps.length}';
+  }
 
   /// Return the runner stop point selected by a validated `--until` value.
   RunStopPoint _stopPointFromUntil(String until) {
