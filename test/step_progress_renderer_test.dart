@@ -9,7 +9,7 @@ import 'package:test/test.dart';
 /// These tests cover presentation behavior separately from Scenario execution
 /// so runner tests can focus on progress events and report data.
 void main() {
-  test('renders interactive refresh markers when enabled', () async {
+  test('redraws the interactive Step block in place', () async {
     await FileTestkit.runZoned(() async {
       final File output = File('refresh.log');
       final IOSink sink = output.openWrite();
@@ -51,9 +51,14 @@ void main() {
       await sink.close();
 
       final String rendered = output.readAsStringSync();
-      expect(rendered, contains('\r'));
+      expect(rendered, contains('\u001b[3A'));
+      expect(rendered, contains('\u001b[J'));
       expect(rendered, contains('\u001b['));
-      expect(TerminalStyle.stripAnsi(rendered), contains('ok 8ms'));
+      final String plain = TerminalStyle.stripAnsi(rendered);
+      expect(plain, contains('Scenario: login_error (1 steps)'));
+      expect(plain, contains('> Step Progress'));
+      expect(plain, contains('✅ 1/1 capture submit         ok 8ms'));
+      expect(plain, isNot(contains('running\n1/1 capture submit')));
     });
   });
 
