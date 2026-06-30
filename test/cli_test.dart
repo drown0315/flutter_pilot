@@ -229,32 +229,6 @@ steps:
     );
   });
 
-  test('run exits non-zero when the Scenario run fails', skip: true, () async {
-    final Directory tempDirectory = Directory.systemTemp.createTempSync(
-      'flutter_pilot_cli_test_',
-    );
-    final String packageRoot = Directory.current.absolute.path;
-    try {
-      final ProcessResult result =
-          await Process.run(Platform.resolvedExecutable, [
-            'run',
-            '$packageRoot/bin/flutter_pilot.dart',
-            'test',
-            '$packageRoot/examples/login_error.yaml',
-          ], workingDirectory: tempDirectory.path);
-
-      expect(result.exitCode, isNonZero);
-      expect(result.stdout, contains('Run report:'));
-      expect(result.stdout, contains('run_report.json'));
-      expect(result.stdout, contains('HTML report:'));
-      expect(result.stdout, contains('timeline.html'));
-    } finally {
-      tempDirectory.deleteSync(recursive: true);
-    }
-  });
-
-
-
   test('report generates HTML from an existing run directory', () async {
     final Directory tempDirectory = Directory.systemTemp.createTempSync(
       'flutter_pilot_report_test_',

@@ -250,16 +250,16 @@ class ScenarioRunner {
   /// Start Scenario Recording when metadata explicitly enables it.
   ///
   /// Returns:
-  /// `null` when recording is omitted, disabled, has no controller, or starts
-  /// successfully. Otherwise, the recording failure message that should stop
-  /// the run before any Step executes.
+  /// `null` when recording is omitted, disabled, or starts successfully.
+  /// Otherwise, the recording failure message that should stop the run before
+  /// any Step executes.
   Future<String?> _tryStartRecording(Scenario scenario) async {
     if (scenario.recording?.enabled != true) {
       return null;
     }
     final RecordingController? controller = recordingController;
     if (controller == null) {
-      return null;
+      return 'Scenario recording requested but no recording controller available.';
     }
     try {
       await controller.start(scenario);

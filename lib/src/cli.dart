@@ -501,34 +501,6 @@ class _TestCommand extends Command<int> {
     }
   }
 
-  /// Print the final human-readable run summary to stderr.
-  void _writeRunSummary(ScenarioRunReport report) {
-    if (report.status == ScenarioRunStatus.passed &&
-        report.stopPointDescription == null) {
-      stderr.writeln('Run passed.');
-      return;
-    }
-    if (report.stopPointDescription != null &&
-        report.status == ScenarioRunStatus.passed) {
-      stderr.writeln('Stopped after ${report.stopPointDescription}.');
-      return;
-    }
-    if (report.failureReason != null) {
-      stderr.writeln('Run failed at ${_failedStepText(report)}.');
-      return;
-    }
-    stderr.writeln('Run completed.');
-  }
-
-  /// Describe the Step that ended a failed run.
-  String _failedStepText(ScenarioRunReport report) {
-    final StepRunReport failedStep = report.steps.firstWhere(
-      (StepRunReport step) => step.status == StepStatus.failed,
-      orElse: () => report.steps.last,
-    );
-    return '${failedStep.index}/${report.totalSteps}';
-  }
-
   /// Return the runner stop point selected by a validated `--until` value.
   RunStopPoint _stopPointFromUntil(String until) {
     final int? stepNumber = int.tryParse(until);
@@ -686,7 +658,7 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
         );
       } on TargetDeviceResolutionException catch (error) {
         throw TestCommandException(message: error.message, exitCode: 64);
-      } on FormatException catch (error) {
+      } on DeviceDiscoveryException catch (error) {
         throw TestCommandException(message: error.message, exitCode: 1);
       }
     }
@@ -710,6 +682,12 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
       );
     }
 
+    if (recordingRequired && targetDevice == null) {
+      throw const TestCommandException(
+        message: 'Target device required for recording but none was resolved.',
+        exitCode: 1,
+      );
+    }
     try {
       final TestScenarioRunner runner = runnerFactory.create(
         runtimeTarget: RuntimeTarget(vmServiceUri: launch.runtimeTargetUri),
@@ -772,7 +750,7 @@ class DefaultTestDeviceDiscovery implements TestDeviceDiscovery {
       '--machine',
     ]);
     if (result.exitCode != 0) {
-      throw FormatException(result.stderr.toString());
+      throw DeviceDiscoveryException(result.stderr.toString());
     }
     return TargetDeviceParser.parseMachineJson(result.stdout.toString());
   }
@@ -849,6 +827,18 @@ class _ScenarioRunnerAdapter implements TestScenarioRunner {
       printDiagnostics: printDiagnostics,
     );
   }
+}
+
+/// Failure raised when device discovery fails.
+class DeviceDiscoveryException implements Exception {
+  /// Creates a device discovery failure.
+  const DeviceDiscoveryException(this.message);
+
+  /// Human-readable failure reason.
+  final String message;
+
+  @override
+  String toString() => message;
 }
 
 /// Failure from the `test` command executor.

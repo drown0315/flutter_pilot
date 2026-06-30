@@ -62,7 +62,7 @@ class TargetAppLaunch {
   Future<void> cleanup({
     Duration gracePeriod = const Duration(seconds: 2),
   }) async {
-    _process.writeStdin('q');
+    _process.writeStdin('q\n');
     try {
       await _process.exitCode.timeout(gracePeriod);
     } on TimeoutException {
@@ -238,6 +238,7 @@ class _IoTargetAppProcess implements TargetAppProcess {
   @override
   void writeStdin(String text) {
     _process.stdin.write(text);
+    _process.stdin.flush();
   }
 
   @override
