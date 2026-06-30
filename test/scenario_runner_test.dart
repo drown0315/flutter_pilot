@@ -101,7 +101,6 @@ void main() {
     });
   });
 
-
   test(
     'emits Step started and finished progress events for successful Steps',
     () async {
