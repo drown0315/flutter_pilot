@@ -166,8 +166,8 @@ dart run flutter_pilot diff .runs/<before-run> .runs/<after-run> --json
 ## Scenario YAML
 
 Scenario YAML is Flutter Pilot's portable description of a UI journey. It
-supports ordered Steps, Step labels, Finders, actions, waits, scrolling, and
-capture checkpoints.
+supports ordered Steps, Step labels, Step Includes for shared Step Libraries,
+Finders, actions, waits, scrolling, and capture checkpoints.
 
 See [docs/scenario-yaml.md](docs/scenario-yaml.md) for the full syntax,
 examples, and validation rules.

@@ -37,8 +37,9 @@ class ScenarioValidationException implements Exception {
 
 /// Parser that converts strict Scenario YAML into typed Scenario objects.
 ///
-/// It accepts the first-version Scenario schema:
+/// It accepts the Scenario schema:
 /// - top-level `scenario` metadata and required `steps`
+/// - Step Includes that reference Step Library files
 /// - one action per step
 /// - Finder fields `byText` and `byType`
 ///
@@ -58,12 +59,17 @@ class ScenarioParser {
   /// `filePath` is the path to a YAML file. When `scenario.name` is omitted,
   /// the file basename becomes the Scenario name.
   ///
+  /// Step Includes in the Steps list are expanded: each `include:` entry loads
+  /// the referenced Step Library file and inlines its Steps. Include paths are
+  /// resolved relative to the file that contains the include. Include cycles
+  /// are detected and produce a validation error.
+  ///
   /// Returns:
   /// A typed `Scenario` whose steps contain concrete `StepAction` subclasses.
   ///
   /// Throws:
   /// `ScenarioValidationException` when the file is missing, the YAML cannot be
-  /// parsed, or the schema contains invalid fields.
+  /// parsed, include expansion fails, or the schema contains invalid fields.
   static Scenario parseFile(String filePath) {
     final File file = File(filePath);
     if (!file.existsSync()) {
@@ -109,6 +115,9 @@ class ScenarioParser {
   /// Args:
   /// `yaml` is the value returned by `loadYaml`. It must be a YAML map.
   /// `fallbackName` is used when `scenario.name` is absent or empty.
+  ///
+  /// Step Includes are rejected in in-memory mode (see `parseFile` for
+  /// file-level parsing with include expansion).
   ///
   /// Returns:
   /// A `Scenario` with validated metadata, labels, Finders, and actions.

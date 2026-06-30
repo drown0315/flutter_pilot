@@ -153,7 +153,8 @@ dart run flutter_pilot report .runs/<run-directory>
 ## Scenario YAML
 
 Scenario YAML 是 Flutter Pilot 对 UI 旅程的可移植描述。它支持有序 Steps、
-Step Label、Finder、动作、等待、滚动和捕获检查点。
+Step Label、Step Include（引入复用的 Step Library）、Finder、动作、等待、
+滚动和捕获检查点。
 
 完整语法、示例和校验规则见 [docs/scenario-yaml.md](docs/scenario-yaml.md)。
 

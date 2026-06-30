@@ -27,7 +27,8 @@ class StepProgressRenderer {
   /// Args:
   /// `event` is emitted by `ScenarioRunner` when a Step starts or finishes.
   /// Started events print `running`; finished events print the Step's final
-  /// status and elapsed duration.
+  /// status and elapsed duration. Steps expanded from Step Libraries include
+  /// the source file display path, e.g. `[flows/login.yaml]`.
   void render(StepProgressEvent event) {
     if (interactive) {
       _renderInteractive(event);

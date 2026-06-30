@@ -56,3 +56,14 @@ Source: `issues/0.0.4-screen-recorder.md`
 | 5. Wire Default Multi-Backend Recording Device Resolution Priority | `#62` | Complete | Default recorder wires Android, iOS Simulator, and physical iOS backends in fixed priority order, lists devices in that order, resolves selectors by exact id/name or case-insensitive name prefix, stops resolution at the first matching backend, supports platform filtering to narrow discovery, and surfaces device-not-found through stable `ScreenRecorderException` codes. |
 | 6. Add Thin Interactive CLI For Recording Sessions | `#63` | Complete | Package exposes a `screen_recorder` executable and thin `ScreenRecorderCli` wrapper around the core API. The CLI starts a foreground recording from `--device`, optional `--output-directory`, and optional `--output-name`, maps `s` to `stopRecord` and prints `Saved recording: <path>`, maps `q` to discard without reporting a saved file, and renders `ScreenRecorderException` codes in errors. |
 | 7. Add `screen_recorder` Documentation And Manual Smoke Checklist | `#64` | Complete | README documents the core API, CLI `s` save and `q` discard interaction, discovery priority, selector matching, platform filter, output naming and native formats, Android/iOS Simulator/physical iOS prerequisites, manual smoke checklists, and out-of-scope Flutter Pilot integration, Scenario YAML video actions, and VM service discovery. Documentation coverage is verified by package tests. |
+
+## Step Includes 0.0.7 Progress
+
+Source: `issues/0.0.7-support-scenario-yaml-step-includes.md`
+
+| Local issue | GitHub issue | Status | Notes |
+| --- | --- | --- | --- |
+| 1. Scenario Step Library Parser | `#78` | Complete | `parseFile` accepts Step Includes with relative/absolute paths, nested includes, cycle detection, Step Library schema validation, duplicate label validation after expansion, and in-memory include rejection. |
+| 2. Scenario Step Library CLI Validation | `#78` | Complete | `validate` and `run --until` work with include-backed Scenarios. JSON validation output includes include-related paths. |
+| 3. Expanded Scenario Artifacts | `#78` | Complete | Run artifacts contain the expanded flat Step list with Step Source metadata. Runner reports preserve flat Step outcome shape. |
+| 4. Include Chain Ready For Progress | `#78` | Complete | Step Source and Include Chain model added. Progress renderer shows include source display paths for expanded Steps. |
