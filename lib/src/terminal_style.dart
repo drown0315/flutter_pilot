@@ -36,8 +36,7 @@ class TerminalStyle {
 /// ANSI colors used by terminal progress output.
 enum TerminalColor {
   green(32),
-  red(31),
-  cyan(36);
+  red(31);
 
   const TerminalColor(this.code);
 

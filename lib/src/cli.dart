@@ -586,7 +586,7 @@ class _RunCommand extends Command<int> {
       (StepRunReport step) => step.status == StepStatus.failed,
       orElse: () => report.steps.last,
     );
-    return '${failedStep.index}/${report.steps.length}';
+    return '${failedStep.index}/${report.totalSteps}';
   }
 
   /// Return the runner stop point selected by a validated `--until` value.

@@ -169,7 +169,7 @@ class StepProgressRenderer {
     return '${_prefix(report.index, event.totalSteps)} '
         '${_actionColumn(report.action)} '
         '${_labelColumn(report.label)} '
-        '${_statusText(report)}${_emojiSuffix(report)}';
+        '${_statusText(report)}';
   }
 
   /// Return the `current/total` prefix for one Step line.
@@ -210,14 +210,6 @@ class StepProgressRenderer {
       ),
       StepStatus.skipped => TerminalStyle.dim(plainStatus, enabled: true),
     };
-  }
-
-  /// Return a short success/failure emoji marker for interactive terminals.
-  String _emojiSuffix(StepRunReport report) {
-    if (!interactive) {
-      return '';
-    }
-    return '';
   }
 
   /// Return a concise single-line failure summary for terminal output.

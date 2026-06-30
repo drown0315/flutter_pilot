@@ -332,6 +332,7 @@ class ScenarioRunner {
     final ScenarioRunReport report = ScenarioRunReport(
       scenarioName: scenario.name,
       scenarioDescription: scenario.description,
+      totalSteps: scenario.steps.length,
       status: failed ? ScenarioRunStatus.failed : ScenarioRunStatus.passed,
       startedAt: startedAt,
       durationMs: durationMs,
@@ -863,6 +864,7 @@ class ScenarioRunReport {
   const ScenarioRunReport({
     required this.scenarioName,
     required this.scenarioDescription,
+    required this.totalSteps,
     required this.status,
     required this.startedAt,
     required this.durationMs,
@@ -877,6 +879,10 @@ class ScenarioRunReport {
 
   final String scenarioName;
   final String? scenarioDescription;
+
+  /// Total Steps defined in the Scenario (not just executed or reported).
+  final int totalSteps;
+
   final ScenarioRunStatus status;
   final DateTime startedAt;
   final int durationMs;
@@ -909,6 +915,7 @@ class ScenarioRunReport {
     return <String, Object?>{
       'scenario': <String, Object?>{
         'name': scenarioName,
+        'totalSteps': totalSteps,
         if (scenarioDescription != null) 'description': scenarioDescription,
       },
       'status': status.name,

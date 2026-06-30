@@ -9,6 +9,7 @@ void main() {
       final ScenarioRunReport report = ScenarioRunReport(
         scenarioName: 'smoke_runtime',
         scenarioDescription: null,
+        totalSteps: 0,
         status: ScenarioRunStatus.passed,
         startedAt: DateTime.utc(2026, 6, 13),
         durationMs: 1,

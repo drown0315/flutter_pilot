@@ -102,13 +102,15 @@ class HtmlTimelineReport {
     required String fallbackRunDirectoryPath,
   }) {
     final Map<String, Object?> scenario = _requiredMap(json, 'scenario');
+    final List<StepRunReport> steps = _stepsFromJson(_requiredList(json, 'steps'));
     return ScenarioRunReport(
       scenarioName: _requiredString(scenario, 'name'),
       scenarioDescription: _optionalString(scenario, 'description'),
+      totalSteps: _optionalInt(scenario, 'totalSteps') ?? steps.length,
       status: _scenarioStatus(_requiredString(json, 'status')),
       startedAt: DateTime.parse(_requiredString(json, 'startedAt')),
       durationMs: _requiredInt(json, 'durationMs'),
-      steps: _stepsFromJson(_requiredList(json, 'steps')),
+      steps: steps,
       runDirectoryPath:
           _optionalString(json, 'runDirectory') ?? fallbackRunDirectoryPath,
       artifacts: _artifactsFromJson(_optionalList(json, 'artifacts')),
@@ -317,6 +319,14 @@ class HtmlTimelineReport {
     final Object? value = json[key];
     if (value is int) {
       return value;
+    }
+    throw FormatException('$key must be an integer.');
+  }
+
+  static int? _optionalInt(Map<String, Object?> json, String key) {
+    final Object? value = json[key];
+    if (value == null || value is int) {
+      return value as int?;
     }
     throw FormatException('$key must be an integer.');
   }
