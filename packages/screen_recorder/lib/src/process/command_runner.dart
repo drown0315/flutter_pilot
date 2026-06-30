@@ -125,8 +125,8 @@ class ProcessCommandRunner implements ScreenRecorderCommandRunner {
 
 class _DartIoScreenRecorderProcess implements ScreenRecorderProcess {
   _DartIoScreenRecorderProcess(this._process)
-    : _stdout = utf8.decodeStream(_process.stdout),
-      _stderr = utf8.decodeStream(_process.stderr);
+      : _stdout = utf8.decodeStream(_process.stdout),
+        _stderr = utf8.decodeStream(_process.stderr);
 
   final Process _process;
   final Future<String> _stdout;
