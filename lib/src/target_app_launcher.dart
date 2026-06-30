@@ -145,25 +145,44 @@ class TargetAppLauncher {
     );
     final Completer<TargetAppLaunch> completer = Completer<TargetAppLaunch>();
     final _LastLinesBuffer stderrBuffer = _LastLinesBuffer(limit: 40);
-    final Future<void> stderrDone = process.stderr
+    final StreamSubscription<String> stderrSub = process.stderr
         .transform(utf8.decoder)
         .transform(const LineSplitter())
-        .listen(stderrBuffer.add)
-        .asFuture<void>();
-    process.stdout
+        .listen(
+          stderrBuffer.add,
+          onError: (Object error) {
+            // Non-fatal; continue with buffered stderr lines.
+          },
+        );
+    final Future<void> stderrDone = stderrSub.asFuture<void>();
+    StreamSubscription<String>? stdoutSub;
+    stdoutSub = process.stdout
         .transform(utf8.decoder)
         .transform(const LineSplitter())
-        .listen((String line) {
-          final Uri? runtimeTargetUri = _runtimeTargetUriFromMachineLine(line);
-          if (runtimeTargetUri != null && !completer.isCompleted) {
-            completer.complete(
-              TargetAppLaunch(
-                runtimeTargetUri: runtimeTargetUri,
-                process: process,
-              ),
-            );
-          }
-        });
+        .listen(
+          (String line) {
+            final Uri? runtimeTargetUri = _runtimeTargetUriFromMachineLine(line);
+            if (runtimeTargetUri != null && !completer.isCompleted) {
+              stdoutSub?.cancel();
+              completer.complete(
+                TargetAppLaunch(
+                  runtimeTargetUri: runtimeTargetUri,
+                  process: process,
+                ),
+              );
+            }
+          },
+          onError: (Object error) {
+            stdoutSub?.cancel();
+            if (!completer.isCompleted) {
+              completer.completeError(
+                TargetAppLaunchException(
+                  message: 'Error reading Flutter stdout: $error',
+                ),
+              );
+            }
+          },
+        );
     process.exitCode.then((int exitCode) async {
       await stderrDone;
       if (!completer.isCompleted) {

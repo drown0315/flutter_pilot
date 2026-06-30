@@ -282,12 +282,8 @@ class ScenarioRunner {
   Future<String?> _tryStopRecording({
     required void Function(RecordingResult result) onResult,
   }) async {
-    final RecordingController? controller = recordingController;
-    if (controller == null) {
-      return null;
-    }
     try {
-      onResult(await controller.stop());
+      onResult(await recordingController!.stop());
       return null;
     } on RecordingException catch (error) {
       return error.message;

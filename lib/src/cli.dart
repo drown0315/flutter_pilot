@@ -448,26 +448,26 @@ class _TestCommand extends Command<int> {
       stopPoint = _stopPointFromUntil(until);
     }
 
-    final String? device = argResults!.option('device');
-    if (device != null && device.trim().isEmpty) {
+    final String? device = argResults!.option('device')?.trim();
+    if (device != null && device.isEmpty) {
       stderr.writeln('Target Device selector must not be empty.');
       return 64;
     }
-    final String? flavor = argResults!.option('flavor');
-    if (flavor != null && flavor.trim().isEmpty) {
+    final String? flavor = argResults!.option('flavor')?.trim();
+    if (flavor != null && flavor.isEmpty) {
       stderr.writeln('--flavor must not be empty.');
       return 64;
     }
-    final String? target = argResults!.option('target');
-    if (target != null && target.trim().isEmpty) {
+    final String? target = argResults!.option('target')?.trim();
+    if (target != null && target.isEmpty) {
       stderr.writeln('--target must not be empty.');
       return 64;
     }
     final TestCommandOptions options = TestCommandOptions(
       scenario: parsedScenario,
-      device: device?.trim(),
-      flavor: flavor?.trim(),
-      target: target?.trim(),
+      device: device,
+      flavor: flavor,
+      target: target,
       stopPoint: stopPoint,
       printDiagnostics: _printDiagnosticsFromOptions(
         argResults!.multiOption('print'),
@@ -682,12 +682,6 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
       );
     }
 
-    if (recordingRequired && targetDevice == null) {
-      throw const TestCommandException(
-        message: 'Target device required for recording but none was resolved.',
-        exitCode: 1,
-      );
-    }
     try {
       final TestScenarioRunner runner = runnerFactory.create(
         runtimeTarget: RuntimeTarget(vmServiceUri: launch.runtimeTargetUri),
