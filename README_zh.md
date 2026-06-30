@@ -175,6 +175,11 @@ flutter_pilot diff <before-run> <after-run> --json
 `--print` 可以重复传入。请求多个诊断输出时，Flutter Pilot 会按稳定顺序打印：
 Snapshot、Widget Tree、errors。
 
+`run` 在人类可读模式下输出实时的 Step 进度信息，包括 Step 编号、动作、标签、
+状态、耗时和简要失败原因。交互式终端支持颜色、emoji 和原地状态刷新；CI 和重定向
+输出使用确定的纯文本。进度信息输出到 stderr，`Run report:` 和 `HTML report:` 等
+最终产物路径保留在 stdout。`run --json` 会隐藏进度输出。
+
 ## 产物
 
 Scenario 运行会在 `.runs/` 下写入一个运行目录。产物模型同时面向人工审查和机器
@@ -202,6 +207,10 @@ dart test
 - [CONTEXT.md](CONTEXT.md)：项目词汇。
 - [docs/scenario-yaml.md](docs/scenario-yaml.md)：Scenario YAML 语法。
 - [docs/flutter-pilot-prd.md](docs/flutter-pilot-prd.md)：产品范围和实现决策。
+- [docs/cli-step-progress-prd.md](docs/cli-step-progress-prd.md)：CLI Step
+  进度功能需求和实现决策。
+- [docs/run-diff.md](docs/run-diff.md)：Run Diff 命令、输出、回归规则和验收
+  测试用例。
 - [docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md](docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md)：
   Dart CLI 和 YAML Scenario DSL 的架构决策。
 

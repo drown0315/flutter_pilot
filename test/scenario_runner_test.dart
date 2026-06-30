@@ -101,6 +101,141 @@ void main() {
     });
   });
 
+  test(
+    'emits Step started and finished progress events for successful Steps',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final Directory outputDirectory = Directory('progress_output');
+        final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+          finderResults: <String, List<FinderMatch>>{
+            'login_button': const <FinderMatch>[
+              FinderMatch(id: 'tap-match', debugLabel: 'TextButton("Log in")'),
+            ],
+          },
+        );
+        final List<StepProgressEvent> progressEvents = <StepProgressEvent>[];
+        final Scenario scenario = Scenario(
+          name: 'login_error',
+          steps: const <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              label: 'submit_login',
+              action: TapAction(finder: Finder(byText: 'login_button')),
+            ),
+            ScenarioStep(
+              index: 2,
+              action: CaptureAction(
+                screenshot: false,
+                snapshot: false,
+                widgetTree: false,
+                logs: false,
+              ),
+            ),
+          ],
+        );
+
+        final ScenarioRunReport report = await ScenarioRunner(
+          adapter: adapter,
+          outputDirectory: outputDirectory,
+        ).run(scenario, onProgress: progressEvents.add);
+
+        expect(report.status, ScenarioRunStatus.passed);
+        expect(
+          progressEvents,
+          containsAllInOrder(<Matcher>[
+            isA<StepStartedEvent>()
+                .having(
+                  (StepStartedEvent event) => event.scenarioName,
+                  'name',
+                  'login_error',
+                )
+                .having(
+                  (StepStartedEvent event) => event.totalSteps,
+                  'total',
+                  2,
+                )
+                .having(
+                  (StepStartedEvent event) => event.step.index,
+                  'index',
+                  1,
+                )
+                .having(
+                  (StepStartedEvent event) => event.action,
+                  'action',
+                  'tap',
+                ),
+            isA<StepFinishedEvent>()
+                .having(
+                  (StepFinishedEvent event) => event.report.index,
+                  'index',
+                  1,
+                )
+                .having(
+                  (StepFinishedEvent event) => event.report.status,
+                  'status',
+                  StepStatus.passed,
+                ),
+            isA<StepStartedEvent>()
+                .having(
+                  (StepStartedEvent event) => event.step.index,
+                  'index',
+                  2,
+                )
+                .having(
+                  (StepStartedEvent event) => event.action,
+                  'action',
+                  'capture',
+                ),
+            isA<StepFinishedEvent>()
+                .having(
+                  (StepFinishedEvent event) => event.report.index,
+                  'index',
+                  2,
+                )
+                .having(
+                  (StepFinishedEvent event) => event.report.status,
+                  'status',
+                  StepStatus.passed,
+                ),
+          ]),
+        );
+      });
+    },
+  );
+
+  test('emits failed Step progress with unlabeled Steps', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('failed_progress_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        finderResults: <String, List<FinderMatch>>{
+          'missing': const <FinderMatch>[],
+        },
+      );
+      final List<StepProgressEvent> progressEvents = <StepProgressEvent>[];
+      final Scenario scenario = Scenario(
+        name: 'login_error',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: TapAction(finder: Finder(byText: 'missing')),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        outputDirectory: outputDirectory,
+      ).run(scenario, onProgress: progressEvents.add);
+
+      expect(report.status, ScenarioRunStatus.failed);
+      expect(report.steps.single.status, StepStatus.failed);
+      expect(progressEvents, hasLength(2));
+      expect(progressEvents.first, isA<StepStartedEvent>());
+      expect(progressEvents.last, isA<StepFinishedEvent>());
+      expect((progressEvents.last as StepFinishedEvent).report.label, isNull);
+    });
+  });
+
   test('creates a stable run directory with scenario metadata', () async {
     await FileTestkit.runZoned(() async {
       final Directory outputDirectory = Directory('artifact_output');

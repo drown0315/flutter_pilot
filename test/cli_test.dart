@@ -104,6 +104,198 @@ void main() {
     }
   });
 
+  test(
+    'run emits successful Step progress to stderr with fake runtime',
+    () async {
+      final Directory tempDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_cli_progress_test_',
+      );
+      final String packageRoot = Directory.current.absolute.path;
+      try {
+        final ProcessResult result = await Process.run(
+          Platform.resolvedExecutable,
+          [
+            'run',
+            '$packageRoot/bin/flutter_pilot.dart',
+            'run',
+            '$packageRoot/examples/login_error.yaml',
+            '--target',
+            'ws://127.0.0.1:1234/example=/ws',
+          ],
+          workingDirectory: tempDirectory.path,
+          environment: <String, String>{
+            'FLUTTER_PILOT_TEST_RUNTIME': 'success',
+          },
+        );
+
+        expect(result.exitCode, 0);
+        expect(result.stderr, contains('Scenario: login_error (5 steps)'));
+        expect(result.stderr, contains('1/5 type    enter_email    running'));
+        expect(result.stderr, contains('1/5 type    enter_email    ok '));
+        expect(result.stderr, contains('2/5 type    enter_password running'));
+        expect(result.stderr, contains('3/5 tap     submit_login   ok '));
+        expect(result.stderr, contains('4/5 waitFor wait_for_error ok '));
+        expect(result.stderr, contains('5/5 capture capture_error  ok '));
+        expect(result.stdout, contains('Run report:'));
+        expect(result.stdout, contains('run_report.json'));
+        expect(result.stdout, contains('HTML report:'));
+        expect(result.stdout, contains('timeline.html'));
+      } finally {
+        tempDirectory.deleteSync(recursive: true);
+      }
+    },
+  );
+
+  test('run --json suppresses Step progress with fake runtime', () async {
+    final Directory tempDirectory = Directory.systemTemp.createTempSync(
+      'flutter_pilot_cli_json_progress_test_',
+    );
+    final String packageRoot = Directory.current.absolute.path;
+    try {
+      final ProcessResult result = await Process.run(
+        Platform.resolvedExecutable,
+        [
+          'run',
+          '$packageRoot/bin/flutter_pilot.dart',
+          'run',
+          '$packageRoot/examples/login_error.yaml',
+          '--target',
+          'ws://127.0.0.1:1234/example=/ws',
+          '--json',
+        ],
+        workingDirectory: tempDirectory.path,
+        environment: <String, String>{'FLUTTER_PILOT_TEST_RUNTIME': 'success'},
+      );
+
+      expect(result.exitCode, 0);
+      expect(result.stderr, isEmpty);
+      expect(result.stdout, contains('Run report:'));
+      expect(result.stdout, contains('HTML report:'));
+    } finally {
+      tempDirectory.deleteSync(recursive: true);
+    }
+  });
+
+  test(
+    'run --json still prints a report summary without progress text',
+    () async {
+      final Directory tempDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_cli_json_summary_test_',
+      );
+      final String packageRoot = Directory.current.absolute.path;
+      try {
+        final ProcessResult result = await Process.run(
+          Platform.resolvedExecutable,
+          [
+            'run',
+            '$packageRoot/bin/flutter_pilot.dart',
+            'run',
+            '$packageRoot/examples/login_error.yaml',
+            '--target',
+            'ws://127.0.0.1:1234/example=/ws',
+            '--json',
+          ],
+          workingDirectory: tempDirectory.path,
+          environment: <String, String>{
+            'FLUTTER_PILOT_TEST_RUNTIME': 'success',
+          },
+        );
+
+        expect(result.exitCode, 0);
+        expect(result.stderr, isEmpty);
+        expect(result.stdout, contains('Run report:'));
+        expect(result.stdout, contains('HTML report:'));
+      } finally {
+        tempDirectory.deleteSync(recursive: true);
+      }
+    },
+  );
+
+  test('run emits failed Step progress with concise summary', () async {
+    final Directory tempDirectory = Directory.systemTemp.createTempSync(
+      'flutter_pilot_cli_failed_progress_test_',
+    );
+    final String packageRoot = Directory.current.absolute.path;
+    try {
+      final ProcessResult result = await Process.run(
+        Platform.resolvedExecutable,
+        [
+          'run',
+          '$packageRoot/bin/flutter_pilot.dart',
+          'run',
+          '$packageRoot/examples/login_error.yaml',
+          '--target',
+          'ws://127.0.0.1:1234/example=/ws',
+        ],
+        workingDirectory: tempDirectory.path,
+        environment: <String, String>{'FLUTTER_PILOT_TEST_RUNTIME': 'failure'},
+      );
+
+      expect(result.exitCode, isNonZero);
+      expect(result.stderr, contains('failed after'));
+      expect(result.stderr, contains('Finder matched no widgets.'));
+      expect(result.stdout, contains('run_report.json'));
+    } finally {
+      tempDirectory.deleteSync(recursive: true);
+    }
+  });
+
+  test('run prints a passed summary for complete runs', () async {
+    final Directory tempDirectory = Directory.systemTemp.createTempSync(
+      'flutter_pilot_cli_pass_summary_test_',
+    );
+    final String packageRoot = Directory.current.absolute.path;
+    try {
+      final ProcessResult result = await Process.run(
+        Platform.resolvedExecutable,
+        [
+          'run',
+          '$packageRoot/bin/flutter_pilot.dart',
+          'run',
+          '$packageRoot/examples/login_error.yaml',
+          '--target',
+          'ws://127.0.0.1:1234/example=/ws',
+        ],
+        workingDirectory: tempDirectory.path,
+        environment: <String, String>{'FLUTTER_PILOT_TEST_RUNTIME': 'success'},
+      );
+
+      expect(result.exitCode, 0);
+      expect(result.stderr, contains('Run passed.'));
+    } finally {
+      tempDirectory.deleteSync(recursive: true);
+    }
+  });
+
+  test('run prints a stopped summary for --until', () async {
+    final Directory tempDirectory = Directory.systemTemp.createTempSync(
+      'flutter_pilot_cli_until_summary_test_',
+    );
+    final String packageRoot = Directory.current.absolute.path;
+    try {
+      final ProcessResult result = await Process.run(
+        Platform.resolvedExecutable,
+        [
+          'run',
+          '$packageRoot/bin/flutter_pilot.dart',
+          'run',
+          '$packageRoot/examples/login_error.yaml',
+          '--target',
+          'ws://127.0.0.1:1234/example=/ws',
+          '--until',
+          '2',
+        ],
+        workingDirectory: tempDirectory.path,
+        environment: <String, String>{'FLUTTER_PILOT_TEST_RUNTIME': 'success'},
+      );
+
+      expect(result.exitCode, 0);
+      expect(result.stderr, contains('Stopped after 2/5.'));
+    } finally {
+      tempDirectory.deleteSync(recursive: true);
+    }
+  });
+
   test('run help does not expose an html flag', () async {
     final ProcessResult result = await Process.run(
       Platform.resolvedExecutable,
@@ -112,6 +304,7 @@ void main() {
 
     expect(result.exitCode, 0);
     expect(result.stdout, isNot(contains('--html')));
+    expect(result.stdout, isNot(contains('FLUTTER_PILOT_TEST_RUNTIME')));
   });
 
   test('report generates HTML from an existing run directory', () async {
