@@ -75,7 +75,7 @@ Source: `issues/0.0.8-test-command.md`
 | Local issue | GitHub issue | Status | Notes |
 | --- | --- | --- | --- |
 | 1. Store Device Video Recording Under Run Artifacts | `#82` | Complete | Scenario Recording now copies the stopped Device Video Recording into the Scenario Run directory at `artifacts/device-video-recording.<backend-extension>`, records that run-directory-relative path in `run_report.json`, and keeps the artifact at run level rather than attaching it to a Step. Verified with `dart format .`, `dart analyze`, and `dart test`. |
-| 2. Add Target Device Resolution | `#83` | Not started | Target Device resolution is still pending. |
+| 2. Add Target Device Resolution | `#83` | Complete | Added an isolated Target Device parser and resolver for `flutter devices --machine` records. It resolves supported Flutter Devices by id, exact name, or unique id/name prefix; rejects empty, missing, ambiguous, and unsupported selectors through `TargetDeviceResolutionException`; and enforces Recording Device id alignment plus single-device recording auto-selection. CLI discovery and launch wiring remain in later `test` command slices. Verified with `dart analyze` and `dart test test/target_device_resolver_test.dart`. |
 | 3. Launch Target App Package From Test Command Infrastructure | `#84` | Not started | Target App launcher for `flutter run --machine` is still pending. |
 | 4. Replace Run With Test Command | `#85` | Blocked | Depends on Target Device resolution and Target App launcher. |
 | 5. Record Target Device Metadata In Run Reports | `#86` | Blocked | Depends on Target Device resolution and the new `test` command. |
