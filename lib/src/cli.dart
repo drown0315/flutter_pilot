@@ -750,10 +750,15 @@ class DefaultTestDeviceDiscovery implements TestDeviceDiscovery {
 
   @override
   Future<List<FlutterDevice>> listFlutterDevices() async {
-    final ProcessResult result = await Process.run('flutter', <String>[
-      'devices',
-      '--machine',
-    ]);
+    final ProcessResult result;
+    try {
+      result = await Process.run('flutter', <String>[
+        'devices',
+        '--machine',
+      ]);
+    } on ProcessException catch (error) {
+      throw DeviceDiscoveryException(error.message);
+    }
     if (result.exitCode != 0) {
       throw DeviceDiscoveryException(result.stderr.toString());
     }

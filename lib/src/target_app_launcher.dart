@@ -62,7 +62,11 @@ class TargetAppLaunch {
   Future<void> cleanup({
     Duration gracePeriod = const Duration(seconds: 2),
   }) async {
-    _process.writeStdin('q\n');
+    try {
+      _process.writeStdin('q\n');
+    } catch (_) {
+      // Process may have already exited; continue with cleanup.
+    }
     try {
       await _process.exitCode.timeout(gracePeriod);
     } on TimeoutException {
@@ -125,8 +129,14 @@ class IoTargetAppProcessStarter implements TargetAppProcessStarter {
     String executable,
     List<String> arguments,
   ) async {
-    final Process process = await Process.start(executable, arguments);
-    return _IoTargetAppProcess(process);
+    try {
+      final Process process = await Process.start(executable, arguments);
+      return _IoTargetAppProcess(process);
+    } on ProcessException catch (error) {
+      throw TargetAppLaunchException(
+        message: 'Failed to start Flutter: $error',
+      );
+    }
   }
 }
 
