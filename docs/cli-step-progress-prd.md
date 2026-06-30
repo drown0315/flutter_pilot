@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-When `flutter_pilot run` executes a Scenario, users do not get enough immediate
+When `flutter_pilot test` executes a Scenario, users do not get enough immediate
 foreground feedback about Scenario execution. Long runs and failing runs are
 harder to follow because users often need to wait for the final report or open a
 run directory before they can see which Step ran, which Step succeeded, and
@@ -14,7 +14,7 @@ YAML, run artifacts, or the Runtime Adapter contract.
 
 ## Solution
 
-Add human-readable Step progress output to `flutter_pilot run`.
+Add human-readable Step progress output to `flutter_pilot test`.
 
 For non-JSON runs, Flutter Pilot should print a concise execution header,
 per-Step progress, and a final human summary. Each Step should show Step number,
@@ -27,12 +27,12 @@ to deterministic plain text suitable for CI logs and subprocess tests.
 
 Step progress is status output and should be written to stderr. Existing final
 artifact path lines such as `Run report:` and `HTML report:` remain on stdout so
-scripts and smoke verifiers can continue to consume them. `run --json` suppresses
+scripts and smoke verifiers can continue to consume them. `test --json` suppresses
 Step progress because JSON output is for machine consumption.
 
 ## User Stories
 
-1. As a Flutter developer, I want `flutter_pilot run` to show when a Scenario starts, so that I know the command is actively executing the selected Scenario.
+1. As a Flutter developer, I want `flutter_pilot test` to show when a Scenario starts, so that I know the command is actively executing the selected Scenario.
 2. As a Flutter developer, I want the Scenario name shown before Step execution, so that I can confirm I am running the intended Scenario.
 3. As a Flutter developer, I want the total Step count shown before execution, so that I can estimate run progress.
 4. As a Flutter developer, I want each Step to show its 1-based Step number and total Step count, so that I can locate progress in the Scenario.
@@ -58,7 +58,7 @@ Step progress because JSON output is for machine consumption.
 24. As a Flutter developer, I want final artifact paths to stay visible after progress output, so that I can open the run report or HTML timeline.
 25. As a QA engineer, I want progress written to stderr, so that stdout can remain stable for scripts that parse final artifact paths.
 26. As a QA engineer, I want `Run report:` and `HTML report:` stdout lines to remain unchanged, so that existing automation keeps working.
-27. As a QA engineer, I want `run --json` not to print progress, so that stdout remains valid machine-readable JSON when diagnostics are printed.
+27. As a QA engineer, I want `test --json` not to print progress, so that stdout remains valid machine-readable JSON when diagnostics are printed.
 28. As a QA engineer, I want CLI subprocess tests for progress output, so that the real command-line contract is covered.
 29. As a contributor, I want the runner to expose Step progress events instead of printing directly, so that execution logic stays separate from CLI presentation.
 30. As a contributor, I want terminal styling isolated from progress wording, so that ANSI and emoji behavior can be tested independently.
@@ -76,7 +76,7 @@ Step progress because JSON output is for machine consumption.
 - Step finished events should include final status, duration, and optional failure reason.
 - The runner should not write to stdout or stderr directly.
 - The CLI should decide whether progress is enabled.
-- The CLI should suppress progress for `run --json`.
+- The CLI should suppress progress for `test --json`.
 - Human-readable Step progress should be written to stderr.
 - Existing stdout lines for final artifact paths should remain stable, including `Run report:` and `HTML report:`.
 - The CLI should print a human-readable header before Step execution that includes Scenario name and total Step count.
@@ -105,13 +105,13 @@ Step progress because JSON output is for machine consumption.
 ## Testing Decisions
 
 - Tests should verify public behavior and stable contracts, not private implementation details.
-- CLI subprocess tests should exercise `flutter_pilot run` end to end with a fake Runtime Adapter selected through the test-only environment variable.
+- CLI subprocess tests should exercise `flutter_pilot test` end to end with a fake Runtime Adapter selected through the test-only environment variable.
 - CLI subprocess tests should verify successful Step progress.
 - CLI subprocess tests should verify failed Step progress with Step identity and concise failure reason.
 - CLI subprocess tests should verify unlabeled Step rendering.
 - CLI subprocess tests should verify `--until` progress and stopped summary.
 - CLI subprocess tests should verify that progress is written to stderr while final artifact paths remain on stdout.
-- CLI subprocess tests should verify that `run --json` suppresses progress output.
+- CLI subprocess tests should verify that `test --json` suppresses progress output.
 - Renderer tests should verify deterministic plain-text output independent of terminal capabilities.
 - Renderer tests should verify action and label alignment.
 - Renderer tests should verify label truncation.
@@ -131,7 +131,7 @@ Step progress because JSON output is for machine consumption.
 - Changing Runtime Adapter action contracts.
 - Changing run report or artifact schemas.
 - Adding public `--color`, `--no-color`, `--emoji`, `--no-emoji`, or `--quiet` flags.
-- Printing progress during `run --json`.
+- Printing progress during `test --json`.
 - Adding screenshot output to stdout.
 - Adding progress output to `validate`, `report`, `diff`, `doctor`, or `init`.
 - Making terminal styling a standalone package in this slice.

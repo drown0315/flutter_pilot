@@ -4,7 +4,7 @@
 
 Flutter Pilot can only run a Scenario against a Flutter app after the Target App Package exposes the MCP Toolkit runtime extension. Today, users can install the `flutter_pilot` command but still miss the app-side setup: adding `mcp_toolkit` to the Flutter package and wrapping `runApp` with `MCPToolkitBinding.instance.bootstrapFlutter`.
 
-That failure mode is confusing because the CLI appears installed correctly, but `flutter_pilot run` cannot interact with the Runtime Target. Users need an obvious command that checks the current Flutter package setup and a low-risk initialization command that performs the safe dependency step while leaving app entrypoint edits to the developer.
+That failure mode is confusing because the CLI appears installed correctly, but `flutter_pilot test` cannot interact with the Runtime Target. Users need an obvious command that checks the current Flutter package setup and a low-risk initialization command that performs the safe dependency step while leaving app entrypoint edits to the developer.
 
 ## Solution
 

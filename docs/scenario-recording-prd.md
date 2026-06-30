@@ -34,7 +34,7 @@ Device Video Recording is stored as a run-level artifact rather than a Step
 artifact.
 
 If a Scenario explicitly enables recording and Flutter Pilot cannot establish
-the Recording Session, the `run` command fails before executing any Step.
+the Recording Session, the `test` command fails before executing any Step.
 Validation remains schema-only and does not attempt to verify local recording
 backend availability.
 
@@ -62,7 +62,7 @@ backend availability.
 20. As a Flutter developer, I want YAML validation to remain local and deterministic, so that `validate` does not depend on the host recording environment.
 21. As a CLI user, I want `flutter_pilot validate` to accept valid recording configuration, so that I can lint Scenario files before running them.
 22. As a CLI user, I want `flutter_pilot validate` to reject invalid recording keys with field paths, so that I can fix schema issues quickly.
-23. As a CLI user, I want `flutter_pilot run` to fail clearly when recording is required but unavailable, so that setup problems are obvious.
+23. As a CLI user, I want `flutter_pilot test` to fail clearly when recording is required but unavailable, so that setup problems are obvious.
 24. As a CLI user, I want existing Scenarios without recording config to keep working unchanged, so that the feature is additive.
 25. As an AI coding agent, I want Scenario-level recording to remain separate from Runtime Adapter operations, so that Flutter UI semantics and device recording lifecycles do not get conflated.
 26. As an AI coding agent, I want the run artifact model to expose video separately from Step captures, so that downstream tooling can reason about artifact scope correctly.
@@ -89,7 +89,7 @@ backend availability.
 - When recording is enabled, the runner starts a Recording Session before executing any Scenario Step.
 - When recording is enabled, the runner stops the Recording Session during run shutdown so the final Device Video Recording path is available.
 - If recording startup fails, the run fails before Step execution begins.
-- Validation remains schema-only; host recording capability is checked only during `run`.
+- Validation remains schema-only; host recording capability is checked only during `test`.
 - Device Video Recording is stored as a run-level artifact rather than a Step artifact.
 - The artifact store should expose Device Video Recording with stable run-level metadata so JSON and HTML reporting can discover it without scanning raw directories.
 - Recording integration should depend on a narrow recording boundary rather than teaching the Runtime Adapter about device recording.

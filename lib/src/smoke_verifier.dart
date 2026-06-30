@@ -45,7 +45,7 @@ class SmokeVerificationResult {
 
 /// Verifier for the real Runtime Target smoke Scenario output.
 ///
-/// It reads the `run_report.json` written by `flutter_pilot run` and checks the
+/// It reads the `run_report.json` written by `flutter_pilot test` and checks the
 /// current real Finder integration contract:
 /// - the run status is `passed`
 /// - the Finder Steps in `examples/smoke_scenario.yaml` passed
@@ -67,7 +67,7 @@ class SmokeRunVerifier {
     'logs',
   };
 
-  /// Return the report path printed by `flutter_pilot run`.
+  /// Return the report path printed by `flutter_pilot test`.
   ///
   /// Args:
   /// `stdoutText` is the complete stdout emitted by the Flutter Pilot CLI.
