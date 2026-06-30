@@ -104,6 +104,68 @@ void main() {
     },
   );
 
+  test('renders Step Source display paths for included Steps', () async {
+    await FileTestkit.runZoned(() async {
+      final File output = File('progress.log');
+      final IOSink sink = output.openWrite();
+      final StepProgressRenderer renderer = StepProgressRenderer(sink: sink);
+
+      const ScenarioStep includedStep = ScenarioStep(
+        index: 2,
+        label: 'enter_email',
+        source: StepSource(
+          fileIdentity: '/repo/scenarios/flows/login.yaml',
+          displayPath: 'flows/login.yaml',
+          yamlPath: 'steps[0]',
+          includeChain: <IncludeSource>[
+            IncludeSource(
+              fileIdentity: '/repo/scenarios/flows/login.yaml',
+              displayPath: 'flows/login.yaml',
+              includePath: 'steps[1].include',
+            ),
+          ],
+        ),
+        action: TypeAction(
+          finder: Finder(byType: 'textField'),
+          text: 'bad@example.com',
+        ),
+      );
+
+      renderer.render(
+        const StepStartedEvent(
+          scenarioName: 'login_error',
+          totalSteps: 3,
+          step: includedStep,
+          action: 'type',
+        ),
+      );
+      renderer.render(
+        const StepFinishedEvent(
+          scenarioName: 'login_error',
+          totalSteps: 3,
+          report: StepRunReport(
+            index: 2,
+            label: 'enter_email',
+            action: 'type',
+            status: StepStatus.passed,
+            durationMs: 12,
+          ),
+        ),
+      );
+      await sink.close();
+
+      final String rendered = output.readAsStringSync();
+      expect(
+        rendered,
+        contains('2/3 type    enter_email    running [flows/login.yaml]'),
+      );
+      expect(
+        rendered,
+        contains('2/3 type    enter_email    ok 12ms [flows/login.yaml]'),
+      );
+    });
+  });
+
   test(
     'truncates long failure summaries without changing the report',
     () async {

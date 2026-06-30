@@ -371,6 +371,49 @@ steps:
     });
   });
 
+  test(
+    'emits progress events with Step Source metadata for included Steps',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final Directory outputDirectory = Directory('include_progress_output');
+        final Directory scenarioDirectory = Directory('scenarios')
+          ..createSync(recursive: true);
+        File('${scenarioDirectory.path}/library.yaml').writeAsStringSync('''
+steps:
+  - label: included_capture
+    capture:
+      screenshot: false
+      snapshot: false
+      logs: false
+''');
+        final File scenarioFile = File('${scenarioDirectory.path}/entry.yaml')
+          ..writeAsStringSync('''
+scenario:
+  name: include_progress
+steps:
+  - include: library.yaml
+''');
+        final Scenario scenario = ScenarioParser.parseFile(scenarioFile.path);
+        final File progressFile = File('progress.log');
+        final IOSink progressSink = progressFile.openWrite();
+        final StepProgressRenderer progressRenderer = StepProgressRenderer(
+          sink: progressSink,
+        );
+
+        await ScenarioRunner(
+          adapter: FakeRuntimeAdapter(),
+          outputDirectory: outputDirectory,
+        ).run(scenario, onProgress: progressRenderer.render);
+        await progressSink.close();
+
+        final String progress = progressFile.readAsStringSync();
+        expect(progress, contains('1/1 capture'));
+        expect(progress, contains('ok'));
+        expect(progress, contains('[library.yaml]'));
+      });
+    },
+  );
+
   test('writes an HTML timeline report by default', () async {
     await FileTestkit.runZoned(() async {
       final Directory outputDirectory = Directory('html_report_output');
