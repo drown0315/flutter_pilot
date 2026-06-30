@@ -17,7 +17,6 @@ import 'run_diff.dart';
 import 'scenario.dart';
 import 'scenario_parser.dart';
 import 'scenario_runner.dart';
-import 'step_progress_renderer.dart';
 import 'target_app_launcher.dart';
 import 'target_device.dart';
 
