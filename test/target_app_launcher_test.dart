@@ -122,7 +122,7 @@ void main() {
 
       await launch.cleanup(gracePeriod: Duration.zero);
 
-      expect(process.stdinWrites, <String>['q']);
+      expect(process.stdinWrites, <String>['q\n']);
       expect(process.killCount, 1);
     });
   });

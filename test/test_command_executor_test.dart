@@ -114,7 +114,7 @@ steps:
         'ws://127.0.0.1:1234/token=/ws',
       );
       expect(runner.scenario.name, 'launched');
-      expect(process.stdinWrites, <String>['q']);
+      expect(process.stdinWrites, <String>['q\n']);
     });
   });
 
@@ -262,7 +262,7 @@ steps:
           ),
         ),
       );
-      expect(process.stdinWrites, <String>['q']);
+      expect(process.stdinWrites, <String>['q\n']);
       await interruptController.close();
     });
   });
