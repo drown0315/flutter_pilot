@@ -426,6 +426,163 @@ steps:
 
       expect(paths, contains('steps[0].include'));
     });
+
+    test(
+      'parseFile records Step Source metadata for root and included Steps',
+      () {
+        final Directory tempDirectory = Directory.systemTemp.createTempSync(
+          'flutter_pilot_parser_source_test_',
+        );
+        try {
+          Directory('${tempDirectory.path}/flows').createSync();
+          File('${tempDirectory.path}/flows/login.yaml').writeAsStringSync('''
+steps:
+  - label: included_step
+    capture: {}
+''');
+          final File scenarioFile = File('${tempDirectory.path}/scenario.yaml')
+            ..writeAsStringSync('''
+steps:
+  - label: root_step
+    tap:
+      byText: Sign in
+  - include: flows/login.yaml
+''');
+
+          final Scenario scenario = ScenarioParser.parseFile(scenarioFile.path);
+          final StepSource rootSource = scenario.steps[0].source!;
+          final StepSource includedSource = scenario.steps[1].source!;
+
+          expect(
+            rootSource.fileIdentity,
+            scenarioFile.resolveSymbolicLinksSync(),
+          );
+          expect(rootSource.displayPath, scenarioFile.path);
+          expect(rootSource.yamlPath, 'steps[0]');
+          expect(rootSource.includeChain, isEmpty);
+          expect(
+            includedSource.fileIdentity,
+            File(
+              '${tempDirectory.path}/flows/login.yaml',
+            ).resolveSymbolicLinksSync(),
+          );
+          expect(includedSource.displayPath, 'flows/login.yaml');
+          expect(includedSource.yamlPath, 'steps[0]');
+          expect(includedSource.includeChain, hasLength(1));
+          expect(
+            includedSource.includeChain.single.includePath,
+            'steps[1].include',
+          );
+          expect(
+            includedSource.includeChain.single.displayPath,
+            'flows/login.yaml',
+          );
+        } finally {
+          tempDirectory.deleteSync(recursive: true);
+        }
+      },
+    );
+
+    test('parseFile records nested and repeated Include Chains', () {
+      final Directory tempDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_parser_nested_source_test_',
+      );
+      try {
+        Directory('${tempDirectory.path}/flows').createSync();
+        Directory('${tempDirectory.path}/shared').createSync();
+        File('${tempDirectory.path}/shared/capture_a.yaml').writeAsStringSync(
+          '''
+steps:
+  - label: shared_a_first
+    capture: {}
+  - label: shared_a_second
+    capture: {}
+''',
+        );
+        File('${tempDirectory.path}/shared/capture_b.yaml').writeAsStringSync(
+          '''
+steps:
+  - label: shared_b_first
+    capture: {}
+  - label: shared_b_second
+    capture: {}
+''',
+        );
+        File('${tempDirectory.path}/flows/a.yaml').writeAsStringSync('''
+steps:
+  - include: ../shared/capture_a.yaml
+''');
+        File('${tempDirectory.path}/flows/b.yaml').writeAsStringSync('''
+steps:
+  - include: ../shared/capture_b.yaml
+''');
+        final File scenarioFile = File('${tempDirectory.path}/scenario.yaml')
+          ..writeAsStringSync('''
+steps:
+  - include: flows/a.yaml
+  - include: flows/b.yaml
+''');
+
+        final Scenario scenario = ScenarioParser.parseFile(scenarioFile.path);
+
+        expect(scenario.steps, hasLength(4));
+        expect(
+          scenario.steps[0].source!.includeChain.map(
+            (IncludeSource include) => include.displayPath,
+          ),
+          <String>['flows/a.yaml', '../shared/capture_a.yaml'],
+        );
+        expect(
+          scenario.steps[2].source!.includeChain.map(
+            (IncludeSource include) => include.displayPath,
+          ),
+          <String>['flows/b.yaml', '../shared/capture_b.yaml'],
+        );
+      } finally {
+        tempDirectory.deleteSync(recursive: true);
+      }
+    });
+
+    test('parseFile records absolute include display paths', () {
+      final Directory tempDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_parser_absolute_source_test_',
+      );
+      try {
+        final File libraryFile = File('${tempDirectory.path}/library.yaml')
+          ..writeAsStringSync('''
+steps:
+  - label: absolute_source
+    capture: {}
+''');
+        final File scenarioFile = File('${tempDirectory.path}/scenario.yaml')
+          ..writeAsStringSync('''
+steps:
+  - include: ${libraryFile.absolute.path}
+''');
+
+        final Scenario scenario = ScenarioParser.parseFile(scenarioFile.path);
+
+        expect(
+          scenario.steps.single.source!.displayPath,
+          libraryFile.absolute.path,
+        );
+        expect(
+          scenario.steps.single.source!.includeChain.single.displayPath,
+          libraryFile.absolute.path,
+        );
+      } finally {
+        tempDirectory.deleteSync(recursive: true);
+      }
+    });
+
+    test('in-memory parsing omits Step Source metadata', () {
+      final Scenario scenario = parseScenario('''
+steps:
+  - capture: {}
+''');
+
+      expect(scenario.steps.single.source, isNull);
+    });
   });
 }
 

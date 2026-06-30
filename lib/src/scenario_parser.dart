@@ -84,13 +84,17 @@ class ScenarioParser {
     }
 
     final String identity = _fileIdentity(file);
+    final String entryDisplayPath = p.normalize(filePath);
     final Scenario scenario = _parseDocument(
       parsedFile.yaml,
       fallbackName: p.basenameWithoutExtension(filePath),
       sourceFile: file,
+      fileIdentity: identity,
+      displayPath: entryDisplayPath,
       documentPath: r'$',
       library: false,
       includeStack: <String>[identity],
+      includeChain: const <IncludeSource>[],
       labels: null,
       errors: errors,
     );
@@ -118,9 +122,12 @@ class ScenarioParser {
       yaml,
       fallbackName: fallbackName,
       sourceFile: null,
+      fileIdentity: null,
+      displayPath: null,
       documentPath: r'$',
       library: false,
       includeStack: const <String>[],
+      includeChain: const <IncludeSource>[],
       labels: null,
       errors: errors,
     );
@@ -148,9 +155,12 @@ class ScenarioParser {
     Object? yaml, {
     required String fallbackName,
     required File? sourceFile,
+    required String? fileIdentity,
+    required String? displayPath,
     required String documentPath,
     required bool library,
     required List<String> includeStack,
+    required List<IncludeSource> includeChain,
     required Set<String>? labels,
     required List<ScenarioValidationError> errors,
   }) {
@@ -230,8 +240,12 @@ class ScenarioParser {
       _parseSteps(
         rawSteps,
         path: stepsPath,
+        sourcePath: 'steps',
         sourceFile: sourceFile,
+        fileIdentity: fileIdentity,
+        displayPath: displayPath,
         includeStack: includeStack,
+        includeChain: includeChain,
         labels: documentLabels,
         steps: steps,
         errors: errors,
@@ -249,21 +263,29 @@ class ScenarioParser {
   static void _parseSteps(
     YamlList rawSteps, {
     required String path,
+    required String sourcePath,
     required File? sourceFile,
+    required String? fileIdentity,
+    required String? displayPath,
     required List<String> includeStack,
+    required List<IncludeSource> includeChain,
     required Set<String> labels,
     required List<ScenarioStep> steps,
     required List<ScenarioValidationError> errors,
   }) {
     for (int i = 0; i < rawSteps.length; i++) {
       final String stepPath = '$path[$i]';
+      final String sourceStepPath = '$sourcePath[$i]';
       final Object? rawStep = rawSteps[i];
       if (_isIncludeEntry(rawStep)) {
         _parseInclude(
           rawStep as YamlMap,
           stepPath,
           sourceFile: sourceFile,
+          fileIdentity: fileIdentity,
+          displayPath: displayPath,
           includeStack: includeStack,
+          includeChain: includeChain,
           labels: labels,
           steps: steps,
           errors: errors,
@@ -274,8 +296,14 @@ class ScenarioParser {
         rawStep,
         stepPath,
         steps.length,
-        labels,
-        errors,
+        source: _stepSource(
+          fileIdentity: fileIdentity,
+          displayPath: displayPath,
+          yamlPath: sourceStepPath,
+          includeChain: includeChain,
+        ),
+        labels: labels,
+        errors: errors,
       );
       if (step != null) {
         steps.add(step);
@@ -293,7 +321,10 @@ class ScenarioParser {
     YamlMap yaml,
     String path, {
     required File? sourceFile,
+    required String? fileIdentity,
+    required String? displayPath,
     required List<String> includeStack,
+    required List<IncludeSource> includeChain,
     required Set<String> labels,
     required List<ScenarioStep> steps,
     required List<ScenarioValidationError> errors,
@@ -356,9 +387,19 @@ class ScenarioParser {
       parsedFile.yaml,
       fallbackName: p.basenameWithoutExtension(includeFile.path),
       sourceFile: includeFile,
+      fileIdentity: includeIdentity,
+      displayPath: includeDisplayPath,
       documentPath: includeErrorPath,
       library: true,
       includeStack: <String>[...includeStack, includeIdentity],
+      includeChain: <IncludeSource>[
+        ...includeChain,
+        IncludeSource(
+          fileIdentity: includeIdentity,
+          displayPath: includeDisplayPath,
+          includePath: includeErrorPath,
+        ),
+      ],
       labels: labels,
       errors: errors,
     );
@@ -385,10 +426,11 @@ class ScenarioParser {
   static ScenarioStep? _parseStep(
     Object? yaml,
     String path,
-    int index,
-    Set<String> labels,
-    List<ScenarioValidationError> errors,
-  ) {
+    int index, {
+    required StepSource? source,
+    required Set<String> labels,
+    required List<ScenarioValidationError> errors,
+  }) {
     if (yaml is! YamlMap) {
       errors.add(ScenarioValidationError(path, 'Expected a map.'));
       return null;
@@ -435,7 +477,30 @@ class ScenarioParser {
     if (action == null) {
       return null;
     }
-    return ScenarioStep(index: index + 1, label: label, action: action);
+    return ScenarioStep(
+      index: index + 1,
+      label: label,
+      source: source,
+      action: action,
+    );
+  }
+
+  /// Return Step Source metadata when parsing has file context.
+  static StepSource? _stepSource({
+    required String? fileIdentity,
+    required String? displayPath,
+    required String yamlPath,
+    required List<IncludeSource> includeChain,
+  }) {
+    if (fileIdentity == null || displayPath == null) {
+      return null;
+    }
+    return StepSource(
+      fileIdentity: fileIdentity,
+      displayPath: displayPath,
+      yamlPath: yamlPath,
+      includeChain: List<IncludeSource>.unmodifiable(includeChain),
+    );
   }
 
   /// Return Steps with contiguous 1-based indexes after include expansion.
@@ -445,6 +510,7 @@ class ScenarioParser {
         ScenarioStep(
           index: i + 1,
           label: steps[i].label,
+          source: steps[i].source,
           action: steps[i].action,
         ),
     ];
