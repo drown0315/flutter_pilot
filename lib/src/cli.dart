@@ -24,7 +24,7 @@ import 'target_device.dart';
 ///
 /// It installs the first-version command surface:
 /// - `validate <scenario.yaml>`
-/// - `run <scenario.yaml> --target <vm-service-uri>`
+/// - `test <scenario.yaml>`
 ///
 /// Example:
 /// `FlutterPilotCli().run(['validate', 'examples/login_error.yaml'])`

@@ -8,11 +8,9 @@ The project should provide a deterministic UI replay and diagnostics harness for
 
 ## Solution
 
-Flutter Pilot will be a CLI tool that executes YAML scenarios against a running Flutter app through `mcp_flutter`. A scenario describes user actions such as tapping, typing, scrolling, waiting for UI state, and capture checkpoints. Runtime connection details such as the VM service URI are supplied by CLI options, not embedded in the scenario. During a run, Flutter Pilot records step-level artifacts including screenshots, semantic snapshots, widget summaries, logs that include runtime errors when available, timing, and command results.
+Flutter Pilot will be a CLI tool that executes YAML scenarios against a Flutter app through `mcp_flutter`. A scenario describes user actions such as tapping, typing, scrolling, waiting for UI state, and capture checkpoints. Runtime connection details are not embedded in the scenario. The `test` command launches the current Target App Package with `flutter run --machine`, obtains the Runtime Target URI from Flutter's machine output, runs the Scenario, and cleans up the launched app process. During a run, Flutter Pilot records step-level artifacts including screenshots, semantic snapshots, widget summaries, logs that include runtime errors when available, timing, and command results.
 
-The `--target` CLI option accepts a Flutter VM service URI in the first version. The generic name is reserved for future Runtime Target forms such as discovered app IDs or device targets.
-
-Explicit `--target` support is the required first-version path. Automatic Runtime Target discovery may be included only if the installed `mcp_flutter` version exposes a stable, low-cost discovery capability. Auto-discovery may select a target only when exactly one running Flutter app is found; zero targets or multiple targets must fail with a message asking the user to pass `--target`.
+The user-facing execution command is `flutter_pilot test <scenario.yaml>`. The previous `run` command and user-supplied VM service URI mode are removed. `test --target` follows Flutter CLI vocabulary and selects the Flutter app entrypoint file, while `--device` selects the Target Device and `--flavor` selects the Flutter flavor.
 
 The first product milestone focuses on six capabilities:
 
@@ -83,15 +81,17 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - Use `mcp_flutter` as the runtime bridge for Flutter interaction and inspection. Flutter Pilot does not reimplement low-level app driving, widget inspection, screenshot capture, log collection, or lifecycle controls.
 - The MVP command set includes:
   - `flutter_pilot validate <scenario.yaml>`
-  - `flutter_pilot run <scenario.yaml> --target <runtime-target>`
-  - `flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label>`
-  - `flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label> --print <snapshot|widget-tree|errors>`
-  - `flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label> --print <snapshot|widget-tree|errors> --json`
+  - `flutter_pilot test <scenario.yaml>`
+  - `flutter_pilot test <scenario.yaml> --device <device-id-or-name>`
+  - `flutter_pilot test <scenario.yaml> --flavor <flavor> --target <entrypoint.dart>`
+  - `flutter_pilot test <scenario.yaml> --until <step-or-label>`
+  - `flutter_pilot test <scenario.yaml> --until <step-or-label> --print <snapshot|widget-tree|errors>`
+  - `flutter_pilot test <scenario.yaml> --until <step-or-label> --print <snapshot|widget-tree|errors> --json`
   - `flutter_pilot report <run-directory>`
   - `flutter_pilot diff <before-run> <after-run>`
 - The `validate` command checks Scenario YAML and schema rules without connecting to a Runtime Target.
 - The `validate` command supports human-readable output by default and machine-readable JSON output with `--json`. Validation failures exit non-zero and include field paths such as `steps[2].tap.byText`.
-- First-version `validate` and `run` read Scenario YAML from file paths only. Reading from stdin is out of scope for the first version.
+- First-version `validate` and `test` read Scenario YAML from file paths only. Reading from stdin is out of scope for the first version.
 - The first version includes an example Scenario file that exercises the core schema, including `type`, combined Finders, `waitFor`, and `capture`.
 - First-version validation diagnostics include field paths but not YAML line or column numbers. The typed Scenario model does not carry source location metadata.
 - Validation should collect and report all schema-level errors when safe to continue. YAML parse errors may return a single parse error because the document cannot be traversed reliably.
@@ -99,8 +99,8 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - Unknown fields are validation errors. The Scenario DSL uses a strict schema so typos and unsupported options fail clearly instead of being ignored.
 - `scenario.description` is optional metadata. When present, it must be a string and may use YAML multiline string syntax.
 - `scenario.name`, when present, must match `^[a-zA-Z0-9][a-zA-Z0-9_-]*$`. This keeps run directory names portable and prevents path-like values. Names derived from file names must be sanitized to the same safe form.
-- The YAML scenario format is the product contract. It should support scenario metadata, ordered steps, optional labels, capture directives, and Finders by text and semantic node type. Multiple `by*` Finder constraints may be used in one step, and all constraints must match. Each `byText` and `byType` value is a single string, not an array. The YAML does not expose a `match` option. Runtime target configuration is provided by CLI options so scenarios remain portable across machines, devices, and CI.
-- Each Step is one item in the `steps` array. A Step may include a `label` field and must include exactly one action field. Items in `steps` may also be Step Includes (`include:` key) that reference Step Library YAML files; includes are expanded at parse time into a flat Step list.
+- The YAML scenario format is the product contract. It should support scenario metadata, ordered steps, optional labels, capture directives, and Finders by text and semantic node type. Multiple `by*` Finder constraints may be used in one step, and all constraints must match. Each `byText` and `byType` value is a single string, not an array. The YAML does not expose a `match` option. Runtime target configuration is produced by the `test` launch flow, while Target Device, flavor, and entrypoint choices are CLI options so scenarios remain portable across machines, devices, and CI.
+- Each Step is one item in the `steps` array. A Step may include a `label` field and must include exactly one action field. Items in `steps` may also be Step Includes (`include:` key) that reference Step Library YAML files; includes are expanded at parse time into a flat Step list. The `label` field is a sibling of the action field, not a nested action parameter.
 - The typed action model uses a sealed class hierarchy so each Step has exactly one strongly typed action and runner/report code can handle actions exhaustively.
 - Finder is a typed value object shared by actions. `tap`, `type`, and `waitFor` require at least one Finder field; `scroll` may omit Finder; `capture` does not use Finder.
 - The Scenario parser is stateless and should be exposed as static parsing functions rather than requiring callers to instantiate a parser object.
@@ -139,8 +139,8 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - `scenario.name` is metadata and does not need to be globally unique. Run directories use minute-level timestamp plus scenario name, such as `.runs/2026-06-06_12-30_login_error/`, to avoid overwrites and preserve chronological sorting.
 - When `scenario.name` is omitted, Flutter Pilot derives the run name from the Scenario file name. If no file name is available, it falls back to `scenario`.
 - Artifact bundle layout is stable and intended for both humans and AI agents.
-- The run report is JSON and records scenario metadata, runtime target metadata, steps, command inputs, command outputs, status, duration, artifact paths, failure diagnostics, and compact diagnostic summaries when printable diagnostics are collected.
-- `run` generates `run_report.json` and `timeline.html` by default. There is no separate `--html` flag.
+- The run report is JSON and records scenario metadata, runtime target metadata, Target Device metadata when available, steps, command inputs, command outputs, status, duration, artifact paths, failure diagnostics, and compact diagnostic summaries when printable diagnostics are collected.
+- `test` generates `run_report.json` and `timeline.html` by default. There is no separate `--html` flag.
 - Step metadata is written as one aggregated `step.json` file containing all Step report records, rather than one JSON file per Step. The same Step results remain embedded in `run_report.json`.
 - The first runner slice writes artifacts under stable `.runs/<timestamp>_<scenario>/` directories and records artifact paths relative to the run directory.
 - The HTML timeline report is generated from the run report and artifacts, not by rerunning the scenario. `flutter_pilot report <run-directory>` regenerates `timeline.html` from an existing run directory.
@@ -150,7 +150,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - The `capture` action records diagnostic artifacts at a Step. `capture: {}` uses the default bundle: `screenshot: true`, `snapshot: true`, `widgetTree: false`, and `logs: true`. Each option can be explicitly overridden.
 - Failed Steps automatically capture the same default bundle as `capture: {}`.
 - Raw Widget Tree dumps may be available, but agent-facing output should default to compact summaries of visible text, interactive widgets, routes, logs, runtime failures, and likely suspects. The Diagnostic Reducer writes this summary as `diagnosticSummary` in the run report when `--print` captures raw Snapshot, Widget Tree, or error diagnostics.
-- Scenario-level device video recording is supported as an optional run-level artifact. The first slice only adds Scenario DSL support and run lifecycle integration for default recording behavior; device selection and richer recording parameters remain out of scope. Step screenshots and timeline reports remain the primary step-level visual artifacts.
+- Scenario-level device video recording is supported as an optional run-level artifact. When recording is enabled, `test` requires the selected Target Device to also be available as a Recording Device with the same device id. The Device Video Recording is stored under the run directory as `artifacts/device-video-recording.<ext>` and recorded in reports with a run-directory-relative path. Richer recording parameters remain out of scope. Step screenshots and timeline reports remain the primary step-level visual artifacts.
 - The implementation should be organized around deep modules:
   - Scenario model and parser: validates YAML and produces a typed scenario.
   - Finder and action model: represents user intent independently from `mcp_flutter` command details.
@@ -166,8 +166,8 @@ The result is a reproducible bug report package that can be consumed by humans, 
 
 1. CLI skeleton and scenario parser
    - Establish the executable entry point, command structure, YAML schema, validation errors, typed scenario model, and minimal test suite.
-   - The first slice includes working `validate` behavior and a `run` command shell that parses arguments, validates the Scenario, checks CLI rules, and reports that UI execution is not implemented yet.
-   - In the first slice, the `run` command shell exits `0` when arguments and Scenario validation succeed, even though UI execution is not implemented. It exits non-zero for validation or CLI argument errors.
+   - The first slice included working `validate` behavior and an execution command shell that parsed arguments, validated the Scenario, checked CLI rules, and reported that UI execution was not implemented yet.
+   - The current execution command is `test`; the earlier `run` shell has been removed from the public CLI.
    - This comes first because every later feature depends on a stable scenario contract and command surface.
 2. `mcp_flutter` adapter contract
    - Define the narrow interface for tap, type, scroll, wait, screenshot, semantic snapshot, widget data, and logs.
@@ -207,9 +207,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - Tests should focus on external behavior and stable contracts, not private implementation details.
 - First-slice tests already establish the baseline testing style: parser tests call the public parser API and assert on typed Scenario output or structured validation exceptions; CLI tests execute the command through a real Dart subprocess and assert on exit codes and terminal output.
 - The scenario model and parser should have unit tests for valid YAML, invalid YAML, labels, capture directives, Finders, unsupported actions, combined Finder constraints, rejection of array-valued Finder fields, rejection of unlabeled Step items that only contain a label, and rejection of Steps with multiple action fields.
-- First-slice tests should be split between parser/model unit tests and a small number of CLI subprocess tests. Parser/model tests cover detailed schema behavior. CLI subprocess tests cover external command behavior such as `validate`, `validate --json`, `run` command-shell success, and CLI argument errors.
-- CLI progress tests should verify human-readable run progress through a fake Runtime Adapter path, including successful Steps, failed Steps, unlabeled Steps, `--until` stopping behavior, stderr/stdout separation, and progress suppression under `--json`.
-- Internal terminal styling tests should cover ANSI wrapping, style stripping, disabled plain-text output, and emoji/capability behavior independently from Step progress rendering.
+- First-slice tests should be split between parser/model unit tests and a small number of CLI subprocess tests. Parser/model tests cover detailed schema behavior. CLI subprocess tests cover external command behavior such as `validate`, `validate --json`, `test` command-shell behavior, and CLI argument errors.
 - The runner engine should have tests using a fake `mcp_flutter` adapter. These tests should verify step ordering, failure handling, automatic capture, `--until`, `--print`, zero Finder matches, one Finder match, multiple Finder matches, `waitFor` success, `waitFor` timeout, `waitFor` multiple-match failure, `scroll` with a Finder, `scroll` without a Finder, and `scroll` delta validation.
 - The artifact store should have tests verifying stable run directory layout, artifact naming, metadata references, and report paths.
 - The diagnostic reducer should have tests using representative widget and semantic data fixtures. Tests should verify that visible text, interactive widgets, logs, runtime failures, and route-like context are preserved while noisy details are removed.

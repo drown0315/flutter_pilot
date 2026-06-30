@@ -105,11 +105,16 @@ scenario:
   recording: true
 ```
 
-When recording is enabled, `flutter_pilot run` starts a Recording Session before
+When recording is enabled, `flutter_pilot test` starts a Recording Session before
 executing the first Step and stops it during run shutdown. If recording startup
 fails, the run fails before any Step executes. The final Device Video Recording
 is reported as a run-level artifact in `run_report.json`; it is not attached to
 an individual Step.
+
+`test` records the same Target Device that runs the app. The selected Target
+Device must also be available as a Recording Device with the same device id.
+Without `--device`, Flutter Pilot auto-selects only when exactly one supported
+Flutter Device id is also recordable.
 
 ## Steps
 
@@ -307,12 +312,18 @@ Runtime errors are collected as part of logs in the first version.
 
 ## Runtime Target Is Not YAML
 
-Do not put connection details in a Scenario file. Runtime Target details are CLI
-options so Scenarios remain portable across machines, devices, and CI.
+Do not put connection or device details in a Scenario file. Runtime Target
+details are produced by `flutter_pilot test` after it launches the current
+Target App Package with `flutter run --machine`. Target Device, Flutter flavor,
+and app entrypoint choices stay in CLI options so Scenarios remain portable
+across machines, devices, and CI.
 
 ```bash
-flutter_pilot run examples/smoke_scenario.yaml --target <vm-service-uri>
+flutter_pilot test examples/smoke_scenario.yaml --device pixel-8
 ```
+
+`test --target` selects the Flutter app entrypoint file, such as
+`lib/main_staging.dart`; it is not a VM service URI option.
 
 ## Validation Rules
 
