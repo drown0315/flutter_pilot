@@ -417,9 +417,8 @@ class ScenarioRunner {
     ];
     if (recordingResult != null) {
       artifacts.add(
-        ArtifactReport(
-          type: ArtifactType.deviceVideoRecording,
-          path: recordingResult.path,
+        runArtifactWriter.writeDeviceVideoRecording(
+          sourcePath: recordingResult.path,
         ),
       );
     }

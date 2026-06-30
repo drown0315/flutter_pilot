@@ -321,6 +321,31 @@ class RunArtifactWriter {
     );
   }
 
+  /// Store the finalized Device Video Recording as a run-level artifact.
+  ///
+  /// Args:
+  /// `sourcePath` is the backend-native video file returned after stopping the
+  /// Recording Session. Its extension is preserved so callers can keep the
+  /// backend-native format.
+  ///
+  /// Returns:
+  /// An artifact record with `type: deviceVideoRecording` and a path relative
+  /// to the run directory.
+  ArtifactReport writeDeviceVideoRecording({required String sourcePath}) {
+    final String extension = p.extension(sourcePath);
+    final String relativePath = p.join(
+      'artifacts',
+      'device-video-recording$extension',
+    );
+    final File destinationFile = File(p.join(runDirectory.path, relativePath));
+    destinationFile.parent.createSync(recursive: true);
+    File(sourcePath).copySync(destinationFile.path);
+    return ArtifactReport(
+      type: ArtifactType.deviceVideoRecording,
+      path: relativePath,
+    );
+  }
+
   /// Return the file name for one captured Step artifact.
   ///
   /// Args:

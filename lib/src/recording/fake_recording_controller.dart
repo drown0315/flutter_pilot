@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../runtime/fake_runtime_adapter.dart';
 import '../scenario.dart';
 import 'recording_contract.dart';
@@ -12,7 +14,8 @@ class FakeRecordingController implements RecordingController {
     this.failure,
     RecordingResult? result,
     List<FakeRuntimeEvent>? runtimeEvents,
-  }) : result =
+  }) : _usesDefaultResult = result == null,
+       result =
            result ??
            const RecordingResult(
              path: 'recordings/scenario.mp4',
@@ -22,6 +25,7 @@ class FakeRecordingController implements RecordingController {
 
   final RecordingException? failure;
   final RecordingResult result;
+  final bool _usesDefaultResult;
   final List<FakeRuntimeEvent> runtimeEvents;
   final List<FakeRecordingEvent> events = <FakeRecordingEvent>[];
 
@@ -50,6 +54,11 @@ class FakeRecordingController implements RecordingController {
         runtimeEventCountAtStart: runtimeEvents.length,
       ),
     );
+    if (_usesDefaultResult) {
+      final File recordingFile = File(result.path);
+      recordingFile.parent.createSync(recursive: true);
+      recordingFile.writeAsBytesSync(<int>[0]);
+    }
     return result;
   }
 }

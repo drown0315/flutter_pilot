@@ -1,6 +1,6 @@
 # Flutter Pilot Issue Progress
 
-Last reviewed: 2026-06-20
+Last reviewed: 2026-06-30
 
 This file tracks implementation progress against the local issue breakdown and
 the GitHub issue list. Use code reality as the source of truth when GitHub issue
@@ -67,3 +67,16 @@ Source: `issues/0.0.7-support-scenario-yaml-step-includes.md`
 | 2. Scenario Step Library CLI Validation | `#78` | Complete | `validate` and `run --until` work with include-backed Scenarios. JSON validation output includes include-related paths. |
 | 3. Expanded Scenario Artifacts | `#78` | Complete | Run artifacts contain the expanded flat Step list with Step Source metadata. Runner reports preserve flat Step outcome shape. |
 | 4. Include Chain Ready For Progress | `#78` | Complete | Step Source and Include Chain model added. Progress renderer shows include source display paths for expanded Steps. |
+
+## Test Command 0.0.8 Progress
+
+Source: `issues/0.0.8-test-command.md`
+
+| Local issue | GitHub issue | Status | Notes |
+| --- | --- | --- | --- |
+| 1. Store Device Video Recording Under Run Artifacts | `#82` | Complete | Scenario Recording now copies the stopped Device Video Recording into the Scenario Run directory at `artifacts/device-video-recording.<backend-extension>`, records that run-directory-relative path in `run_report.json`, and keeps the artifact at run level rather than attaching it to a Step. Verified with `dart format .`, `dart analyze`, and `dart test`. |
+| 2. Add Target Device Resolution | `#83` | Not started | Target Device resolution is still pending. |
+| 3. Launch Target App Package From Test Command Infrastructure | `#84` | Not started | Target App launcher for `flutter run --machine` is still pending. |
+| 4. Replace Run With Test Command | `#85` | Blocked | Depends on Target Device resolution and Target App launcher. |
+| 5. Record Target Device Metadata In Run Reports | `#86` | Blocked | Depends on Target Device resolution and the new `test` command. |
+| 6. Update Test Command Documentation | `#87` | Blocked | Depends on Device Video Recording artifact storage, `test` command replacement, and Target Device report metadata.

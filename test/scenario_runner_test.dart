@@ -345,10 +345,13 @@ void main() {
           'Continue': const <FinderMatch>[FinderMatch(id: 'continue-button')],
         },
       );
+      final File backendRecording = File('backend_recordings/device-123.mp4')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(<int>[1, 2, 3, 4]);
       final FakeRecordingController recordingController =
           FakeRecordingController(
-            result: const RecordingResult(
-              path: 'recordings/full-run.mp4',
+            result: RecordingResult(
+              path: backendRecording.path,
               mimeType: 'video/mp4',
             ),
           );
@@ -374,7 +377,13 @@ void main() {
             artifact.type == ArtifactType.deviceVideoRecording,
       );
       expect(report.status, ScenarioRunStatus.passed);
-      expect(recordingArtifact.path, 'recordings/full-run.mp4');
+      expect(recordingArtifact.path, 'artifacts/device-video-recording.mp4');
+      expect(
+        File(
+          '${report.runDirectoryPath}/${recordingArtifact.path}',
+        ).readAsBytesSync(),
+        <int>[1, 2, 3, 4],
+      );
       expect(
         report.steps.single.artifacts.map(
           (ArtifactReport artifact) => artifact.type,
@@ -390,6 +399,10 @@ void main() {
       expect(
         _runReportFile(report).readAsStringSync(),
         contains('"type": "deviceVideoRecording"'),
+      );
+      expect(
+        _runReportFile(report).readAsStringSync(),
+        contains('"path": "artifacts/device-video-recording.mp4"'),
       );
     });
   });
