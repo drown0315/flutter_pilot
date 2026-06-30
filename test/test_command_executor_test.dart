@@ -285,6 +285,7 @@ ScenarioRunReport _passedReport() {
   return ScenarioRunReport(
     scenarioName: 'delegated',
     scenarioDescription: null,
+    totalSteps: 0,
     status: ScenarioRunStatus.passed,
     startedAt: DateTime.utc(2026, 6, 30),
     durationMs: 1,

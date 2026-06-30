@@ -665,9 +665,6 @@ steps:
       });
     },
   );
-      });
-    },
-  );
 
   test('writes an HTML timeline report by default', () async {
     await FileTestkit.runZoned(() async {

@@ -93,6 +93,7 @@ class ScenarioRunner {
         steps: steps,
         failed: true,
         failureReason: recordingStartupFailure,
+        stopPointDescription: null,
         printedDiagnostics: const <PrintedDiagnostic>[],
         diagnosticSummary: null,
         recordingResult: null,
