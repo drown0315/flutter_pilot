@@ -161,15 +161,39 @@ steps:
     }
   });
 
-  test('run rejects unknown --until values', () async {
+  test('run is no longer registered as a command', () async {
+    final ProcessResult result = await Process.run(
+      Platform.resolvedExecutable,
+      ['run', 'bin/flutter_pilot.dart', 'run', '--help'],
+    );
+
+    expect(result.exitCode, isNonZero);
+    expect(result.stderr, contains('Could not find a command named "run"'));
+  });
+
+  test('test help exposes launch and diagnostic options', () async {
+    final ProcessResult result = await Process.run(
+      Platform.resolvedExecutable,
+      ['run', 'bin/flutter_pilot.dart', 'test', '--help'],
+    );
+
+    expect(result.exitCode, 0);
+    expect(result.stdout, contains('--device'));
+    expect(result.stdout, contains('--flavor'));
+    expect(result.stdout, contains('--target'));
+    expect(result.stdout, contains('--until'));
+    expect(result.stdout, contains('--print'));
+    expect(result.stdout, contains('--json'));
+    expect(result.stdout, isNot(contains('--html')));
+  });
+
+  test('test rejects unknown --until values before app launch', () async {
     final ProcessResult result =
         await Process.run(Platform.resolvedExecutable, [
           'run',
           'bin/flutter_pilot.dart',
-          'run',
+          'test',
           'examples/login_error.yaml',
-          '--target',
-          'ws://127.0.0.1:1234/example=/ws',
           '--until',
           'missing_step',
         ]);
@@ -178,66 +202,31 @@ steps:
     expect(result.stderr, contains('--until must be a 1-based step number'));
   });
 
-  test('run validates --until labels from expanded Step Includes', () async {
-    final Directory tempDirectory = Directory.systemTemp.createTempSync(
-      'flutter_pilot_cli_include_until_test_',
-    );
-    final String packageRoot = Directory.current.absolute.path;
-    try {
-      File('${tempDirectory.path}/library.yaml').writeAsStringSync('''
-steps:
-  - label: included_capture
-    capture: {}
-''');
-      final File scenarioFile = File('${tempDirectory.path}/scenario.yaml')
-        ..writeAsStringSync('''
-steps:
-  - include: library.yaml
-''');
-
-      final ProcessResult result =
-          await Process.run(Platform.resolvedExecutable, [
-            'run',
-            '$packageRoot/bin/flutter_pilot.dart',
-            'run',
-            scenarioFile.path,
-            '--target',
-            'not-a-uri',
-            '--until',
-            'included_capture',
-          ]);
-
-      expect(result.exitCode, isNonZero);
-      expect(result.stderr, isNot(contains('--until must be')));
-      expect(result.stderr, contains('--target must be an absolute'));
-    } finally {
-      tempDirectory.deleteSync(recursive: true);
-    }
-  });
-
-  test('run requires --target', () async {
+  test('test requires exactly one scenario file', () async {
     final ProcessResult result = await Process.run(
       Platform.resolvedExecutable,
-      ['run', 'bin/flutter_pilot.dart', 'run', 'examples/login_error.yaml'],
+      ['run', 'bin/flutter_pilot.dart', 'test'],
     );
 
     expect(result.exitCode, isNonZero);
-    expect(result.stderr, contains('Missing required option --target'));
+    expect(result.stderr, contains('Expected exactly one scenario file'));
   });
 
-  test('run rejects invalid target URI values', () async {
+  test('test validates scenario before app launch', () async {
     final ProcessResult result =
         await Process.run(Platform.resolvedExecutable, [
           'run',
           'bin/flutter_pilot.dart',
-          'run',
-          'examples/login_error.yaml',
-          '--target',
-          'not-a-uri',
+          'test',
+          'test/fixtures/invalid_finder_type.yaml',
         ]);
 
     expect(result.exitCode, isNonZero);
-    expect(result.stderr, contains('--target must be an absolute'));
+    expect(result.stderr, contains('steps[0].tap.byText'));
+    expect(
+      result.stderr,
+      isNot(contains('test command app launch is not implemented yet')),
+    );
   });
 
   test('run exits non-zero when the Scenario run fails', skip: true, () async {
@@ -250,10 +239,8 @@ steps:
           await Process.run(Platform.resolvedExecutable, [
             'run',
             '$packageRoot/bin/flutter_pilot.dart',
-            'run',
+            'test',
             '$packageRoot/examples/login_error.yaml',
-            '--target',
-            'ws://127.0.0.1:1234/example=/ws',
           ], workingDirectory: tempDirectory.path);
 
       expect(result.exitCode, isNonZero);
@@ -266,208 +253,7 @@ steps:
     }
   });
 
-  test(
-    'run emits successful Step progress to stderr with fake runtime',
-    () async {
-      final Directory tempDirectory = Directory.systemTemp.createTempSync(
-        'flutter_pilot_cli_progress_test_',
-      );
-      final String packageRoot = Directory.current.absolute.path;
-      try {
-        final ProcessResult result = await Process.run(
-          Platform.resolvedExecutable,
-          [
-            'run',
-            '$packageRoot/bin/flutter_pilot.dart',
-            'run',
-            '$packageRoot/examples/login_error.yaml',
-            '--target',
-            'ws://127.0.0.1:1234/example=/ws',
-          ],
-          workingDirectory: tempDirectory.path,
-          environment: <String, String>{
-            'FLUTTER_PILOT_TEST_RUNTIME': 'success',
-          },
-        );
 
-        expect(result.exitCode, 0);
-        expect(result.stderr, contains('Scenario: login_error (5 steps)'));
-        expect(result.stderr, contains('1/5 type    enter_email    running'));
-        expect(result.stderr, contains('1/5 type    enter_email    ok '));
-        expect(result.stderr, contains('2/5 type    enter_password running'));
-        expect(result.stderr, contains('3/5 tap     submit_login   ok '));
-        expect(result.stderr, contains('4/5 waitFor wait_for_error ok '));
-        expect(result.stderr, contains('5/5 capture capture_error  ok '));
-        expect(result.stdout, contains('Run report:'));
-        expect(result.stdout, contains('run_report.json'));
-        expect(result.stdout, contains('HTML report:'));
-        expect(result.stdout, contains('timeline.html'));
-      } finally {
-        tempDirectory.deleteSync(recursive: true);
-      }
-    },
-  );
-
-  test('run --json suppresses Step progress with fake runtime', () async {
-    final Directory tempDirectory = Directory.systemTemp.createTempSync(
-      'flutter_pilot_cli_json_progress_test_',
-    );
-    final String packageRoot = Directory.current.absolute.path;
-    try {
-      final ProcessResult result = await Process.run(
-        Platform.resolvedExecutable,
-        [
-          'run',
-          '$packageRoot/bin/flutter_pilot.dart',
-          'run',
-          '$packageRoot/examples/login_error.yaml',
-          '--target',
-          'ws://127.0.0.1:1234/example=/ws',
-          '--json',
-        ],
-        workingDirectory: tempDirectory.path,
-        environment: <String, String>{'FLUTTER_PILOT_TEST_RUNTIME': 'success'},
-      );
-
-      expect(result.exitCode, 0);
-      expect(result.stderr, isEmpty);
-      expect(result.stdout, contains('Run report:'));
-      expect(result.stdout, contains('HTML report:'));
-    } finally {
-      tempDirectory.deleteSync(recursive: true);
-    }
-  });
-
-  test(
-    'run --json still prints a report summary without progress text',
-    () async {
-      final Directory tempDirectory = Directory.systemTemp.createTempSync(
-        'flutter_pilot_cli_json_summary_test_',
-      );
-      final String packageRoot = Directory.current.absolute.path;
-      try {
-        final ProcessResult result = await Process.run(
-          Platform.resolvedExecutable,
-          [
-            'run',
-            '$packageRoot/bin/flutter_pilot.dart',
-            'run',
-            '$packageRoot/examples/login_error.yaml',
-            '--target',
-            'ws://127.0.0.1:1234/example=/ws',
-            '--json',
-          ],
-          workingDirectory: tempDirectory.path,
-          environment: <String, String>{
-            'FLUTTER_PILOT_TEST_RUNTIME': 'success',
-          },
-        );
-
-        expect(result.exitCode, 0);
-        expect(result.stderr, isEmpty);
-        expect(result.stdout, contains('Run report:'));
-        expect(result.stdout, contains('HTML report:'));
-      } finally {
-        tempDirectory.deleteSync(recursive: true);
-      }
-    },
-  );
-
-  test('run emits failed Step progress with concise summary', () async {
-    final Directory tempDirectory = Directory.systemTemp.createTempSync(
-      'flutter_pilot_cli_failed_progress_test_',
-    );
-    final String packageRoot = Directory.current.absolute.path;
-    try {
-      final ProcessResult result = await Process.run(
-        Platform.resolvedExecutable,
-        [
-          'run',
-          '$packageRoot/bin/flutter_pilot.dart',
-          'run',
-          '$packageRoot/examples/login_error.yaml',
-          '--target',
-          'ws://127.0.0.1:1234/example=/ws',
-        ],
-        workingDirectory: tempDirectory.path,
-        environment: <String, String>{'FLUTTER_PILOT_TEST_RUNTIME': 'failure'},
-      );
-
-      expect(result.exitCode, isNonZero);
-      expect(result.stderr, contains('failed after'));
-      expect(result.stderr, contains('Finder matched no widgets.'));
-      expect(result.stdout, contains('run_report.json'));
-    } finally {
-      tempDirectory.deleteSync(recursive: true);
-    }
-  });
-
-  test('run prints a passed summary for complete runs', () async {
-    final Directory tempDirectory = Directory.systemTemp.createTempSync(
-      'flutter_pilot_cli_pass_summary_test_',
-    );
-    final String packageRoot = Directory.current.absolute.path;
-    try {
-      final ProcessResult result = await Process.run(
-        Platform.resolvedExecutable,
-        [
-          'run',
-          '$packageRoot/bin/flutter_pilot.dart',
-          'run',
-          '$packageRoot/examples/login_error.yaml',
-          '--target',
-          'ws://127.0.0.1:1234/example=/ws',
-        ],
-        workingDirectory: tempDirectory.path,
-        environment: <String, String>{'FLUTTER_PILOT_TEST_RUNTIME': 'success'},
-      );
-
-      expect(result.exitCode, 0);
-      expect(result.stderr, contains('Run passed.'));
-    } finally {
-      tempDirectory.deleteSync(recursive: true);
-    }
-  });
-
-  test('run prints a stopped summary for --until', () async {
-    final Directory tempDirectory = Directory.systemTemp.createTempSync(
-      'flutter_pilot_cli_until_summary_test_',
-    );
-    final String packageRoot = Directory.current.absolute.path;
-    try {
-      final ProcessResult result = await Process.run(
-        Platform.resolvedExecutable,
-        [
-          'run',
-          '$packageRoot/bin/flutter_pilot.dart',
-          'run',
-          '$packageRoot/examples/login_error.yaml',
-          '--target',
-          'ws://127.0.0.1:1234/example=/ws',
-          '--until',
-          '2',
-        ],
-        workingDirectory: tempDirectory.path,
-        environment: <String, String>{'FLUTTER_PILOT_TEST_RUNTIME': 'success'},
-      );
-
-      expect(result.exitCode, 0);
-      expect(result.stderr, contains('Stopped after 2/5.'));
-    } finally {
-      tempDirectory.deleteSync(recursive: true);
-    }
-  });
-
-  test('run help does not expose an html flag', () async {
-    final ProcessResult result = await Process.run(
-      Platform.resolvedExecutable,
-      ['run', 'bin/flutter_pilot.dart', 'run', '--help'],
-    );
-
-    expect(result.exitCode, 0);
-    expect(result.stdout, isNot(contains('--html')));
-    expect(result.stdout, isNot(contains('FLUTTER_PILOT_TEST_RUNTIME')));
-  });
 
   test('report generates HTML from an existing run directory', () async {
     final Directory tempDirectory = Directory.systemTemp.createTempSync(
@@ -519,15 +305,13 @@ steps:
     }
   });
 
-  test('run --print without --until exits non-zero', () async {
+  test('test --print without --until exits non-zero', () async {
     final ProcessResult result =
         await Process.run(Platform.resolvedExecutable, [
           'run',
           'bin/flutter_pilot.dart',
-          'run',
+          'test',
           'examples/login_error.yaml',
-          '--target',
-          'ws://127.0.0.1:1234/example=/ws',
           '--print',
           'snapshot',
         ]);
@@ -536,15 +320,13 @@ steps:
     expect(result.stderr, contains('--print must be used with --until'));
   });
 
-  test('run rejects screenshot as printable output', () async {
+  test('test rejects screenshot as printable output', () async {
     final ProcessResult result =
         await Process.run(Platform.resolvedExecutable, [
           'run',
           'bin/flutter_pilot.dart',
-          'run',
+          'test',
           'examples/login_error.yaml',
-          '--target',
-          'ws://127.0.0.1:1234/example=/ws',
           '--until',
           '1',
           '--print',
@@ -553,17 +335,6 @@ steps:
 
     expect(result.exitCode, isNonZero);
     expect(result.stderr, contains('[snapshot, widget-tree, errors]'));
-  });
-
-  test('run help exposes json output for raw diagnostics', () async {
-    final ProcessResult result = await Process.run(
-      Platform.resolvedExecutable,
-      ['run', 'bin/flutter_pilot.dart', 'run', '--help'],
-    );
-
-    expect(result.exitCode, 0);
-    expect(result.stdout, contains('--json'));
-    expect(result.stdout, contains('Print raw diagnostics as indented JSON'));
   });
 
   test('doctor reports complete Flutter Pilot app setup', () async {

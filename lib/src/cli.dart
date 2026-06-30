@@ -2,16 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
-import 'package:screen_recorder/screen_recorder.dart' as screen_recorder;
 import 'package:yaml/yaml.dart';
 
 import 'app_setup.dart';
-import 'diagnostic_text_renderer.dart';
 import 'html_timeline_report.dart';
-import 'recording/screen_recorder_recording_controller.dart';
-import 'runtime/fake_runtime_adapter.dart';
-import 'runtime/mcp_flutter_runtime_adapter.dart';
-import 'runtime/runtime_contract.dart';
 import 'run_diff.dart';
 import 'scenario.dart';
 import 'scenario_parser.dart';
@@ -42,7 +36,7 @@ class FlutterPilotCli {
             'Replay Flutter UI scenarios and collect debugging artifacts.',
           )
           ..addCommand(_ValidateCommand())
-          ..addCommand(_RunCommand())
+          ..addCommand(_TestCommand())
           ..addCommand(_ReportCommand())
           ..addCommand(_DiffCommand())
           ..addCommand(_DoctorCommand())
@@ -296,89 +290,6 @@ class _ReportCommand extends Command<int> {
   }
 }
 
-/// Build the first-version default runner used by the executable.
-ScenarioRunner _createDefaultRunner(RuntimeTarget target, Scenario scenario) {
-  final String? testRuntime =
-      Platform.environment['FLUTTER_PILOT_TEST_RUNTIME'];
-  if (testRuntime != null) {
-    return ScenarioRunner(
-      adapter: switch (testRuntime) {
-        'success' => _createSuccessfulFakeRuntimeAdapter(scenario),
-        'failure' => _createFailureFakeRuntimeAdapter(scenario),
-        _ => _createSuccessfulFakeRuntimeAdapter(scenario),
-      },
-      outputDirectory: Directory.current,
-    );
-  }
-  return ScenarioRunner(
-    adapter: McpFlutterRuntimeAdapter(target: target),
-    recordingController: ScreenRecorderRecordingController(
-      recorder: screen_recorder.ScreenRecorder.defaultRecorder(),
-      deviceSelector: '',
-      outputDirectory: Directory.current,
-    ),
-    outputDirectory: Directory.current,
-  );
-}
-
-/// Build the test-only fake Runtime Adapter used by CLI subprocess tests.
-///
-/// This hook is intentionally selected through an environment variable rather
-/// than a public CLI option so it does not become part of the user-facing
-/// command contract or appear in `--help`.
-FakeRuntimeAdapter _createSuccessfulFakeRuntimeAdapter(Scenario scenario) {
-  final Map<String, List<FinderMatch>> finderResults =
-      <String, List<FinderMatch>>{};
-  for (final ScenarioStep step in scenario.steps) {
-    final Finder? finder = _finderForAction(step.action);
-    if (finder == null) {
-      continue;
-    }
-    finderResults[_fakeRuntimeFinderKey(finder)] = <FinderMatch>[
-      FinderMatch(id: 'step-${step.index}', debugLabel: step.label),
-    ];
-  }
-  return FakeRuntimeAdapter(finderResults: finderResults);
-}
-
-/// Build the test-only fake Runtime Adapter that fails the first Finder match.
-FakeRuntimeAdapter _createFailureFakeRuntimeAdapter(Scenario scenario) {
-  final Map<String, List<FinderMatch>> finderResults =
-      <String, List<FinderMatch>>{};
-  for (final ScenarioStep step in scenario.steps) {
-    final Finder? finder = _finderForAction(step.action);
-    if (finder == null) {
-      continue;
-    }
-    finderResults[_fakeRuntimeFinderKey(finder)] = const <FinderMatch>[];
-    break;
-  }
-  return FakeRuntimeAdapter(finderResults: finderResults);
-}
-
-/// Return the Finder used by an action, if the action resolves one.
-Finder? _finderForAction(StepAction action) {
-  return switch (action) {
-    TapAction(:final Finder finder) => finder,
-    TypeAction(:final Finder finder) => finder,
-    ScrollAction(:final Finder? finder) => finder,
-    WaitForAction(:final Finder finder) => finder,
-    CaptureAction() => null,
-  };
-}
-
-/// Convert a Finder into the key expected by `FakeRuntimeAdapter`.
-String _fakeRuntimeFinderKey(Finder finder) {
-  final List<String> parts = <String>[
-    if (finder.byText != null) 'byText=${finder.byText}',
-    if (finder.byType != null) 'byType=${finder.byType}',
-  ];
-  if (parts.length == 1) {
-    return parts.single.split('=').last;
-  }
-  return parts.join('&');
-}
-
 /// `validate` command for checking Scenario YAML without connecting to Flutter.
 ///
 /// It reads exactly one file path. By default it prints human-readable output;
@@ -447,17 +358,23 @@ class _ValidateCommand extends Command<int> {
   }
 }
 
-/// `run` command shell for validating CLI arguments before UI replay exists.
+/// `test` command shell for validating CLI arguments before app launch.
 ///
-/// The first implementation checks Scenario YAML, requires `--target`, and
-/// validates `--until` / `--print` relationships. It deliberately does not
-/// connect to Flutter or execute MCP calls yet.
-class _RunCommand extends Command<int> {
-  _RunCommand() {
+/// It checks Scenario YAML and validates `--until` / `--print` relationships
+/// before the Target App Package is launched.
+class _TestCommand extends Command<int> {
+  _TestCommand() {
     argParser
       ..addOption(
+        'device',
+        abbr: 'd',
+        help: 'Target Device id, exact name, or unique id/name prefix.',
+      )
+      ..addOption('flavor', help: 'Flutter flavor passed to flutter run.')
+      ..addOption(
         'target',
-        help: 'Flutter runtime target. First version accepts VM service URI.',
+        abbr: 't',
+        help: 'Flutter app entrypoint file passed to flutter run.',
       )
       ..addOption(
         'until',
@@ -476,19 +393,15 @@ class _RunCommand extends Command<int> {
   }
 
   @override
-  String get description => 'Run a scenario against a Flutter runtime target.';
+  String get description => 'Launch the Target App Package and run a Scenario.';
 
   @override
-  String get name => 'run';
+  String get name => 'test';
 
   @override
   Future<int> run() async {
     if (argResults!.rest.length != 1) {
       throw UsageException('Expected exactly one scenario file.', usage);
-    }
-    final String? targetValue = argResults!.option('target');
-    if (targetValue == null) {
-      throw UsageException('Missing required option --target.', usage);
     }
     if (argResults!.multiOption('print').isNotEmpty &&
         argResults!.option('until') == null) {
@@ -514,59 +427,37 @@ class _RunCommand extends Command<int> {
       stopPoint = _stopPointFromUntil(until);
     }
 
-    final Uri? targetUri = _parseTargetUri(targetValue);
-    if (targetUri == null) {
-      stderr.writeln(
-        '--target must be an absolute ws://, wss://, http://, or https:// VM service URI.',
-      );
+    final String? device = argResults!.option('device');
+    if (device != null && device.trim().isEmpty) {
+      stderr.writeln('Target Device selector must not be empty.');
       return 64;
     }
-    final ScenarioRunner runner = _createDefaultRunner(
-      RuntimeTarget(vmServiceUri: targetUri),
-      parsedScenario,
-    );
-    try {
-      final bool jsonOutput = argResults!.flag('json');
-      final StepProgressRenderer? progressRenderer = jsonOutput
-          ? null
-          : StepProgressRenderer(sink: stderr, interactive: stderr.hasTerminal);
-      final ScenarioRunReport report = await runner.run(
-        parsedScenario,
-        stopPoint: stopPoint,
-        printDiagnostics: _printDiagnosticsFromOptions(
-          argResults!.multiOption('print'),
-        ),
-        onProgress: progressRenderer?.render,
-      );
-      if (report.printedDiagnostics.isNotEmpty) {
-        if (jsonOutput) {
-          stdout.writeln(
-            const JsonEncoder.withIndent(
-              '  ',
-            ).convert(_printDiagnosticsJson(report)),
-          );
-        } else {
-          stdout.writeln(DiagnosticTextRenderer.render(report));
-        }
-      }
-      if (!jsonOutput) {
-        _writeRunSummary(report);
-      }
-      stdout.writeln(
-        '$_runReportLabel ${report.runDirectoryPath}/run_report.json',
-      );
-      stdout.writeln(
-        '$_htmlReportLabel ${report.runDirectoryPath}/timeline.html',
-      );
-      return report.status == ScenarioRunStatus.passed ? 0 : 1;
-    } on RuntimeOperationException catch (error) {
-      stderr.writeln(error.message);
-      return 1;
+    final String? flavor = argResults!.option('flavor');
+    if (flavor != null && flavor.trim().isEmpty) {
+      stderr.writeln('--flavor must not be empty.');
+      return 64;
     }
-  }
+    final String? target = argResults!.option('target');
+    if (target != null && target.trim().isEmpty) {
+      stderr.writeln('--target must not be empty.');
+      return 64;
+    }
+    final _TestCommandOptions options = _TestCommandOptions(
+      scenario: parsedScenario,
+      device: device?.trim(),
+      flavor: flavor?.trim(),
+      target: target?.trim(),
+      stopPoint: stopPoint,
+      printDiagnostics: _printDiagnosticsFromOptions(
+        argResults!.multiOption('print'),
+      ),
+      jsonOutput: argResults!.flag('json'),
+    );
+    _ignorePendingTestCommandWiring(options);
 
-  static const String _runReportLabel = 'Run report:';
-  static const String _htmlReportLabel = 'HTML report:';
+    stderr.writeln('test command app launch is not implemented yet.');
+    return 1;
+  }
 
   /// Print the final human-readable run summary to stderr.
   void _writeRunSummary(ScenarioRunReport report) {
@@ -629,54 +520,6 @@ class _RunCommand extends Command<int> {
     return printDiagnostics;
   }
 
-  /// Return the stdout JSON object for printable diagnostics.
-  ///
-  /// Args:
-  /// `report` contains diagnostics already captured by the runner in fixed
-  /// output order.
-  ///
-  /// Returns:
-  /// A JSON-compatible object keyed by the CLI diagnostic names.
-  Map<String, Object?> _printDiagnosticsJson(ScenarioRunReport report) {
-    return <String, Object?>{
-      for (final PrintedDiagnostic diagnostic in report.printedDiagnostics)
-        _printDiagnosticJsonKey(diagnostic.type): diagnostic.data,
-    };
-  }
-
-  /// Return the public JSON key for a printable diagnostic type.
-  String _printDiagnosticJsonKey(PrintDiagnostic printDiagnostic) {
-    return switch (printDiagnostic) {
-      PrintDiagnostic.snapshot => 'snapshot',
-      PrintDiagnostic.widgetTree => 'widgetTree',
-      PrintDiagnostic.errors => 'errors',
-    };
-  }
-
-  /// Parse and validate the first-version Runtime Target URI.
-  ///
-  /// Args:
-  /// `targetValue` is the raw `--target` argument.
-  ///
-  /// Returns:
-  /// An absolute VM service URI when valid, otherwise `null`.
-  Uri? _parseTargetUri(String targetValue) {
-    final Uri uri;
-    try {
-      uri = Uri.parse(targetValue);
-    } on FormatException {
-      return null;
-    }
-    final Set<String> allowedSchemes = <String>{'ws', 'wss', 'http', 'https'};
-    if (!uri.hasScheme || !allowedSchemes.contains(uri.scheme)) {
-      return null;
-    }
-    if (uri.host.isEmpty) {
-      return null;
-    }
-    return uri;
-  }
-
   /// Validate that `--until` names an existing stop point in the Scenario.
   ///
   /// Args:
@@ -709,4 +552,38 @@ class _RunCommand extends Command<int> {
       stderr.writeln('${error.path}: ${error.message}');
     }
   }
+}
+
+/// Parsed `test` command inputs that are validated before app launch.
+class _TestCommandOptions {
+  const _TestCommandOptions({
+    required this.scenario,
+    required this.device,
+    required this.flavor,
+    required this.target,
+    required this.stopPoint,
+    required this.printDiagnostics,
+    required this.jsonOutput,
+  });
+
+  final Scenario scenario;
+  final String? device;
+  final String? flavor;
+  final String? target;
+  final RunStopPoint? stopPoint;
+  final Set<PrintDiagnostic> printDiagnostics;
+  final bool jsonOutput;
+}
+
+/// Keep pre-launch option parsing explicit until app launch wiring lands.
+void _ignorePendingTestCommandWiring(_TestCommandOptions options) {
+  Object.hash(
+    options.scenario,
+    options.device,
+    options.flavor,
+    options.target,
+    options.stopPoint,
+    options.printDiagnostics,
+    options.jsonOutput,
+  );
 }
