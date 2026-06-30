@@ -22,5 +22,6 @@ export 'src/scenario.dart';
 export 'src/scenario_parser.dart';
 export 'src/scenario_runner.dart';
 export 'src/step_progress_renderer.dart';
+export 'src/target_app_launcher.dart';
 export 'src/target_device.dart';
 export 'src/terminal_style.dart';
