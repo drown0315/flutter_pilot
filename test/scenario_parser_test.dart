@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_pilot/flutter_pilot.dart';
 import 'package:test/test.dart';
 import 'package:yaml/yaml.dart';
@@ -145,6 +147,285 @@ steps:
 
       expect(paths, contains('steps[0].capture.errors'));
     });
+
+    test('parseFile expands Step Library includes into a flat Step list', () {
+      final Directory tempDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_parser_include_test_',
+      );
+      try {
+        final File libraryFile = File('${tempDirectory.path}/login_steps.yaml')
+          ..writeAsStringSync('''
+steps:
+  - label: enter_email
+    type:
+      byType: textField
+      text: bad@example.com
+  - label: submit_login
+    tap:
+      byText: Log in
+''');
+        final File scenarioFile = File('${tempDirectory.path}/scenario.yaml')
+          ..writeAsStringSync('''
+scenario:
+  name: include_smoke
+steps:
+  - label: open_login
+    tap:
+      byText: Sign in
+  - include: ${libraryFile.uri.pathSegments.last}
+  - label: capture_error
+    capture: {}
+''');
+
+        final Scenario scenario = ScenarioParser.parseFile(scenarioFile.path);
+
+        expect(scenario.name, 'include_smoke');
+        expect(scenario.steps.map((ScenarioStep step) => step.index), <int>[
+          1,
+          2,
+          3,
+          4,
+        ]);
+        expect(scenario.steps.map((ScenarioStep step) => step.label), <String?>[
+          'open_login',
+          'enter_email',
+          'submit_login',
+          'capture_error',
+        ]);
+        expect(scenario.steps[1].action, isA<TypeAction>());
+        expect(scenario.steps[2].action, isA<TapAction>());
+      } finally {
+        tempDirectory.deleteSync(recursive: true);
+      }
+    });
+
+    test('parseFile expands nested relative includes', () {
+      final Directory tempDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_parser_nested_include_test_',
+      );
+      try {
+        Directory('${tempDirectory.path}/flows').createSync();
+        Directory('${tempDirectory.path}/shared').createSync();
+        File('${tempDirectory.path}/shared/capture.yaml').writeAsStringSync('''
+steps:
+  - label: capture_checkout
+    capture: {}
+''');
+        File('${tempDirectory.path}/flows/login.yaml').writeAsStringSync('''
+steps:
+  - label: submit_login
+    tap:
+      byText: Log in
+  - include: ../shared/capture.yaml
+''');
+        final File scenarioFile = File('${tempDirectory.path}/scenario.yaml')
+          ..writeAsStringSync('''
+steps:
+  - include: flows/login.yaml
+''');
+
+        final Scenario scenario = ScenarioParser.parseFile(scenarioFile.path);
+
+        expect(scenario.steps.map((ScenarioStep step) => step.label), <String?>[
+          'submit_login',
+          'capture_checkout',
+        ]);
+      } finally {
+        tempDirectory.deleteSync(recursive: true);
+      }
+    });
+
+    test('parseFile accepts absolute include paths', () {
+      final Directory tempDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_parser_absolute_include_test_',
+      );
+      try {
+        final File libraryFile = File('${tempDirectory.path}/library.yaml')
+          ..writeAsStringSync('''
+steps:
+  - label: absolute_capture
+    capture: {}
+''');
+        final File scenarioFile = File('${tempDirectory.path}/scenario.yaml')
+          ..writeAsStringSync('''
+steps:
+  - include: ${libraryFile.absolute.path}
+''');
+
+        final Scenario scenario = ScenarioParser.parseFile(scenarioFile.path);
+
+        expect(scenario.steps.single.label, 'absolute_capture');
+      } finally {
+        tempDirectory.deleteSync(recursive: true);
+      }
+    });
+
+    test('parseFile rejects Step Libraries with scenario metadata', () {
+      final Directory tempDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_parser_library_metadata_test_',
+      );
+      try {
+        File('${tempDirectory.path}/library.yaml').writeAsStringSync('''
+scenario:
+  name: not_allowed
+steps:
+  - capture: {}
+''');
+        final File scenarioFile = File('${tempDirectory.path}/scenario.yaml')
+          ..writeAsStringSync('''
+steps:
+  - include: library.yaml
+''');
+
+        final List<String> paths = invalidFilePaths(scenarioFile.path);
+
+        expect(paths, contains('steps[0].include.scenario'));
+      } finally {
+        tempDirectory.deleteSync(recursive: true);
+      }
+    });
+
+    test('parseFile rejects include entries with extra fields', () {
+      final Directory tempDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_parser_include_extra_test_',
+      );
+      try {
+        File('${tempDirectory.path}/library.yaml').writeAsStringSync('''
+steps:
+  - capture: {}
+''');
+        final File scenarioFile = File('${tempDirectory.path}/scenario.yaml')
+          ..writeAsStringSync('''
+steps:
+  - label: invalid_include
+    include: library.yaml
+''');
+
+        final List<String> paths = invalidFilePaths(scenarioFile.path);
+
+        expect(paths, contains('steps[0].label'));
+      } finally {
+        tempDirectory.deleteSync(recursive: true);
+      }
+    });
+
+    test('parseFile rejects duplicate labels after include expansion', () {
+      final Directory tempDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_parser_duplicate_include_label_test_',
+      );
+      try {
+        File('${tempDirectory.path}/library.yaml').writeAsStringSync('''
+steps:
+  - label: repeated
+    capture: {}
+''');
+        final File scenarioFile = File('${tempDirectory.path}/scenario.yaml')
+          ..writeAsStringSync('''
+steps:
+  - include: library.yaml
+  - label: repeated
+    tap:
+      byText: Again
+''');
+
+        final List<String> paths = invalidFilePaths(scenarioFile.path);
+
+        expect(paths, contains('steps[1].label'));
+      } finally {
+        tempDirectory.deleteSync(recursive: true);
+      }
+    });
+
+    test('parseFile rejects missing include files with include path', () {
+      final Directory tempDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_parser_missing_include_test_',
+      );
+      try {
+        final File scenarioFile = File('${tempDirectory.path}/scenario.yaml')
+          ..writeAsStringSync('''
+steps:
+  - include: missing.yaml
+''');
+
+        final List<ScenarioValidationError> errors = invalidFileErrors(
+          scenarioFile.path,
+        );
+
+        expect(errors.single.path, 'steps[0].include');
+        expect(errors.single.message, contains('missing.yaml'));
+      } finally {
+        tempDirectory.deleteSync(recursive: true);
+      }
+    });
+
+    test('parseFile rejects invalid included YAML with include path', () {
+      final Directory tempDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_parser_invalid_include_yaml_test_',
+      );
+      try {
+        File('${tempDirectory.path}/library.yaml').writeAsStringSync('''
+steps:
+  - tap:
+      byText: [unterminated
+''');
+        final File scenarioFile = File('${tempDirectory.path}/scenario.yaml')
+          ..writeAsStringSync('''
+steps:
+  - include: library.yaml
+''');
+
+        final List<ScenarioValidationError> errors = invalidFileErrors(
+          scenarioFile.path,
+        );
+
+        expect(errors.single.path, 'steps[0].include');
+        expect(errors.single.message, contains('library.yaml'));
+      } finally {
+        tempDirectory.deleteSync(recursive: true);
+      }
+    });
+
+    test('parseFile rejects include cycles', () {
+      final Directory tempDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_parser_include_cycle_test_',
+      );
+      try {
+        File('${tempDirectory.path}/a.yaml').writeAsStringSync('''
+steps:
+  - include: b.yaml
+''');
+        File('${tempDirectory.path}/b.yaml').writeAsStringSync('''
+steps:
+  - include: a.yaml
+''');
+        final File scenarioFile = File('${tempDirectory.path}/scenario.yaml')
+          ..writeAsStringSync('''
+steps:
+  - include: a.yaml
+''');
+
+        final List<ScenarioValidationError> errors = invalidFileErrors(
+          scenarioFile.path,
+        );
+
+        expect(
+          errors.single.path,
+          'steps[0].include.steps[0].include.steps[0].include',
+        );
+        expect(errors.single.message, contains('cycle'));
+      } finally {
+        tempDirectory.deleteSync(recursive: true);
+      }
+    });
+
+    test('in-memory parsing rejects include entries without file context', () {
+      final List<String> paths = invalidPaths('''
+steps:
+  - include: login.yaml
+''');
+
+      expect(paths, contains('steps[0].include'));
+    });
   });
 }
 
@@ -162,6 +443,24 @@ List<String> invalidPaths(String yaml) {
       for (final ScenarioValidationError validationError in error.errors)
         validationError.path,
     ];
+  }
+  fail('Expected ScenarioValidationException.');
+}
+
+/// Parse an invalid Scenario file and return its validation paths.
+List<String> invalidFilePaths(String filePath) {
+  return <String>[
+    for (final ScenarioValidationError error in invalidFileErrors(filePath))
+      error.path,
+  ];
+}
+
+/// Parse an invalid Scenario file and return its validation errors.
+List<ScenarioValidationError> invalidFileErrors(String filePath) {
+  try {
+    ScenarioParser.parseFile(filePath);
+  } on ScenarioValidationException catch (error) {
+    return error.errors;
   }
   fail('Expected ScenarioValidationException.');
 }
