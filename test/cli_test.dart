@@ -36,6 +36,81 @@ void main() {
     expect(result.stdout, contains('steps[0].tap.byText'));
   });
 
+  test(
+    'validate accepts scenario files backed by Step Library includes',
+    () async {
+      final Directory tempDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_cli_include_validate_test_',
+      );
+      final String packageRoot = Directory.current.absolute.path;
+      try {
+        File('${tempDirectory.path}/library.yaml').writeAsStringSync('''
+steps:
+  - label: enter_email
+    type:
+      byType: textField
+      text: bad@example.com
+  - label: submit_login
+    tap:
+      byText: Log in
+''');
+        final File scenarioFile = File('${tempDirectory.path}/scenario.yaml')
+          ..writeAsStringSync('''
+scenario:
+  name: include_cli
+steps:
+  - include: library.yaml
+''');
+
+        final ProcessResult result = await Process.run(
+          Platform.resolvedExecutable,
+          [
+            'run',
+            '$packageRoot/bin/flutter_pilot.dart',
+            'validate',
+            scenarioFile.path,
+          ],
+        );
+
+        expect(result.exitCode, 0);
+        expect(result.stdout, contains('Scenario is valid.'));
+        expect(result.stderr, isEmpty);
+      } finally {
+        tempDirectory.deleteSync(recursive: true);
+      }
+    },
+  );
+
+  test('validate --json reports include validation paths', () async {
+    final Directory tempDirectory = Directory.systemTemp.createTempSync(
+      'flutter_pilot_cli_include_json_test_',
+    );
+    final String packageRoot = Directory.current.absolute.path;
+    try {
+      final File scenarioFile = File('${tempDirectory.path}/scenario.yaml')
+        ..writeAsStringSync('''
+steps:
+  - include: missing.yaml
+''');
+
+      final ProcessResult result =
+          await Process.run(Platform.resolvedExecutable, [
+            'run',
+            '$packageRoot/bin/flutter_pilot.dart',
+            'validate',
+            scenarioFile.path,
+            '--json',
+          ]);
+
+      expect(result.exitCode, isNonZero);
+      expect(result.stdout, contains('"valid": false'));
+      expect(result.stdout, contains('"path": "steps[0].include"'));
+      expect(result.stdout, contains('missing.yaml'));
+    } finally {
+      tempDirectory.deleteSync(recursive: true);
+    }
+  });
+
   test('run rejects unknown --until values', () async {
     final ProcessResult result =
         await Process.run(Platform.resolvedExecutable, [
@@ -51,6 +126,43 @@ void main() {
 
     expect(result.exitCode, isNonZero);
     expect(result.stderr, contains('--until must be a 1-based step number'));
+  });
+
+  test('run validates --until labels from expanded Step Includes', () async {
+    final Directory tempDirectory = Directory.systemTemp.createTempSync(
+      'flutter_pilot_cli_include_until_test_',
+    );
+    final String packageRoot = Directory.current.absolute.path;
+    try {
+      File('${tempDirectory.path}/library.yaml').writeAsStringSync('''
+steps:
+  - label: included_capture
+    capture: {}
+''');
+      final File scenarioFile = File('${tempDirectory.path}/scenario.yaml')
+        ..writeAsStringSync('''
+steps:
+  - include: library.yaml
+''');
+
+      final ProcessResult result =
+          await Process.run(Platform.resolvedExecutable, [
+            'run',
+            '$packageRoot/bin/flutter_pilot.dart',
+            'run',
+            scenarioFile.path,
+            '--target',
+            'not-a-uri',
+            '--until',
+            'included_capture',
+          ]);
+
+      expect(result.exitCode, isNonZero);
+      expect(result.stderr, isNot(contains('--until must be')));
+      expect(result.stderr, contains('--target must be an absolute'));
+    } finally {
+      tempDirectory.deleteSync(recursive: true);
+    }
   });
 
   test('run requires --target', () async {
