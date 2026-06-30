@@ -2,15 +2,23 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:screen_recorder/screen_recorder.dart' as screen_recorder;
 import 'package:yaml/yaml.dart';
 
 import 'app_setup.dart';
+import 'diagnostic_text_renderer.dart';
 import 'html_timeline_report.dart';
+import 'recording/recording_contract.dart';
+import 'recording/screen_recorder_recording_controller.dart';
+import 'runtime/mcp_flutter_runtime_adapter.dart';
+import 'runtime/runtime_contract.dart';
 import 'run_diff.dart';
 import 'scenario.dart';
 import 'scenario_parser.dart';
 import 'scenario_runner.dart';
 import 'step_progress_renderer.dart';
+import 'target_app_launcher.dart';
+import 'target_device.dart';
 
 /// Command-line entry point for Flutter Pilot.
 ///
@@ -21,6 +29,17 @@ import 'step_progress_renderer.dart';
 /// Example:
 /// `FlutterPilotCli().run(['validate', 'examples/login_error.yaml'])`
 class FlutterPilotCli {
+  /// Creates a Flutter Pilot CLI instance.
+  ///
+  /// `testCommandExecutor` is injectable so tests can exercise the `test`
+  /// command without launching a real Flutter app.
+  const FlutterPilotCli({
+    TestCommandExecutor testCommandExecutor =
+        const DefaultTestCommandExecutor(),
+  }) : _testCommandExecutor = testCommandExecutor;
+
+  final TestCommandExecutor _testCommandExecutor;
+
   /// Run the CLI with already-tokenized command-line arguments.
   ///
   /// Args:
@@ -36,7 +55,7 @@ class FlutterPilotCli {
             'Replay Flutter UI scenarios and collect debugging artifacts.',
           )
           ..addCommand(_ValidateCommand())
-          ..addCommand(_TestCommand())
+          ..addCommand(_TestCommand(executor: _testCommandExecutor))
           ..addCommand(_ReportCommand())
           ..addCommand(_DiffCommand())
           ..addCommand(_DoctorCommand())
@@ -363,7 +382,7 @@ class _ValidateCommand extends Command<int> {
 /// It checks Scenario YAML and validates `--until` / `--print` relationships
 /// before the Target App Package is launched.
 class _TestCommand extends Command<int> {
-  _TestCommand() {
+  _TestCommand({required TestCommandExecutor executor}) : _executor = executor {
     argParser
       ..addOption(
         'device',
@@ -391,6 +410,8 @@ class _TestCommand extends Command<int> {
         help: 'Print raw diagnostics as indented JSON.',
       );
   }
+
+  final TestCommandExecutor _executor;
 
   @override
   String get description => 'Launch the Target App Package and run a Scenario.';
@@ -442,7 +463,7 @@ class _TestCommand extends Command<int> {
       stderr.writeln('--target must not be empty.');
       return 64;
     }
-    final _TestCommandOptions options = _TestCommandOptions(
+    final TestCommandOptions options = TestCommandOptions(
       scenario: parsedScenario,
       device: device?.trim(),
       flavor: flavor?.trim(),
@@ -453,10 +474,26 @@ class _TestCommand extends Command<int> {
       ),
       jsonOutput: argResults!.flag('json'),
     );
-    _ignorePendingTestCommandWiring(options);
-
-    stderr.writeln('test command app launch is not implemented yet.');
-    return 1;
+    try {
+      final ScenarioRunReport report = await _executor.run(options);
+      if (report.printedDiagnostics.isNotEmpty) {
+        if (options.jsonOutput) {
+          stdout.writeln(
+            const JsonEncoder.withIndent(
+              '  ',
+            ).convert(_printDiagnosticsJson(report)),
+          );
+        } else {
+          stdout.writeln(DiagnosticTextRenderer.render(report));
+        }
+      }
+      stdout.writeln('Run report: ${report.runDirectoryPath}/run_report.json');
+      stdout.writeln('HTML report: ${report.runDirectoryPath}/timeline.html');
+      return report.status == ScenarioRunStatus.passed ? 0 : 1;
+    } on TestCommandException catch (error) {
+      stderr.writeln(error.message);
+      return error.exitCode;
+    }
   }
 
   /// Print the final human-readable run summary to stderr.
@@ -520,6 +557,23 @@ class _TestCommand extends Command<int> {
     return printDiagnostics;
   }
 
+  /// Return the stdout JSON object for printable diagnostics.
+  Map<String, Object?> _printDiagnosticsJson(ScenarioRunReport report) {
+    return <String, Object?>{
+      for (final PrintedDiagnostic diagnostic in report.printedDiagnostics)
+        _printDiagnosticJsonKey(diagnostic.type): diagnostic.data,
+    };
+  }
+
+  /// Return the public JSON key for a printable diagnostic type.
+  String _printDiagnosticJsonKey(PrintDiagnostic printDiagnostic) {
+    return switch (printDiagnostic) {
+      PrintDiagnostic.snapshot => 'snapshot',
+      PrintDiagnostic.widgetTree => 'widgetTree',
+      PrintDiagnostic.errors => 'errors',
+    };
+  }
+
   /// Validate that `--until` names an existing stop point in the Scenario.
   ///
   /// Args:
@@ -555,8 +609,9 @@ class _TestCommand extends Command<int> {
 }
 
 /// Parsed `test` command inputs that are validated before app launch.
-class _TestCommandOptions {
-  const _TestCommandOptions({
+class TestCommandOptions {
+  /// Creates validated inputs for executing one Scenario through `test`.
+  const TestCommandOptions({
     required this.scenario,
     required this.device,
     required this.flavor,
@@ -575,15 +630,197 @@ class _TestCommandOptions {
   final bool jsonOutput;
 }
 
-/// Keep pre-launch option parsing explicit until app launch wiring lands.
-void _ignorePendingTestCommandWiring(_TestCommandOptions options) {
-  Object.hash(
-    options.scenario,
-    options.device,
-    options.flavor,
-    options.target,
-    options.stopPoint,
-    options.printDiagnostics,
-    options.jsonOutput,
-  );
+/// Executes a validated `test` command.
+abstract interface class TestCommandExecutor {
+  /// Run the Scenario described by `options` and return its run report.
+  Future<ScenarioRunReport> run(TestCommandOptions options);
+}
+
+/// Default `test` command executor for launching and running one Scenario.
+class DefaultTestCommandExecutor implements TestCommandExecutor {
+  /// Creates an executor with injectable launch and discovery boundaries.
+  const DefaultTestCommandExecutor({
+    this.deviceDiscovery = const DefaultTestDeviceDiscovery(),
+    this.launcher = const TargetAppLauncher(),
+    this.runnerFactory = const DefaultTestScenarioRunnerFactory(),
+  });
+
+  final TestDeviceDiscovery deviceDiscovery;
+  final TargetAppLauncher launcher;
+  final TestScenarioRunnerFactory runnerFactory;
+
+  @override
+  Future<ScenarioRunReport> run(TestCommandOptions options) async {
+    final bool recordingRequired = options.scenario.recording?.enabled == true;
+    TargetDevice? targetDevice;
+    if (options.device != null || recordingRequired) {
+      try {
+        final List<FlutterDevice> flutterDevices = await deviceDiscovery
+            .listFlutterDevices();
+        final List<RecordingDeviceIdentity> recordingDevices = recordingRequired
+            ? await deviceDiscovery.listRecordingDevices()
+            : const <RecordingDeviceIdentity>[];
+        targetDevice = TargetDeviceResolver.resolve(
+          selector: options.device,
+          recordingRequired: recordingRequired,
+          flutterDevices: flutterDevices,
+          recordingDevices: recordingDevices,
+        );
+      } on TargetDeviceResolutionException catch (error) {
+        throw TestCommandException(message: error.message, exitCode: 64);
+      } on FormatException catch (error) {
+        throw TestCommandException(message: error.message, exitCode: 1);
+      }
+    }
+
+    TargetAppLaunch launch;
+    try {
+      launch = await launcher.launch(
+        TargetAppLaunchCommand(
+          deviceId: targetDevice?.id,
+          flavor: options.flavor,
+          target: options.target,
+        ),
+      );
+    } on TargetAppLaunchException catch (error) {
+      final String stderrContext = error.stderrLines.isEmpty
+          ? ''
+          : '\n${error.stderrLines.join('\n')}';
+      throw TestCommandException(
+        message: '${error.message}$stderrContext',
+        exitCode: 1,
+      );
+    }
+
+    try {
+      final TestScenarioRunner runner = runnerFactory.create(
+        runtimeTarget: RuntimeTarget(vmServiceUri: launch.runtimeTargetUri),
+        recordingController: recordingRequired
+            ? ScreenRecorderRecordingController(
+                recorder: screen_recorder.ScreenRecorder.defaultRecorder(),
+                deviceSelector: targetDevice!.id,
+                outputDirectory: Directory.current,
+              )
+            : null,
+      );
+      return await runner.run(
+        options.scenario,
+        stopPoint: options.stopPoint,
+        printDiagnostics: options.printDiagnostics,
+      );
+    } on RuntimeOperationException catch (error) {
+      throw TestCommandException(message: error.message, exitCode: 1);
+    } finally {
+      await launch.cleanup();
+    }
+  }
+}
+
+/// Discovers Flutter Devices and Recording Devices for `test`.
+abstract interface class TestDeviceDiscovery {
+  /// Return Flutter Devices from `flutter devices --machine`.
+  Future<List<FlutterDevice>> listFlutterDevices();
+
+  /// Return Recording Device identities available for Scenario Recording.
+  Future<List<RecordingDeviceIdentity>> listRecordingDevices();
+}
+
+/// Default device discovery backed by Flutter CLI and `screen_recorder`.
+class DefaultTestDeviceDiscovery implements TestDeviceDiscovery {
+  /// Creates default Target Device discovery.
+  const DefaultTestDeviceDiscovery();
+
+  @override
+  Future<List<FlutterDevice>> listFlutterDevices() async {
+    final ProcessResult result = await Process.run('flutter', <String>[
+      'devices',
+      '--machine',
+    ]);
+    if (result.exitCode != 0) {
+      throw FormatException(result.stderr.toString());
+    }
+    return TargetDeviceParser.parseMachineJson(result.stdout.toString());
+  }
+
+  @override
+  Future<List<RecordingDeviceIdentity>> listRecordingDevices() async {
+    final screen_recorder.ScreenRecorder recorder =
+        screen_recorder.ScreenRecorder.defaultRecorder();
+    final List<screen_recorder.RecordingDevice> devices = await recorder
+        .listDevices();
+    return <RecordingDeviceIdentity>[
+      for (final screen_recorder.RecordingDevice device in devices)
+        RecordingDeviceIdentity(id: device.id),
+    ];
+  }
+}
+
+/// Creates a Scenario runner for one launched Runtime Target.
+abstract interface class TestScenarioRunnerFactory {
+  /// Create a runner bound to the launched Runtime Target.
+  TestScenarioRunner create({
+    required RuntimeTarget runtimeTarget,
+    required RecordingController? recordingController,
+  });
+}
+
+/// Narrow Scenario runner interface used by the `test` command executor.
+abstract interface class TestScenarioRunner {
+  /// Run `scenario` with optional stop and diagnostic controls.
+  Future<ScenarioRunReport> run(
+    Scenario scenario, {
+    RunStopPoint? stopPoint,
+    Set<PrintDiagnostic> printDiagnostics,
+  });
+}
+
+/// Default Scenario runner factory backed by `McpFlutterRuntimeAdapter`.
+class DefaultTestScenarioRunnerFactory implements TestScenarioRunnerFactory {
+  /// Creates the default runner factory.
+  const DefaultTestScenarioRunnerFactory();
+
+  @override
+  TestScenarioRunner create({
+    required RuntimeTarget runtimeTarget,
+    required RecordingController? recordingController,
+  }) {
+    return _ScenarioRunnerAdapter(
+      ScenarioRunner(
+        adapter: McpFlutterRuntimeAdapter(target: runtimeTarget),
+        recordingController: recordingController,
+        outputDirectory: Directory.current,
+      ),
+    );
+  }
+}
+
+class _ScenarioRunnerAdapter implements TestScenarioRunner {
+  const _ScenarioRunnerAdapter(this._runner);
+
+  final ScenarioRunner _runner;
+
+  @override
+  Future<ScenarioRunReport> run(
+    Scenario scenario, {
+    RunStopPoint? stopPoint,
+    Set<PrintDiagnostic> printDiagnostics = const <PrintDiagnostic>{},
+  }) {
+    return _runner.run(
+      scenario,
+      stopPoint: stopPoint,
+      printDiagnostics: printDiagnostics,
+    );
+  }
+}
+
+/// Failure from the `test` command executor.
+class TestCommandException implements Exception {
+  /// Creates a command execution failure.
+  const TestCommandException({required this.message, required this.exitCode});
+
+  /// Human-readable error message.
+  final String message;
+
+  /// CLI exit code.
+  final int exitCode;
 }
