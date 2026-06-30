@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -705,27 +706,36 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
         stopPoint: options.stopPoint,
         printDiagnostics: options.printDiagnostics,
       );
-      return await Future.any(<Future<ScenarioRunReport>>[
-        runFuture,
-        _interruptFuture(),
-      ]);
+      StreamSubscription<void>? interruptSub;
+      try {
+        final Completer<ScenarioRunReport> interruptCompleter =
+            Completer<ScenarioRunReport>();
+        interruptSub =
+            (interruptSignals ??
+                    ProcessSignal.sigint
+                        .watch()
+                        .map<void>((ProcessSignal _) {}))
+                .listen((_) {
+          if (!interruptCompleter.isCompleted) {
+            interruptCompleter.completeError(
+              const TestCommandException(
+                  message: 'test command interrupted.', exitCode: 130),
+            );
+          }
+        });
+        return await Future.any(<Future<ScenarioRunReport>>[
+          runFuture,
+          interruptCompleter.future,
+        ]);
+      } finally {
+        runFuture.ignore();
+        await interruptSub?.cancel();
+      }
     } on RuntimeOperationException catch (error) {
       throw TestCommandException(message: error.message, exitCode: 1);
     } finally {
       await launch.cleanup();
     }
-  }
-
-  /// Complete with a command failure when the current process is interrupted.
-  Future<ScenarioRunReport> _interruptFuture() async {
-    final Stream<void> signals =
-        interruptSignals ??
-        ProcessSignal.sigint.watch().map<void>((ProcessSignal _) {});
-    await signals.first;
-    throw const TestCommandException(
-      message: 'test command interrupted.',
-      exitCode: 130,
-    );
   }
 }
 
@@ -752,7 +762,11 @@ class DefaultTestDeviceDiscovery implements TestDeviceDiscovery {
     if (result.exitCode != 0) {
       throw DeviceDiscoveryException(result.stderr.toString());
     }
-    return TargetDeviceParser.parseMachineJson(result.stdout.toString());
+    try {
+      return TargetDeviceParser.parseMachineJson(result.stdout.toString());
+    } on FormatException catch (e) {
+      throw DeviceDiscoveryException(e.message);
+    }
   }
 
   @override
