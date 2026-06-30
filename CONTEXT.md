@@ -20,6 +20,10 @@ _Avoid_: Target configuration, environment block
 The Flutter app package in the current working directory that is expected to expose the runtime capabilities Flutter Pilot needs before it can be used as a Runtime Target.
 _Avoid_: Scenario workspace, CLI workspace, project root
 
+**Target Device**:
+The device selected for a high-level Flutter Pilot test run. The Target App Package runs on this device, and any Scenario Recording for that run must record the same device.
+_Avoid_: Runtime Target, Recording Device
+
 **Runtime Adapter**:
 The narrow interface between the Flutter Pilot runner and a concrete Flutter runtime bridge. It maps Scenario Finders, actions, and capture requests to executable runtime operations, then converts runtime results back into Flutter Pilot types.
 _Avoid_: Runtime Target, driver, bridge
