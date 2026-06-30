@@ -712,17 +712,19 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
             Completer<ScenarioRunReport>();
         interruptSub =
             (interruptSignals ??
-                    ProcessSignal.sigint
-                        .watch()
-                        .map<void>((ProcessSignal _) {}))
+                    ProcessSignal.sigint.watch().map<void>(
+                      (ProcessSignal _) {},
+                    ))
                 .listen((_) {
-          if (!interruptCompleter.isCompleted) {
-            interruptCompleter.completeError(
-              const TestCommandException(
-                  message: 'test command interrupted.', exitCode: 130),
-            );
-          }
-        });
+                  if (!interruptCompleter.isCompleted) {
+                    interruptCompleter.completeError(
+                      const TestCommandException(
+                        message: 'test command interrupted.',
+                        exitCode: 130,
+                      ),
+                    );
+                  }
+                });
         return await Future.any(<Future<ScenarioRunReport>>[
           runFuture,
           interruptCompleter.future,
