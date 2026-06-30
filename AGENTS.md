@@ -100,8 +100,14 @@ Current test shape:
 - Parser tests call the public `ScenarioParser` API and assert on typed Scenario
   output or `ScenarioValidationException`.
 - CLI tests run the real Dart subprocess and assert exit codes/stdout/stderr.
-- Future runner tests should use a fake Runtime Adapter so core behavior can be
-  tested without a live Flutter app.
+- Runner tests use a fake Runtime Adapter so core behavior can be tested
+  without a live Flutter app. Runner tests verify Step progress events (started
+  and finished) in execution order.
+- Progress renderer tests verify plain-text layout, action and label alignment,
+  unlabeled Step rendering, and interactive block refresh independently of
+  Scenario execution.
+- Terminal style tests verify ANSI wrapping, disabled plain-text behavior, ANSI
+  stripping, and emoji capability.
 
 Before finishing code changes, run format, analyze, and tests unless the user
 explicitly asks not to.

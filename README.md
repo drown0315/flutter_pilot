@@ -228,6 +228,8 @@ consistent.
   Regression rules, and acceptance fixtures.
 - [docs/flutter-pilot-prd.md](docs/flutter-pilot-prd.md): product scope and
   implementation decisions.
+- [docs/cli-step-progress-prd.md](docs/cli-step-progress-prd.md): CLI Step
+  progress feature requirements and implementation decisions.
 - [docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md](docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md):
   architecture decision for the Dart CLI and YAML Scenario DSL.
 
