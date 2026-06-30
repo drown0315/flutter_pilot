@@ -659,11 +659,13 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
     this.deviceDiscovery = const DefaultTestDeviceDiscovery(),
     this.launcher = const TargetAppLauncher(),
     this.runnerFactory = const DefaultTestScenarioRunnerFactory(),
+    this.interruptSignals,
   });
 
   final TestDeviceDiscovery deviceDiscovery;
   final TargetAppLauncher launcher;
   final TestScenarioRunnerFactory runnerFactory;
+  final Stream<void>? interruptSignals;
 
   @override
   Future<ScenarioRunReport> run(TestCommandOptions options) async {
@@ -720,16 +722,32 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
               )
             : null,
       );
-      return await runner.run(
+      final Future<ScenarioRunReport> runFuture = runner.run(
         options.scenario,
         stopPoint: options.stopPoint,
         printDiagnostics: options.printDiagnostics,
       );
+      return await Future.any(<Future<ScenarioRunReport>>[
+        runFuture,
+        _interruptFuture(),
+      ]);
     } on RuntimeOperationException catch (error) {
       throw TestCommandException(message: error.message, exitCode: 1);
     } finally {
       await launch.cleanup();
     }
+  }
+
+  /// Complete with a command failure when the current process is interrupted.
+  Future<ScenarioRunReport> _interruptFuture() async {
+    final Stream<void> signals =
+        interruptSignals ??
+        ProcessSignal.sigint.watch().map<void>((ProcessSignal _) {});
+    await signals.first;
+    throw const TestCommandException(
+      message: 'test command interrupted.',
+      exitCode: 130,
+    );
   }
 }
 

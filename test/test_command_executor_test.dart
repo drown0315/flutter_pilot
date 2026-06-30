@@ -206,6 +206,66 @@ steps:
       'Target Device: pixel-8 (Pixel 8, android-arm64, Android 35)',
     );
   });
+
+  test('default executor cleans up launched app when interrupted', () async {
+    await FileTestkit.runZoned(() async {
+      final FakeTargetAppProcess process = FakeTargetAppProcess();
+      final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+        process,
+      );
+      final HangingScenarioRunner runner = HangingScenarioRunner();
+      final StreamController<void> interruptController =
+          StreamController<void>();
+      final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
+        deviceDiscovery: const FakeDeviceDiscovery(),
+        launcher: TargetAppLauncher(starter: starter),
+        runnerFactory: FakeScenarioRunnerFactory(runner),
+        interruptSignals: interruptController.stream,
+      );
+      final Scenario scenario = Scenario(
+        name: 'interrupt',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: TapAction(finder: Finder(byText: 'Continue')),
+          ),
+        ],
+      );
+
+      final Future<ScenarioRunReport> reportFuture = executor.run(
+        TestCommandOptions(
+          scenario: scenario,
+          device: null,
+          flavor: null,
+          target: null,
+          stopPoint: null,
+          printDiagnostics: const <PrintDiagnostic>{},
+          jsonOutput: false,
+        ),
+      );
+      process.emitStdout(
+        jsonEncode(<String, Object?>{
+          'event': 'app.debugPort',
+          'params': <String, Object?>{'wsUri': 'ws://127.0.0.1:1234/token=/ws'},
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+      interruptController.add(null);
+
+      await expectLater(
+        reportFuture,
+        throwsA(
+          isA<TestCommandException>().having(
+            (TestCommandException error) => error.message,
+            'message',
+            contains('interrupted'),
+          ),
+        ),
+      );
+      expect(process.stdinWrites, <String>['q']);
+      await interruptController.close();
+    });
+  });
 }
 
 class FakeTestCommandExecutor implements TestCommandExecutor {
@@ -289,6 +349,23 @@ class FakeScenarioRunner implements TestScenarioRunner {
   }) async {
     this.scenario = scenario;
     return report;
+  }
+}
+
+class HangingScenarioRunner extends FakeScenarioRunner {
+  HangingScenarioRunner() : super(_passedReport());
+
+  final Completer<ScenarioRunReport> _completer =
+      Completer<ScenarioRunReport>();
+
+  @override
+  Future<ScenarioRunReport> run(
+    Scenario scenario, {
+    RunStopPoint? stopPoint,
+    Set<PrintDiagnostic> printDiagnostics = const <PrintDiagnostic>{},
+  }) {
+    this.scenario = scenario;
+    return _completer.future;
   }
 }
 
