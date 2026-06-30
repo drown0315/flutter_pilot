@@ -37,8 +37,9 @@ class ScenarioValidationException implements Exception {
 
 /// Parser that converts strict Scenario YAML into typed Scenario objects.
 ///
-/// It accepts the first-version Scenario schema:
+/// It accepts the Scenario schema:
 /// - top-level `scenario` metadata and required `steps`
+/// - Step Includes that reference Step Library files
 /// - one action per step
 /// - Finder fields `byText` and `byType`
 ///
@@ -58,12 +59,17 @@ class ScenarioParser {
   /// `filePath` is the path to a YAML file. When `scenario.name` is omitted,
   /// the file basename becomes the Scenario name.
   ///
+  /// Step Includes in the Steps list are expanded: each `include:` entry loads
+  /// the referenced Step Library file and inlines its Steps. Include paths are
+  /// resolved relative to the file that contains the include. Include cycles
+  /// are detected and produce a validation error.
+  ///
   /// Returns:
   /// A typed `Scenario` whose steps contain concrete `StepAction` subclasses.
   ///
   /// Throws:
   /// `ScenarioValidationException` when the file is missing, the YAML cannot be
-  /// parsed, or the schema contains invalid fields.
+  /// parsed, include expansion fails, or the schema contains invalid fields.
   static Scenario parseFile(String filePath) {
     final File file = File(filePath);
     if (!file.existsSync()) {
@@ -72,18 +78,36 @@ class ScenarioParser {
       ]);
     }
 
-    try {
-      final Object? yaml = loadYaml(file.readAsStringSync());
-      return parse(yaml, fallbackName: p.basenameWithoutExtension(filePath));
-    } on YamlException catch (error) {
-      throw ScenarioValidationException([
-        ScenarioValidationError(r'$', error.message),
-      ]);
-    } on FormatException catch (error) {
-      throw ScenarioValidationException([
-        ScenarioValidationError(r'$', error.message),
-      ]);
+    final List<ScenarioValidationError> errors = <ScenarioValidationError>[];
+    final _ParsedYamlFile? parsedFile = _readYamlFile(
+      file,
+      r'$',
+      p.normalize(filePath),
+      errors,
+    );
+    if (parsedFile == null) {
+      throw ScenarioValidationException(errors);
     }
+
+    final String identity = _fileIdentity(file);
+    final String entryDisplayPath = p.normalize(filePath);
+    final Scenario scenario = _parseDocument(
+      parsedFile.yaml,
+      fallbackName: p.basenameWithoutExtension(filePath),
+      sourceFile: file,
+      fileIdentity: identity,
+      displayPath: entryDisplayPath,
+      documentPath: r'$',
+      library: false,
+      includeStack: <String>[identity],
+      includeChain: const <IncludeSource>[],
+      labels: null,
+      errors: errors,
+    );
+    if (errors.isNotEmpty) {
+      throw ScenarioValidationException(errors);
+    }
+    return scenario;
   }
 
   /// Convert a decoded YAML value into a typed Scenario.
@@ -91,6 +115,9 @@ class ScenarioParser {
   /// Args:
   /// `yaml` is the value returned by `loadYaml`. It must be a YAML map.
   /// `fallbackName` is used when `scenario.name` is absent or empty.
+  ///
+  /// Step Includes are rejected in in-memory mode (see `parseFile` for
+  /// file-level parsing with include expansion).
   ///
   /// Returns:
   /// A `Scenario` with validated metadata, labels, Finders, and actions.
@@ -100,24 +127,81 @@ class ScenarioParser {
   /// walking the YAML tree.
   static Scenario parse(Object? yaml, {String fallbackName = 'scenario'}) {
     final List<ScenarioValidationError> errors = <ScenarioValidationError>[];
+    final Scenario scenario = _parseDocument(
+      yaml,
+      fallbackName: fallbackName,
+      sourceFile: null,
+      fileIdentity: null,
+      displayPath: null,
+      documentPath: r'$',
+      library: false,
+      includeStack: const <String>[],
+      includeChain: const <IncludeSource>[],
+      labels: null,
+      errors: errors,
+    );
+    if (errors.isNotEmpty) {
+      throw ScenarioValidationException(errors);
+    }
+    return scenario;
+  }
+
+  /// Convert one YAML document into a Scenario and expand file includes.
+  ///
+  /// Args:
+  /// `yaml` is the decoded YAML document.
+  /// `fallbackName` is used for Entry Scenario files without `scenario.name`.
+  /// `sourceFile` is the file that owns relative include resolution. When
+  /// absent, Step Includes are rejected instead of using the process directory.
+  /// `library` controls whether top-level Scenario metadata is allowed.
+  /// `includeStack` contains canonical file identities already being expanded.
+  /// `errors` receives schema, file, include, and YAML parse failures.
+  ///
+  /// Returns:
+  /// A Scenario with expanded and re-indexed Steps. The returned object is only
+  /// safe to use when `errors` is empty.
+  static Scenario _parseDocument(
+    Object? yaml, {
+    required String fallbackName,
+    required File? sourceFile,
+    required String? fileIdentity,
+    required String? displayPath,
+    required String documentPath,
+    required bool library,
+    required List<String> includeStack,
+    required List<IncludeSource> includeChain,
+    required Set<String>? labels,
+    required List<ScenarioValidationError> errors,
+  }) {
     if (yaml is! YamlMap) {
-      throw const ScenarioValidationException([
-        ScenarioValidationError(r'$', 'Expected a YAML map.'),
-      ]);
+      errors.add(ScenarioValidationError(documentPath, 'Expected a YAML map.'));
+      return Scenario(name: fallbackName, steps: const <ScenarioStep>[]);
     }
 
-    _rejectUnknownKeys(r'$', yaml, {'scenario', 'steps'}, errors);
+    _rejectUnknownKeys(
+      documentPath,
+      yaml,
+      library ? {'steps'} : {'scenario', 'steps'},
+      errors,
+    );
+    if (library && yaml.containsKey('scenario')) {
+      errors.add(
+        ScenarioValidationError(
+          _joinPath(documentPath, 'scenario'),
+          'Step Libraries cannot define scenario metadata.',
+        ),
+      );
+    }
 
     String scenarioName = fallbackName.isEmpty ? 'scenario' : fallbackName;
     String? description;
     final Object? scenarioYaml = yaml['scenario'];
-    if (scenarioYaml != null) {
+    final String scenarioPath = _joinPath(documentPath, 'scenario');
+    if (!library && scenarioYaml != null) {
       if (scenarioYaml is! YamlMap) {
-        errors.add(
-          const ScenarioValidationError('scenario', 'Expected a map.'),
-        );
+        errors.add(ScenarioValidationError(scenarioPath, 'Expected a map.'));
       } else {
-        _rejectUnknownKeys('scenario', scenarioYaml, {
+        _rejectUnknownKeys(scenarioPath, scenarioYaml, {
           'name',
           'description',
         }, errors);
@@ -125,11 +209,11 @@ class ScenarioParser {
         if (name != null) {
           if (name is String) {
             scenarioName = name;
-            _validateSlug('scenario.name', name, errors);
+            _validateSlug(_joinPath(scenarioPath, 'name'), name, errors);
           } else {
             errors.add(
-              const ScenarioValidationError(
-                'scenario.name',
+              ScenarioValidationError(
+                _joinPath(scenarioPath, 'name'),
                 'Expected a string.',
               ),
             );
@@ -141,8 +225,8 @@ class ScenarioParser {
             description = rawDescription;
           } else {
             errors.add(
-              const ScenarioValidationError(
-                'scenario.description',
+              ScenarioValidationError(
+                _joinPath(scenarioPath, 'description'),
                 'Expected a string.',
               ),
             );
@@ -153,33 +237,195 @@ class ScenarioParser {
 
     final Object? rawSteps = yaml['steps'];
     final List<ScenarioStep> steps = <ScenarioStep>[];
+    final String stepsPath = _joinPath(documentPath, 'steps');
     if (rawSteps is! YamlList) {
-      errors.add(const ScenarioValidationError('steps', 'Expected a list.'));
+      errors.add(ScenarioValidationError(stepsPath, 'Expected a list.'));
     } else if (rawSteps.isEmpty) {
       errors.add(
-        const ScenarioValidationError('steps', 'Expected at least one step.'),
+        ScenarioValidationError(stepsPath, 'Expected at least one step.'),
       );
     } else {
-      final Set<String> labels = <String>{};
-      for (int i = 0; i < rawSteps.length; i++) {
-        final ScenarioStep? step = _parseStep(rawSteps[i], i, labels, errors);
-        if (step != null) {
-          steps.add(step);
-        }
-      }
+      final Set<String> documentLabels = labels ?? <String>{};
+      _parseSteps(
+        rawSteps,
+        path: stepsPath,
+        sourcePath: 'steps',
+        sourceFile: sourceFile,
+        fileIdentity: fileIdentity,
+        displayPath: displayPath,
+        includeStack: includeStack,
+        includeChain: includeChain,
+        labels: documentLabels,
+        steps: steps,
+        errors: errors,
+      );
     }
 
-    if (errors.isNotEmpty) {
-      throw ScenarioValidationException(errors);
+    return Scenario(
+      name: scenarioName,
+      description: description,
+      steps: _reindexSteps(steps),
+    );
+  }
+
+  /// Parse a Step list and expand any Step Includes found in list order.
+  static void _parseSteps(
+    YamlList rawSteps, {
+    required String path,
+    required String sourcePath,
+    required File? sourceFile,
+    required String? fileIdentity,
+    required String? displayPath,
+    required List<String> includeStack,
+    required List<IncludeSource> includeChain,
+    required Set<String> labels,
+    required List<ScenarioStep> steps,
+    required List<ScenarioValidationError> errors,
+  }) {
+    for (int i = 0; i < rawSteps.length; i++) {
+      final String stepPath = '$path[$i]';
+      final String sourceStepPath = '$sourcePath[$i]';
+      final Object? rawStep = rawSteps[i];
+      if (_isIncludeEntry(rawStep)) {
+        _parseInclude(
+          rawStep as YamlMap,
+          stepPath,
+          sourceFile: sourceFile,
+          fileIdentity: fileIdentity,
+          displayPath: displayPath,
+          includeStack: includeStack,
+          includeChain: includeChain,
+          labels: labels,
+          steps: steps,
+          errors: errors,
+        );
+        continue;
+      }
+      final ScenarioStep? step = _parseStep(
+        rawStep,
+        stepPath,
+        steps.length,
+        source: _stepSource(
+          fileIdentity: fileIdentity,
+          displayPath: displayPath,
+          yamlPath: sourceStepPath,
+          includeChain: includeChain,
+        ),
+        labels: labels,
+        errors: errors,
+      );
+      if (step != null) {
+        steps.add(step);
+      }
     }
-    return Scenario(name: scenarioName, description: description, steps: steps);
+  }
+
+  /// Return whether a raw Step list item uses the Step Include shape.
+  static bool _isIncludeEntry(Object? yaml) {
+    return yaml is YamlMap && yaml.containsKey('include');
+  }
+
+  /// Parse one Step Include and append the referenced library Steps.
+  static void _parseInclude(
+    YamlMap yaml,
+    String path, {
+    required File? sourceFile,
+    required String? fileIdentity,
+    required String? displayPath,
+    required List<String> includeStack,
+    required List<IncludeSource> includeChain,
+    required Set<String> labels,
+    required List<ScenarioStep> steps,
+    required List<ScenarioValidationError> errors,
+  }) {
+    _rejectUnknownKeys(path, yaml, {'include'}, errors);
+    final Object? rawIncludePath = yaml['include'];
+    if (rawIncludePath is! String) {
+      errors.add(
+        ScenarioValidationError('$path.include', 'Expected a string.'),
+      );
+      return;
+    }
+    if (yaml.length != 1) {
+      return;
+    }
+    if (sourceFile == null) {
+      errors.add(
+        ScenarioValidationError(
+          '$path.include',
+          'Step Includes require file context from parseFile(...).',
+        ),
+      );
+      return;
+    }
+
+    final File includeFile = _resolveIncludeFile(sourceFile, rawIncludePath);
+    final String includeDisplayPath = rawIncludePath;
+    final String includeErrorPath = '$path.include';
+    if (!includeFile.existsSync()) {
+      errors.add(
+        ScenarioValidationError(
+          includeErrorPath,
+          'Included Step Library does not exist: $includeDisplayPath',
+        ),
+      );
+      return;
+    }
+
+    final String includeIdentity = _fileIdentity(includeFile);
+    if (includeStack.contains(includeIdentity)) {
+      errors.add(
+        ScenarioValidationError(
+          includeErrorPath,
+          'Step Include cycle detected: $includeDisplayPath',
+        ),
+      );
+      return;
+    }
+
+    final _ParsedYamlFile? parsedFile = _readYamlFile(
+      includeFile,
+      includeErrorPath,
+      includeDisplayPath,
+      errors,
+    );
+    if (parsedFile == null) {
+      return;
+    }
+    final Scenario libraryScenario = _parseDocument(
+      parsedFile.yaml,
+      fallbackName: p.basenameWithoutExtension(includeFile.path),
+      sourceFile: includeFile,
+      fileIdentity: includeIdentity,
+      displayPath: includeDisplayPath,
+      documentPath: includeErrorPath,
+      library: true,
+      includeStack: <String>[...includeStack, includeIdentity],
+      includeChain: <IncludeSource>[
+        ...includeChain,
+        IncludeSource(
+          fileIdentity: includeIdentity,
+          displayPath: includeDisplayPath,
+          includePath: includeErrorPath,
+        ),
+      ],
+      labels: labels,
+      errors: errors,
+    );
+    steps.addAll(libraryScenario.steps);
+  }
+
+  /// Append a YAML field name to an existing validation path.
+  static String _joinPath(String path, String field) {
+    return path == r'$' ? field : '$path.$field';
   }
 
   /// Parse one step and enforce the "label plus exactly one action" rule.
   ///
   /// Args:
   /// `yaml` is the raw YAML item from the `steps` list.
-  /// `index` is the zero-based YAML list index used in validation paths.
+  /// `path` is the YAML list path used in validation messages.
+  /// `index` is the zero-based expanded Step index used until final reindexing.
   /// `labels` contains labels already seen so duplicates can be rejected.
   /// `errors` receives schema errors found in this step.
   ///
@@ -188,11 +434,12 @@ class ScenarioParser {
   /// is structurally invalid.
   static ScenarioStep? _parseStep(
     Object? yaml,
-    int index,
-    Set<String> labels,
-    List<ScenarioValidationError> errors,
-  ) {
-    final String path = 'steps[$index]';
+    String path,
+    int index, {
+    required StepSource? source,
+    required Set<String> labels,
+    required List<ScenarioValidationError> errors,
+  }) {
     if (yaml is! YamlMap) {
       errors.add(ScenarioValidationError(path, 'Expected a map.'));
       return null;
@@ -239,7 +486,94 @@ class ScenarioParser {
     if (action == null) {
       return null;
     }
-    return ScenarioStep(index: index + 1, label: label, action: action);
+    return ScenarioStep(
+      index: index + 1,
+      label: label,
+      source: source,
+      action: action,
+    );
+  }
+
+  /// Return Step Source metadata when parsing has file context.
+  static StepSource? _stepSource({
+    required String? fileIdentity,
+    required String? displayPath,
+    required String yamlPath,
+    required List<IncludeSource> includeChain,
+  }) {
+    if (fileIdentity == null || displayPath == null) {
+      return null;
+    }
+    return StepSource(
+      fileIdentity: fileIdentity,
+      displayPath: displayPath,
+      yamlPath: yamlPath,
+      includeChain: List<IncludeSource>.unmodifiable(includeChain),
+    );
+  }
+
+  /// Return Steps with contiguous 1-based indexes after include expansion.
+  static List<ScenarioStep> _reindexSteps(List<ScenarioStep> steps) {
+    return <ScenarioStep>[
+      for (int i = 0; i < steps.length; i++)
+        ScenarioStep(
+          index: i + 1,
+          label: steps[i].label,
+          source: steps[i].source,
+          action: steps[i].action,
+        ),
+    ];
+  }
+
+  /// Read one YAML file and convert syntax errors into validation errors.
+  static _ParsedYamlFile? _readYamlFile(
+    File file,
+    String path,
+    String displayPath,
+    List<ScenarioValidationError> errors,
+  ) {
+    try {
+      return _ParsedYamlFile(loadYaml(file.readAsStringSync()));
+    } on YamlException catch (error) {
+      errors.add(
+        ScenarioValidationError(
+          path,
+          'Invalid YAML in $displayPath: ${error.message}',
+        ),
+      );
+    } on FormatException catch (error) {
+      errors.add(
+        ScenarioValidationError(
+          path,
+          'Invalid YAML in $displayPath: ${error.message}',
+        ),
+      );
+    } on FileSystemException catch (error) {
+      errors.add(
+        ScenarioValidationError(
+          path,
+          'Cannot read $displayPath: ${error.message}',
+        ),
+      );
+    }
+    return null;
+  }
+
+  /// Resolve an include path against the file that contains it.
+  static File _resolveIncludeFile(File sourceFile, String includePath) {
+    if (p.isAbsolute(includePath)) {
+      return File(includePath);
+    }
+    return File(p.normalize(p.join(sourceFile.parent.path, includePath)));
+  }
+
+  /// Return a canonical file identity for cycle detection when available.
+  static String _fileIdentity(File file) {
+    try {
+      return file.resolveSymbolicLinksSync();
+    } on FileSystemException {
+      return p.normalize(file.absolute.path);
+    }
   }
 
   /// Dispatch one action map to the parser for its concrete action type.
@@ -523,4 +857,11 @@ class ScenarioParser {
     errors.add(ScenarioValidationError(path, 'Expected a boolean.'));
     return null;
   }
+}
+
+/// Decoded YAML document read from one Scenario or Step Library file.
+class _ParsedYamlFile {
+  const _ParsedYamlFile(this.yaml);
+
+  final Object? yaml;
 }

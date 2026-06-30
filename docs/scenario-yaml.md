@@ -71,8 +71,8 @@ are supported.
 
 ## Steps
 
-Each item in `steps` is one ordered Step. A Step may have a `label` and must
-have exactly one action.
+Each item in `steps` is either a Step or a Step Include. A Step may have a
+`label` and must have exactly one action.
 
 ```yaml
 steps:
@@ -86,6 +86,47 @@ the same slug-like format as `scenario.name`, and labels must be unique within a
 Scenario.
 
 The label belongs beside the action, not inside it.
+
+## Step Includes
+
+A Step Include pulls Steps from a Step Library file into the current Scenario
+at the include position. After expansion, the Step list is flat and includes
+Steps from all referenced libraries.
+
+```yaml
+steps:
+  - include: flows/login.yaml
+```
+
+Step Includes use the `include` key with a file path. The referenced file must
+be a valid Step Library: it must contain only `steps` and must not define
+`scenario` metadata.
+
+```yaml
+# library.yaml — valid Step Library
+steps:
+  - label: enter_email
+    type:
+      byType: textField
+      text: bad@example.com
+  - label: submit_login
+    tap:
+      byText: Log in
+```
+
+Include paths can be relative or absolute. Relative paths resolve against the
+directory of the file that contains the include. Absolute paths are used as-is.
+
+Step Includes support nesting: a Step Library can include another Step Library.
+Include cycles are detected and produce a validation error instead of recursion
+overflow.
+
+Include entries cannot carry extra fields beyond `include`. A `label` or action
+key on an include entry is a validation error. Duplicate Step Labels are
+checked after include expansion across the entire Entry Scenario.
+
+In-memory parsing (without file context) does not resolve includes — they
+produce a validation error instead of falling back to the working directory.
 
 ## Finders
 
@@ -244,9 +285,17 @@ Flutter Pilot validates Scenario YAML strictly:
 - `scroll` may omit a Finder.
 - `capture` does not use a Finder.
 - `byText` and `byType` must be single strings.
-- Step labels must be unique.
+- Step labels must be unique (checked after include expansion).
 - `scroll` must have a non-zero `deltaX` or `deltaY`.
 - `waitFor.timeoutMs` defaults to `3000`.
+- Step Includes use `include:` with a file path.
+- Step Include entries reject extra fields beyond `include`.
+- Step Library files cannot define `scenario` metadata.
+- Step Includes require file context; in-memory parsing rejects them.
+- Missing included files produce a validation error with the include path.
+- Include cycles produce a validation error instead of recursion overflow.
+- Relative include paths resolve against the source file, not the process
+  working directory.
 
 Run validation without connecting to a Flutter app:
 

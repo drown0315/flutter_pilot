@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'scenario.dart';
 import 'scenario_runner.dart';
 import 'terminal_style.dart';
 
@@ -19,13 +20,15 @@ class StepProgressRenderer {
   int? _totalSteps;
   final Map<int, _ProgressStepLine> _interactiveSteps =
       <int, _ProgressStepLine>{};
+  final Map<int, String> _stepSourceDisplayPaths = <int, String>{};
 
   /// Render one runner progress event.
   ///
   /// Args:
   /// `event` is emitted by `ScenarioRunner` when a Step starts or finishes.
   /// Started events print `running`; finished events print the Step's final
-  /// status and elapsed duration.
+  /// status and elapsed duration. Steps expanded from Step Libraries include
+  /// the source file display path, e.g. `[flows/login.yaml]`.
   void render(StepProgressEvent event) {
     if (interactive) {
       _renderInteractive(event);
@@ -34,6 +37,7 @@ class StepProgressRenderer {
     _writeScenarioHeader(event);
     switch (event) {
       case StepStartedEvent():
+        _recordStepSource(event.step);
         sink.writeln(_startedLine(event));
       case StepFinishedEvent():
         sink.writeln(_finishedLine(event));
@@ -46,11 +50,13 @@ class StepProgressRenderer {
     _totalSteps = event.totalSteps;
     switch (event) {
       case StepStartedEvent():
+        _recordStepSource(event.step);
         _interactiveSteps[event.step.index] = _ProgressStepLine(
           index: event.step.index,
           totalSteps: event.totalSteps,
           action: event.action,
           label: event.step.label,
+          sourceDisplayPath: _stepSourceDisplayPaths[event.step.index],
           status: _ProgressVisualStatus.running,
         );
       case StepFinishedEvent():
@@ -60,6 +66,7 @@ class StepProgressRenderer {
           totalSteps: event.totalSteps,
           action: report.action,
           label: report.label,
+          sourceDisplayPath: _stepSourceDisplayPaths[report.index],
           status: _visualStatusFor(report.status),
           report: report,
         );
@@ -95,6 +102,7 @@ class StepProgressRenderer {
                 totalSteps: totalSteps,
                 action: '-',
                 label: null,
+                sourceDisplayPath: null,
                 status: _ProgressVisualStatus.pending,
               ),
         ),
@@ -107,7 +115,8 @@ class StepProgressRenderer {
         '${_prefix(line.index, line.totalSteps)} '
         '${_actionColumn(line.action)} '
         '${_labelColumn(line.label)} '
-        '${_interactiveStatusText(line)}';
+        '${_interactiveStatusText(line)}'
+        '${_sourceSuffix(line.sourceDisplayPath)}';
   }
 
   /// Return a styled status label for an interactive Step row.
@@ -160,7 +169,8 @@ class StepProgressRenderer {
     return '${_prefix(event.step.index, event.totalSteps)} '
         '${_actionColumn(event.action)} '
         '${_labelColumn(event.step.label)} '
-        'running';
+        'running'
+        '${_sourceSuffix(_stepSourceDisplayPaths[event.step.index])}';
   }
 
   /// Render the final status and duration for a Step.
@@ -169,7 +179,25 @@ class StepProgressRenderer {
     return '${_prefix(report.index, event.totalSteps)} '
         '${_actionColumn(report.action)} '
         '${_labelColumn(report.label)} '
-        '${_statusText(report)}';
+        '${_statusText(report)}'
+        '${_sourceSuffix(_stepSourceDisplayPaths[report.index])}';
+  }
+
+  /// Remember source display paths from started events for finished rows.
+  void _recordStepSource(ScenarioStep step) {
+    final StepSource? source = step.source;
+    if (source == null || source.includeChain.isEmpty) {
+      return;
+    }
+    _stepSourceDisplayPaths[step.index] = source.displayPath;
+  }
+
+  /// Return a concise source suffix for Steps expanded from Step Libraries.
+  String _sourceSuffix(String? displayPath) {
+    if (displayPath == null || displayPath.isEmpty) {
+      return '';
+    }
+    return ' [$displayPath]';
   }
 
   /// Return the `current/total` prefix for one Step line.
@@ -234,6 +262,7 @@ class _ProgressStepLine {
     required this.totalSteps,
     required this.action,
     required this.label,
+    required this.sourceDisplayPath,
     required this.status,
     this.report,
   });
@@ -242,6 +271,7 @@ class _ProgressStepLine {
   final int totalSteps;
   final String action;
   final String? label;
+  final String? sourceDisplayPath;
   final _ProgressVisualStatus status;
   final StepRunReport? report;
 }

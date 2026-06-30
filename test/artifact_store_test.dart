@@ -141,6 +141,65 @@ void main() {
     });
   });
 
+  test('writes Step Source metadata in scenario artifacts', () async {
+    await FileTestkit.runZoned(() async {
+      final RunArtifactWriter writer = RunArtifactWriter(
+        Directory('artifact_output/.runs/source_run'),
+      );
+      const Scenario scenario = Scenario(
+        name: 'include_source',
+        steps: <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            label: 'included_capture',
+            source: StepSource(
+              fileIdentity: '/repo/scenarios/shared/capture.yaml',
+              displayPath: 'shared/capture.yaml',
+              yamlPath: 'steps[0]',
+              includeChain: <IncludeSource>[
+                IncludeSource(
+                  fileIdentity: '/repo/scenarios/shared/capture.yaml',
+                  displayPath: 'shared/capture.yaml',
+                  includePath: 'steps[1].include',
+                ),
+              ],
+            ),
+            action: CaptureAction(
+              screenshot: true,
+              snapshot: true,
+              widgetTree: false,
+              logs: true,
+            ),
+          ),
+        ],
+      );
+
+      writer.writeScenario(scenario);
+
+      final Map<String, Object?> scenarioJson =
+          jsonDecode(
+                File(
+                  '${writer.runDirectory.path}/scenario.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, Object?>;
+      final List<Object?> steps = scenarioJson['steps']! as List<Object?>;
+      final Map<String, Object?> step = steps.single as Map<String, Object?>;
+      expect(step['source'], <String, Object?>{
+        'fileIdentity': '/repo/scenarios/shared/capture.yaml',
+        'displayPath': 'shared/capture.yaml',
+        'yamlPath': 'steps[0]',
+        'includeChain': <Object?>[
+          <String, Object?>{
+            'fileIdentity': '/repo/scenarios/shared/capture.yaml',
+            'displayPath': 'shared/capture.yaml',
+            'includePath': 'steps[1].include',
+          },
+        ],
+      });
+    });
+  });
+
   test('writes screenshot, Snapshot, and Logs capture artifacts', () async {
     await FileTestkit.runZoned(() async {
       final RunArtifactWriter writer = RunArtifactWriter(

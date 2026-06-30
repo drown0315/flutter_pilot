@@ -100,17 +100,17 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - `scenario.description` is optional metadata. When present, it must be a string and may use YAML multiline string syntax.
 - `scenario.name`, when present, must match `^[a-zA-Z0-9][a-zA-Z0-9_-]*$`. This keeps run directory names portable and prevents path-like values. Names derived from file names must be sanitized to the same safe form.
 - The YAML scenario format is the product contract. It should support scenario metadata, ordered steps, optional labels, capture directives, and Finders by text and semantic node type. Multiple `by*` Finder constraints may be used in one step, and all constraints must match. Each `byText` and `byType` value is a single string, not an array. The YAML does not expose a `match` option. Runtime target configuration is provided by CLI options so scenarios remain portable across machines, devices, and CI.
-- Each Step is one item in the `steps` array. A Step may include a `label` field and must include exactly one action field. The `label` field is a sibling of the action field, not a nested action parameter.
+- Each Step is one item in the `steps` array. A Step may include a `label` field and must include exactly one action field. Items in `steps` may also be Step Includes (`include:` key) that reference Step Library YAML files; includes are expanded at parse time into a flat Step list.
 - The typed action model uses a sealed class hierarchy so each Step has exactly one strongly typed action and runner/report code can handle actions exhaustively.
 - Finder is a typed value object shared by actions. `tap`, `type`, and `waitFor` require at least one Finder field; `scroll` may omit Finder; `capture` does not use Finder.
 - The Scenario parser is stateless and should be exposed as static parsing functions rather than requiring callers to instantiate a parser object.
 - Step labels, when present, must use the same slug-like format as `scenario.name`: `^[a-zA-Z0-9][a-zA-Z0-9_-]*$`.
-- Step labels must be unique within a Scenario. Unlabeled Steps are allowed.
+- Step labels must be unique within a Scenario (checked after include expansion). Unlabeled Steps are allowed.
 - `--until <step-or-label>` executes through the target Step and stops after that Step completes.
 - Numeric `--until` values are 1-based Step numbers.
 - `--print` must be used with `--until` in the first version. It prints the requested diagnostics after the target Step completes.
 - First-version `--print` values are `snapshot`, `widget-tree`, and `errors`. The option may be repeated to print several diagnostics after the same stopped Step. When multiple diagnostics are requested, output order is fixed as `snapshot`, `widget-tree`, then `errors`. By default, `--print` renders human-readable diagnostic text. With `--json`, it prints the raw diagnostic payload as indented JSON. Screenshots are file artifacts and are not printed to stdout.
-- `run` prints concise Step progress for human-readable executions. Progress includes Scenario name, Step count, optional `--until` target, Step number, action, Step label or `-` when unlabeled, status, duration, and concise failure reason when a Step fails.
+- `run` prints concise Step progress for human-readable executions. Progress includes Scenario name, Step count, optional `--until` target, Step number, action, Step label or `-` when unlabeled, status, duration, concise failure reason when a Step fails, and include source file path (e.g. `[flows/login.yaml]`) for Steps expanded from Step Libraries.
 - Step progress is presentation behavior owned by the CLI, not Scenario semantics, artifact format, or Runtime Adapter contract. The runner should expose progress events or callbacks so CLI rendering stays separate from execution.
 - Human-readable Step progress is written to stderr. Final artifact locations such as `Run report:` and `HTML report:` stay on stdout so scripts can continue to consume result paths.
 - `run --json` suppresses Step progress because JSON output is intended for machine consumption.

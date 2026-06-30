@@ -81,7 +81,7 @@ Step progress because JSON output is for machine consumption.
 - Existing stdout lines for final artifact paths should remain stable, including `Run report:` and `HTML report:`.
 - The CLI should print a human-readable header before Step execution that includes Scenario name and total Step count.
 - When `--until` is present, the human-readable header should include the requested stop point in a readable form.
-- Progress lines should include Step number, total Step count, action, label placeholder, status, and duration on completion.
+- Progress lines should include Step number, total Step count, action, label placeholder, status, duration on completion, and include source file path (e.g. `[flows/login.yaml]`) for Steps expanded from Step Libraries.
 - The label placeholder for unlabeled Steps should be `-`.
 - Known action names should align in a fixed action column.
 - Labels should align in a per-Scenario label column capped at a small maximum width.

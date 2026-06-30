@@ -296,6 +296,124 @@ void main() {
     });
   });
 
+  test('writes expanded include-backed Scenario artifacts', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('include_runner_output');
+      final Directory scenarioDirectory = Directory('scenarios')
+        ..createSync(recursive: true);
+      File('${scenarioDirectory.path}/library.yaml').writeAsStringSync('''
+steps:
+  - label: included_capture
+    capture:
+      screenshot: false
+      snapshot: false
+      logs: false
+''');
+      final File scenarioFile = File('${scenarioDirectory.path}/entry.yaml')
+        ..writeAsStringSync('''
+scenario:
+  name: include_runner
+steps:
+  - label: root_capture
+    capture:
+      screenshot: false
+      snapshot: false
+      logs: false
+  - include: library.yaml
+''');
+      final Scenario scenario = ScenarioParser.parseFile(scenarioFile.path);
+
+      final ScenarioRunReport report =
+          await ScenarioRunner(
+            adapter: FakeRuntimeAdapter(),
+            outputDirectory: outputDirectory,
+          ).run(
+            scenario,
+            stopPoint: const RunStopPoint.stepLabel('included_capture'),
+          );
+
+      expect(report.status, ScenarioRunStatus.passed);
+      expect(report.steps.map((StepRunReport step) => step.label), <String?>[
+        'root_capture',
+        'included_capture',
+      ]);
+      final Map<String, Object?> scenarioJson =
+          jsonDecode(
+                File(
+                  '${report.runDirectoryPath}/scenario.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, Object?>;
+      final List<Object?> scenarioSteps =
+          scenarioJson['steps']! as List<Object?>;
+      expect(scenarioSteps, hasLength(2));
+      expect(
+        scenarioSteps.map(
+          (Object? step) => (step! as Map<String, Object?>)['index'],
+        ),
+        <int>[1, 2],
+      );
+      expect(scenarioSteps.toString(), isNot(contains('include:')));
+      expect(scenarioSteps.toString(), contains('included_capture'));
+      expect(scenarioSteps.toString(), contains('source'));
+
+      final Map<String, Object?> reportJson =
+          jsonDecode(_runReportFile(report).readAsStringSync())
+              as Map<String, Object?>;
+      final List<Object?> reportSteps = reportJson['steps']! as List<Object?>;
+      expect(reportSteps, hasLength(2));
+      expect(
+        reportSteps.map(
+          (Object? step) => (step! as Map<String, Object?>)['index'],
+        ),
+        <int>[1, 2],
+      );
+    });
+  });
+
+  test(
+    'emits progress events with Step Source metadata for included Steps',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final Directory outputDirectory = Directory('include_progress_output');
+        final Directory scenarioDirectory = Directory('scenarios')
+          ..createSync(recursive: true);
+        File('${scenarioDirectory.path}/library.yaml').writeAsStringSync('''
+steps:
+  - label: included_capture
+    capture:
+      screenshot: false
+      snapshot: false
+      logs: false
+''');
+        final File scenarioFile = File('${scenarioDirectory.path}/entry.yaml')
+          ..writeAsStringSync('''
+scenario:
+  name: include_progress
+steps:
+  - include: library.yaml
+''');
+        final Scenario scenario = ScenarioParser.parseFile(scenarioFile.path);
+        final File progressFile = File('progress.log');
+        final IOSink progressSink = progressFile.openWrite();
+        final StepProgressRenderer progressRenderer = StepProgressRenderer(
+          sink: progressSink,
+        );
+
+        await ScenarioRunner(
+          adapter: FakeRuntimeAdapter(),
+          outputDirectory: outputDirectory,
+        ).run(scenario, onProgress: progressRenderer.render);
+        await progressSink.close();
+
+        final String progress = progressFile.readAsStringSync();
+        expect(progress, contains('1/1 capture'));
+        expect(progress, contains('ok'));
+        expect(progress, contains('[library.yaml]'));
+      });
+    },
+  );
+
   test('writes an HTML timeline report by default', () async {
     await FileTestkit.runZoned(() async {
       final Directory outputDirectory = Directory('html_report_output');

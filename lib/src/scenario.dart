@@ -71,15 +71,69 @@ class Scenario {
 /// - `index`: the 1-based step number used by `--until`
 /// - `label`: an optional unique slug for named stopping points
 /// - `action`: the single action to execute for this step
+/// - `source`: optional file origin metadata when parsed through `parseFile`
 ///
 /// Example:
 /// `ScenarioStep(index: 1, label: 'submit_login', action: TapAction(...))`
 class ScenarioStep {
-  const ScenarioStep({required this.index, this.label, required this.action});
+  const ScenarioStep({
+    required this.index,
+    this.label,
+    this.source,
+    required this.action,
+  });
 
   final int index;
   final String? label;
+  final StepSource? source;
   final StepAction action;
+}
+
+/// One Step Include edge that contributed an expanded Step.
+///
+/// It contains:
+/// - the included file identity used by tooling
+/// - the display path written in the include entry when practical
+/// - the YAML path of the include field inside the Entry Scenario or library
+///
+/// Example:
+/// `IncludeSource(displayPath: 'flows/login.yaml', includePath:
+/// 'steps[1].include', fileIdentity: '/repo/flows/login.yaml')`
+class IncludeSource {
+  const IncludeSource({
+    required this.fileIdentity,
+    required this.displayPath,
+    required this.includePath,
+  });
+
+  final String fileIdentity;
+  final String displayPath;
+  final String includePath;
+}
+
+/// File origin metadata for an expanded Scenario Step.
+///
+/// It contains:
+/// - `fileIdentity`: canonical file identity when available
+/// - `displayPath`: user-facing file path for reports
+/// - `yamlPath`: path of the Step inside its source file
+/// - `includeChain`: Step Includes from the Entry Scenario to this Step
+///
+/// Example:
+/// A Step from `shared/login.yaml` included by `steps[1].include` records that
+/// include in `includeChain` while keeping the Step executable as a flat Step.
+class StepSource {
+  const StepSource({
+    required this.fileIdentity,
+    required this.displayPath,
+    required this.yamlPath,
+    required this.includeChain,
+  });
+
+  final String fileIdentity;
+  final String displayPath;
+  final String yamlPath;
+  final List<IncludeSource> includeChain;
 }
 
 /// Rule set for finding widgets before an action runs.

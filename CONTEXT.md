@@ -8,6 +8,10 @@ Flutter Pilot is a reproducible UI debugging context for Flutter apps. It define
 A YAML-defined, reproducible UI path that Flutter Pilot can run against a Flutter app. It includes ordered actions, waits, and diagnostic capture points.
 _Avoid_: Flow, script, test case
 
+**Entry Scenario**:
+The Scenario YAML file passed directly to Flutter Pilot CLI validation or execution. Its Scenario metadata is optional and, when present, belongs to the Scenario being validated or run.
+_Avoid_: Root scenario, main scenario, scenario file
+
 **Runtime Target**:
 The running Flutter app instance that a Scenario is executed against. Connection details for the Runtime Target are provided outside the Scenario.
 _Avoid_: Target configuration, environment block
@@ -39,6 +43,22 @@ _Avoid_: Contains text, fuzzy text match
 **Step**:
 One ordered item in a Scenario. A Step may have a label and must have exactly one action.
 _Avoid_: Command, instruction
+
+**Step Library**:
+A YAML-defined reusable collection of Steps when a file is referenced by a Step Include. In that role, it contributes Steps to the including Scenario or Step Library and does not define Scenario metadata.
+_Avoid_: Shared scenario, partial Scenario, test fragment
+
+**Step Include**:
+A Scenario or Step Library entry that expands a referenced Step Library at that position. It is not a Step, does not have a Step Label, and does not execute an action by itself.
+_Avoid_: Include step, import action, reusable Step
+
+**Include Chain**:
+The ordered path of Step Includes from an Entry Scenario to an expanded Step. It identifies how a Step Library contributed a Step without making those includes executable Steps.
+_Avoid_: Scenario path, execution chain, call stack
+
+**Step Source**:
+The origin metadata for an expanded Step, such as the file path and include chain that produced it. It describes where a Step came from without changing how the Step executes.
+_Avoid_: Execution target, runtime source
 
 **Step Label**:
 A human-readable identifier for a Step that can be referenced by CLI debugging controls and reports. The label belongs to the Step, not to the action.

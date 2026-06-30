@@ -371,7 +371,38 @@ class RunArtifactWriter {
     return <String, Object?>{
       'index': step.index,
       if (step.label != null) 'label': step.label,
+      if (step.source != null) 'source': _stepSourceToJson(step.source!),
       'action': _actionToJson(step.action),
+    };
+  }
+
+  /// Convert Step Source metadata into the Scenario artifact shape.
+  ///
+  /// Args:
+  /// `source` records the file and Include Chain that produced an expanded
+  /// Step.
+  ///
+  /// Returns:
+  /// A JSON-compatible source object. In-memory parsed Steps omit this object
+  /// because they do not have file context.
+  Map<String, Object?> _stepSourceToJson(StepSource source) {
+    return <String, Object?>{
+      'fileIdentity': source.fileIdentity,
+      'displayPath': source.displayPath,
+      'yamlPath': source.yamlPath,
+      'includeChain': <Object?>[
+        for (final IncludeSource include in source.includeChain)
+          _includeSourceToJson(include),
+      ],
+    };
+  }
+
+  /// Convert one Include Chain entry into JSON.
+  Map<String, Object?> _includeSourceToJson(IncludeSource include) {
+    return <String, Object?>{
+      'fileIdentity': include.fileIdentity,
+      'displayPath': include.displayPath,
+      'includePath': include.includePath,
     };
   }
 
