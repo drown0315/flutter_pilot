@@ -102,7 +102,9 @@ class HtmlTimelineReport {
     required String fallbackRunDirectoryPath,
   }) {
     final Map<String, Object?> scenario = _requiredMap(json, 'scenario');
-    final List<StepRunReport> steps = _stepsFromJson(_requiredList(json, 'steps'));
+    final List<StepRunReport> steps = _stepsFromJson(
+      _requiredList(json, 'steps'),
+    );
     return ScenarioRunReport(
       scenarioName: _requiredString(scenario, 'name'),
       scenarioDescription: _optionalString(scenario, 'description'),

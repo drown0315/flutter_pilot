@@ -15,8 +15,9 @@ void main() {
           <int>['s'.codeUnitAt(0)],
         ]),
       );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_cli_test_').path;
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_cli_test_')
+          .path;
       final StringBuffer stdout = StringBuffer();
       final StringBuffer stderr = StringBuffer();
 
@@ -54,8 +55,9 @@ void main() {
           <int>['q'.codeUnitAt(0)],
         ]),
       );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_cli_test_').path;
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_cli_test_')
+          .path;
       final StringBuffer stdout = StringBuffer();
       final StringBuffer stderr = StringBuffer();
 

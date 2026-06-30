@@ -452,13 +452,14 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
     required List<int> bytes,
   }) {
     _pullBytes[_key(<String>[
-      'adb',
-      '-s',
-      session.device.id,
-      'pull',
-      '/sdcard/screen_recorder_${session.id}.mp4',
-      session.expectedOutputPath,
-    ])] = bytes;
+          'adb',
+          '-s',
+          session.device.id,
+          'pull',
+          '/sdcard/screen_recorder_${session.id}.mp4',
+          session.expectedOutputPath,
+        ])] =
+        bytes;
   }
 
   @override
@@ -603,7 +604,7 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
 
 class _FakeScreenRecorderProcess implements ScreenRecorderProcess {
   _FakeScreenRecorderProcess({String? immediateError, this.outputPathOnKill})
-      : _stderr = immediateError ?? '' {
+    : _stderr = immediateError ?? '' {
     if (immediateError != null) {
       _exitCode.complete(1);
     }

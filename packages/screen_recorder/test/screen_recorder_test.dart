@@ -32,8 +32,9 @@ void main() {
         final ScreenRecorder recorder = ScreenRecorder.fake(
           devices: <RecordingDevice>[device],
         );
-        final String outputDirectory =
-            Directory.systemTemp.createTempSync('screen_recorder_test_').path;
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_test_')
+            .path;
 
         final RecordingSession session = await recorder.startRecord(
           deviceSelector: 'PHK110',
@@ -58,8 +59,9 @@ void main() {
       final ScreenRecorder recorder = ScreenRecorder.fake(
         devices: <RecordingDevice>[_androidDevice()],
       );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_test_').path;
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_test_')
+          .path;
 
       final RecordingSession session = await recorder.startRecord(
         deviceSelector: 'PHK',
@@ -77,8 +79,9 @@ void main() {
       final ScreenRecorder recorder = ScreenRecorder.fake(
         devices: <RecordingDevice>[_androidDevice()],
       );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_test_').path;
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_test_')
+          .path;
 
       await expectLater(
         recorder.startRecord(
@@ -96,8 +99,9 @@ void main() {
         final ScreenRecorder recorder = ScreenRecorder.fake(
           devices: <RecordingDevice>[_androidDevice()],
         );
-        final String outputDirectory =
-            Directory.systemTemp.createTempSync('screen_recorder_test_').path;
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_test_')
+            .path;
 
         await expectLater(
           recorder.startRecord(
@@ -122,8 +126,9 @@ void main() {
       final ScreenRecorder recorder = ScreenRecorder.fake(
         devices: <RecordingDevice>[_androidDevice()],
       );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_test_').path;
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_test_')
+          .path;
       File('$outputDirectory${Platform.pathSeparator}login_flow.mp4')
         ..createSync(recursive: true)
         ..writeAsStringSync('existing');
@@ -159,8 +164,9 @@ void main() {
           ),
         ],
       );
-      final String outputDirectory =
-          Directory.systemTemp.createTempSync('screen_recorder_test_').path;
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_test_')
+          .path;
 
       final RecordingSession firstSession = await recorder.startRecord(
         deviceSelector: 'PHK110',
@@ -186,8 +192,9 @@ void main() {
         final ScreenRecorder recorder = ScreenRecorder.fake(
           devices: <RecordingDevice>[_androidDevice()],
         );
-        final String outputDirectory =
-            Directory.systemTemp.createTempSync('screen_recorder_test_').path;
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_test_')
+            .path;
         final RecordingSession session = await recorder.startRecord(
           deviceSelector: 'PHK110',
           outputDirectory: outputDirectory,
@@ -213,8 +220,9 @@ void main() {
         final ScreenRecorder recorder = ScreenRecorder.fake(
           devices: <RecordingDevice>[_androidDevice()],
         );
-        final String outputDirectory =
-            Directory.systemTemp.createTempSync('screen_recorder_test_').path;
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_test_')
+            .path;
         final RecordingSession session = await recorder.startRecord(
           deviceSelector: 'PHK110',
           outputDirectory: outputDirectory,
@@ -244,8 +252,9 @@ void main() {
         final ScreenRecorder other = ScreenRecorder.fake(
           devices: <RecordingDevice>[_androidDevice()],
         );
-        final String outputDirectory =
-            Directory.systemTemp.createTempSync('screen_recorder_test_').path;
+        final String outputDirectory = Directory.systemTemp
+            .createTempSync('screen_recorder_test_')
+            .path;
         final RecordingSession ownerSession = await owner.startRecord(
           deviceSelector: 'PHK110',
           outputDirectory: outputDirectory,
