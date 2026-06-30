@@ -752,10 +752,7 @@ class DefaultTestDeviceDiscovery implements TestDeviceDiscovery {
   Future<List<FlutterDevice>> listFlutterDevices() async {
     final ProcessResult result;
     try {
-      result = await Process.run('flutter', <String>[
-        'devices',
-        '--machine',
-      ]);
+      result = await Process.run('flutter', <String>['devices', '--machine']);
     } on ProcessException catch (error) {
       throw DeviceDiscoveryException(error.message);
     }

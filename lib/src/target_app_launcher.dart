@@ -171,7 +171,9 @@ class TargetAppLauncher {
         .transform(const LineSplitter())
         .listen(
           (String line) {
-            final Uri? runtimeTargetUri = _runtimeTargetUriFromMachineLine(line);
+            final Uri? runtimeTargetUri = _runtimeTargetUriFromMachineLine(
+              line,
+            );
             if (runtimeTargetUri != null && !completer.isCompleted) {
               stdoutSub?.cancel();
               completer.complete(
