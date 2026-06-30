@@ -476,6 +476,11 @@ class _TestCommand extends Command<int> {
     );
     try {
       final ScenarioRunReport report = await _executor.run(options);
+      if (report.targetDevice != null) {
+        stdout.writeln(
+          TestCommandOutput.targetDeviceLine(report.targetDevice!),
+        );
+      }
       if (report.printedDiagnostics.isNotEmpty) {
         if (options.jsonOutput) {
           stdout.writeln(
@@ -630,6 +635,17 @@ class TestCommandOptions {
   final bool jsonOutput;
 }
 
+/// Terminal output helpers for the `test` command.
+class TestCommandOutput {
+  TestCommandOutput._();
+
+  /// Return the user-facing selected Target Device line.
+  static String targetDeviceLine(TargetDevice targetDevice) {
+    return 'Target Device: ${targetDevice.id} '
+        '(${targetDevice.name}, ${targetDevice.targetPlatform}, ${targetDevice.sdk})';
+  }
+}
+
 /// Executes a validated `test` command.
 abstract interface class TestCommandExecutor {
   /// Run the Scenario described by `options` and return its run report.
@@ -695,6 +711,7 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
     try {
       final TestScenarioRunner runner = runnerFactory.create(
         runtimeTarget: RuntimeTarget(vmServiceUri: launch.runtimeTargetUri),
+        targetDevice: targetDevice,
         recordingController: recordingRequired
             ? ScreenRecorderRecordingController(
                 recorder: screen_recorder.ScreenRecorder.defaultRecorder(),
@@ -760,6 +777,7 @@ abstract interface class TestScenarioRunnerFactory {
   /// Create a runner bound to the launched Runtime Target.
   TestScenarioRunner create({
     required RuntimeTarget runtimeTarget,
+    required TargetDevice? targetDevice,
     required RecordingController? recordingController,
   });
 }
@@ -782,12 +800,14 @@ class DefaultTestScenarioRunnerFactory implements TestScenarioRunnerFactory {
   @override
   TestScenarioRunner create({
     required RuntimeTarget runtimeTarget,
+    required TargetDevice? targetDevice,
     required RecordingController? recordingController,
   }) {
     return _ScenarioRunnerAdapter(
       ScenarioRunner(
         adapter: McpFlutterRuntimeAdapter(target: runtimeTarget),
         recordingController: recordingController,
+        targetDevice: targetDevice,
         outputDirectory: Directory.current,
       ),
     );

@@ -6,6 +6,7 @@ import 'html_timeline_report.dart';
 import 'recording/recording_contract.dart';
 import 'runtime/runtime_contract.dart';
 import 'scenario.dart';
+import 'target_device.dart';
 
 /// Runner for replaying one Scenario through a Runtime Adapter.
 ///
@@ -26,6 +27,7 @@ class ScenarioRunner {
   const ScenarioRunner({
     required this.adapter,
     this.recordingController,
+    this.targetDevice,
     required this.outputDirectory,
   });
 
@@ -33,6 +35,7 @@ class ScenarioRunner {
 
   final RuntimeAdapter adapter;
   final RecordingController? recordingController;
+  final TargetDevice? targetDevice;
   final Directory outputDirectory;
 
   /// Execute Scenario Steps and write a run report.
@@ -434,6 +437,7 @@ class ScenarioRunner {
       steps: steps,
       runDirectoryPath: runArtifactWriter.runDirectory.path,
       artifacts: artifacts,
+      targetDevice: targetDevice,
       failureReason: failureReason,
       stopPointDescription: stopPointDescription,
       printedDiagnostics: printedDiagnostics,
@@ -966,6 +970,7 @@ class ScenarioRunReport {
     required this.steps,
     required this.runDirectoryPath,
     required this.artifacts,
+    this.targetDevice,
     this.printedDiagnostics = const <PrintedDiagnostic>[],
     this.diagnosticSummary,
     this.failureReason,
@@ -988,6 +993,9 @@ class ScenarioRunReport {
 
   /// File artifacts written relative to `runDirectoryPath`.
   final List<ArtifactReport> artifacts;
+
+  /// Target Device metadata for runs launched through `test`.
+  final TargetDevice? targetDevice;
 
   /// Human-readable run-level failure reason.
   final String? failureReason;
@@ -1017,6 +1025,14 @@ class ScenarioRunReport {
       'startedAt': startedAt.toIso8601String(),
       'durationMs': durationMs,
       'runDirectory': runDirectoryPath,
+      if (targetDevice != null)
+        'targetDevice': <String, Object?>{
+          'id': targetDevice!.id,
+          'name': targetDevice!.name,
+          'targetPlatform': targetDevice!.targetPlatform,
+          'emulator': targetDevice!.emulator,
+          'sdk': targetDevice!.sdk,
+        },
       if (failureReason != null) 'failureReason': failureReason,
       if (stopPointDescription != null)
         'stopPointDescription': stopPointDescription,

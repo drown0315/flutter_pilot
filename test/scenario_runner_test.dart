@@ -575,7 +575,6 @@ steps:
       expect(scenarioSteps.toString(), isNot(contains('include:')));
       expect(scenarioSteps.toString(), contains('included_capture'));
       expect(scenarioSteps.toString(), contains('source'));
-
       final Map<String, Object?> reportJson =
           jsonDecode(_runReportFile(report).readAsStringSync())
               as Map<String, Object?>;
@@ -587,6 +586,40 @@ steps:
         ),
         <int>[1, 2],
       );
+    });
+  });
+
+  test('records Target Device metadata when provided', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('target_device_output');
+      final Scenario scenario = Scenario(
+        name: 'target_device_report',
+        steps: const <ScenarioStep>[],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: FakeRuntimeAdapter(),
+        outputDirectory: outputDirectory,
+        targetDevice: const TargetDevice(
+          id: 'pixel-8',
+          name: 'Pixel 8',
+          targetPlatform: 'android-arm64',
+          emulator: true,
+          sdk: 'Android 35',
+        ),
+      ).run(scenario);
+
+      final Map<String, Object?> reportJson =
+          jsonDecode(_runReportFile(report).readAsStringSync())
+              as Map<String, Object?>;
+      expect(reportJson['targetDevice'], <String, Object?>{
+        'id': 'pixel-8',
+        'name': 'Pixel 8',
+        'targetPlatform': 'android-arm64',
+        'emulator': true,
+        'sdk': 'Android 35',
+      });
+      expect(reportJson.toString(), isNot(contains('isSupported')));
     });
   });
 
@@ -629,6 +662,9 @@ steps:
         expect(progress, contains('1/1 capture'));
         expect(progress, contains('ok'));
         expect(progress, contains('[library.yaml]'));
+      });
+    },
+  );
       });
     },
   );

@@ -186,10 +186,26 @@ steps:
           '--device-id',
           'pixel-8',
         ]);
+        expect(runner.targetDevice?.id, 'pixel-8');
         expect(runner.recordingController, isNotNull);
       });
     },
   );
+
+  test('renders resolved Target Device output', () {
+    expect(
+      TestCommandOutput.targetDeviceLine(
+        const TargetDevice(
+          id: 'pixel-8',
+          name: 'Pixel 8',
+          targetPlatform: 'android-arm64',
+          emulator: true,
+          sdk: 'Android 35',
+        ),
+      ),
+      'Target Device: pixel-8 (Pixel 8, android-arm64, Android 35)',
+    );
+  });
 }
 
 class FakeTestCommandExecutor implements TestCommandExecutor {
@@ -246,9 +262,11 @@ class FakeScenarioRunnerFactory implements TestScenarioRunnerFactory {
   @override
   TestScenarioRunner create({
     required RuntimeTarget runtimeTarget,
+    required TargetDevice? targetDevice,
     required RecordingController? recordingController,
   }) {
     runner.runtimeTarget = runtimeTarget;
+    runner.targetDevice = targetDevice;
     runner.recordingController = recordingController;
     return runner;
   }
@@ -259,6 +277,7 @@ class FakeScenarioRunner implements TestScenarioRunner {
 
   final ScenarioRunReport report;
   late RuntimeTarget runtimeTarget;
+  TargetDevice? targetDevice;
   RecordingController? recordingController;
   late Scenario scenario;
 
