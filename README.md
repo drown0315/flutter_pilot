@@ -156,6 +156,18 @@ Run a Scenario by launching the current Target App Package:
 dart run flutter_pilot test examples/smoke_scenario.yaml
 ```
 
+Run all Project Scenarios from the default Pilot Directory, `pilot/`:
+
+```bash
+dart run flutter_pilot test
+```
+
+Run all Project Scenarios from a specific directory:
+
+```bash
+dart run flutter_pilot test pilot/regression
+```
+
 Select the Target Device, Flutter flavor, or app entrypoint when needed:
 
 ```bash
@@ -202,7 +214,9 @@ flutter_pilot validate <scenario.yaml>
 flutter_pilot validate <scenario.yaml> --json
 flutter_pilot doctor
 flutter_pilot init
+flutter_pilot test
 flutter_pilot test <scenario.yaml>
+flutter_pilot test <scenario-directory>
 flutter_pilot test <scenario.yaml> --device <device-id-or-name>
 flutter_pilot test <scenario.yaml> --flavor <flavor> --target <entrypoint.dart>
 flutter_pilot test <scenario.yaml> --until <step-or-label>
@@ -214,6 +228,12 @@ flutter_pilot diff <before-run> <after-run> --json
 
 `--print` may be repeated. When several diagnostics are requested, Flutter Pilot
 prints them in a stable order: Snapshot, Widget Tree, then errors.
+
+With no Scenario file, `test` discovers Project Scenarios under `pilot/`. With
+a directory argument, it discovers Project Scenarios under that directory.
+Directory discovery recursively scans `.yaml` and `.yml` files, but only files
+with top-level `scenario:` metadata are run; YAML files without that metadata
+are treated as Step Library candidates.
 
 `run` is no longer a Flutter Pilot command. `test --target` follows Flutter CLI
 vocabulary and selects the app entrypoint file; it does not accept a VM service
@@ -236,8 +256,10 @@ designed for both human review and machine consumption.
 - Device Video Recording: optional run-level video saved when
   `scenario.recording` is enabled, stored as
   `artifacts/device-video-recording.<ext>`.
-- `run_report.json`: machine-readable execution summary.
+- `run_report.json`: machine-readable Scenario Run summary.
 - `timeline.html`: visual timeline generated from run artifacts.
+- `project_run_report.json`: machine-readable Project Run summary when
+  multiple Project Scenarios are run together.
 
 ## Development
 

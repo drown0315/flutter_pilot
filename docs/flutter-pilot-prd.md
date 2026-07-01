@@ -10,7 +10,14 @@ The project should provide a deterministic UI replay and diagnostics harness for
 
 Flutter Pilot will be a CLI tool that executes YAML scenarios against a Flutter app through `mcp_flutter`. A scenario describes user actions such as tapping, typing, scrolling, waiting for UI state, and capture checkpoints. Runtime connection details are not embedded in the scenario. The `test` command launches the current Target App Package with `flutter run --machine`, shows Target App Launch Progress while waiting for the Runtime Target URI from Flutter's machine output, runs the Scenario with Step progress, and cleans up the launched app process. During a run, Flutter Pilot records step-level artifacts including screenshots, semantic snapshots, widget summaries, logs that include runtime errors when available, timing, and command results.
 
-The user-facing execution command is `flutter_pilot test <scenario.yaml>`. The previous `run` command and user-supplied VM service URI mode are removed. `test --target` follows Flutter CLI vocabulary and selects the Flutter app entrypoint file, while `--device` selects the Target Device and `--flavor` selects the Flutter flavor.
+The user-facing execution command is `flutter_pilot test`. With a Scenario file
+argument it executes that Entry Scenario. With no argument it runs the Target
+App Package's Project Scenarios discovered from the default Pilot Directory,
+`pilot/`. With a directory argument it runs Project Scenarios discovered from
+that directory. The previous `run` command and user-supplied VM service URI
+mode are removed. `test --target` follows Flutter CLI vocabulary and selects
+the Flutter app entrypoint file, while `--device` selects the Target Device and
+`--flavor` selects the Flutter flavor.
 
 The first product milestone focuses on six capabilities:
 
@@ -81,7 +88,9 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - Use `mcp_flutter` as the runtime bridge for Flutter interaction and inspection. Flutter Pilot does not reimplement low-level app driving, widget inspection, screenshot capture, log collection, or lifecycle controls.
 - The MVP command set includes:
   - `flutter_pilot validate <scenario.yaml>`
+  - `flutter_pilot test`
   - `flutter_pilot test <scenario.yaml>`
+  - `flutter_pilot test <scenario-directory>`
   - `flutter_pilot test <scenario.yaml> --device <device-id-or-name>`
   - `flutter_pilot test <scenario.yaml> --flavor <flavor> --target <entrypoint.dart>`
   - `flutter_pilot test <scenario.yaml> --until <step-or-label>`
@@ -91,7 +100,10 @@ The result is a reproducible bug report package that can be consumed by humans, 
   - `flutter_pilot diff <before-run> <after-run>`
 - The `validate` command checks Scenario YAML and schema rules without connecting to a Runtime Target.
 - The `validate` command supports human-readable output by default and machine-readable JSON output with `--json`. Validation failures exit non-zero and include field paths such as `steps[2].tap.byText`.
-- First-version `validate` and `test` read Scenario YAML from file paths only. Reading from stdin is out of scope for the first version.
+- First-version `validate` reads Scenario YAML from file paths only. `test`
+  reads one Entry Scenario from a file path, or discovers Project Scenarios
+  from `pilot/` or an explicit directory. Reading from stdin is out of scope for
+  the first version.
 - The first version includes an example Scenario file that exercises the core schema, including `type`, combined Finders, `waitFor`, and `capture`.
 - First-version validation diagnostics include field paths but not YAML line or column numbers. The typed Scenario model does not carry source location metadata.
 - Validation should collect and report all schema-level errors when safe to continue. YAML parse errors may return a single parse error because the document cannot be traversed reliably.
@@ -145,6 +157,10 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - `test` generates `run_report.json` and `timeline.html` by default. There is no separate `--html` flag.
 - Step metadata is written as one aggregated `step.json` file containing all Step report records, rather than one JSON file per Step. The same Step results remain embedded in `run_report.json`.
 - The first runner slice writes artifacts under stable `.runs/<timestamp>_<scenario>/` directories and records artifact paths relative to the run directory.
+- A Project Run writes one batch-level run directory under `.runs/`, places each
+  Scenario Run directory inside it, and writes `project_run_report.json` with
+  per-Scenario status and report paths. The first Project Run version does not
+  generate a batch-level HTML report.
 - The HTML timeline report is generated from the run report and artifacts, not by rerunning the scenario. `flutter_pilot report <run-directory>` regenerates `timeline.html` from an existing run directory.
 - The diff command compares two run directories. It reports changes in step status, screenshots, visible text, semantic snapshots, widget summaries, and logs.
 - A Screenshot is a visual image artifact for human review. A Snapshot is a structured UI state artifact for programmatic and agent consumption. A Widget Tree is a raw or near-raw Flutter hierarchy artifact for deeper debugging.
