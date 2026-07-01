@@ -810,12 +810,14 @@ abstract interface class ProjectRunCommandExecutor {
 /// Placeholder Project Run executor until orchestration lands in later slices.
 class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
   const DefaultProjectRunCommandExecutor({
+    this.deviceDiscovery = const DefaultTestDeviceDiscovery(),
     this.launcher = const TargetAppLauncher(),
     this.runnerFactory = const DefaultTestScenarioRunnerFactory(),
     this.outputDirectory,
     this.clock = DateTime.now,
   });
 
+  final TestDeviceDiscovery deviceDiscovery;
   final TargetAppLauncher launcher;
   final TestScenarioRunnerFactory runnerFactory;
   final Directory? outputDirectory;
@@ -837,7 +839,34 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
         <ProjectScenarioRunReport>[];
     ProjectRunEnvironmentFailure? environmentFailure;
     TargetAppLaunch? launch;
+    TargetDevice? targetDevice;
+    final bool recordingRequired = options.scenarios.any(
+      (ProjectScenarioFile file) => file.scenario.recording?.enabled == true,
+    );
+    if (options.device != null || recordingRequired) {
+      try {
+        final List<FlutterDevice> flutterDevices = await deviceDiscovery
+            .listFlutterDevices();
+        final List<RecordingDeviceIdentity> recordingDevices = recordingRequired
+            ? await deviceDiscovery.listRecordingDevices()
+            : const <RecordingDeviceIdentity>[];
+        targetDevice = TargetDeviceResolver.resolve(
+          selector: options.device,
+          recordingRequired: recordingRequired,
+          flutterDevices: flutterDevices,
+          recordingDevices: recordingDevices,
+        );
+      } on TargetDeviceResolutionException catch (error) {
+        throw TestCommandException(message: error.message, exitCode: 64);
+      } on DeviceDiscoveryException catch (error) {
+        throw TestCommandException(message: error.message, exitCode: 1);
+      }
+    }
     final TargetAppLaunchChoices launchChoices = TargetAppLaunchChoices(
+      targetDevice: targetDevice,
+      selectionReason: options.device == null
+          ? null
+          : TargetDeviceSelectionReason.explicit(selector: options.device!),
       flavor: options.flavor,
       target: options.target,
     );
@@ -849,7 +878,7 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
         TargetAppLaunchCommand(
           flavor: options.flavor,
           target: options.target,
-          deviceId: options.device,
+          deviceId: targetDevice?.id,
         ),
       );
       onLaunchProgress?.call(
@@ -878,8 +907,14 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
         );
         final TestScenarioRunner runner = runnerFactory.create(
           runtimeTarget: RuntimeTarget(vmServiceUri: launch.runtimeTargetUri),
-          targetDevice: null,
-          recordingController: null,
+          targetDevice: targetDevice,
+          recordingController: scenarioFile.scenario.recording?.enabled == true
+              ? ScreenRecorderRecordingController(
+                  recorder: screen_recorder.ScreenRecorder.defaultRecorder(),
+                  deviceSelector: targetDevice!.id,
+                  outputDirectory: Directory.current,
+                )
+              : null,
         );
         final ScenarioRunReport scenarioReport = await runner.run(
           scenarioFile.scenario,

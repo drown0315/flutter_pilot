@@ -686,7 +686,7 @@ steps:
       );
       final FakeScenarioRunner runner = FakeScenarioRunner(_passedReport());
       final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
-        deviceDiscovery: const FakeDeviceDiscovery(),
+        deviceDiscovery: FakeDeviceDiscovery(),
         launcher: TargetAppLauncher(starter: starter),
         runnerFactory: FakeScenarioRunnerFactory(runner),
       );
@@ -749,7 +749,7 @@ steps:
         );
         final FakeScenarioRunner runner = FakeScenarioRunner(_passedReport());
         final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
-          deviceDiscovery: const FakeDeviceDiscovery(),
+          deviceDiscovery: FakeDeviceDiscovery(),
           launcher: TargetAppLauncher(starter: starter),
           runnerFactory: FakeScenarioRunnerFactory(runner),
         );
@@ -804,7 +804,7 @@ steps:
       );
       final FakeScenarioRunner runner = FakeScenarioRunner(_passedReport());
       final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
-        deviceDiscovery: const FakeDeviceDiscovery(),
+        deviceDiscovery: FakeDeviceDiscovery(),
         launcher: TargetAppLauncher(starter: starter),
         runnerFactory: FakeScenarioRunnerFactory(runner),
       );
@@ -865,7 +865,7 @@ steps:
         );
         final FakeScenarioRunner runner = FakeScenarioRunner(_passedReport());
         final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
-          deviceDiscovery: const FakeDeviceDiscovery(
+          deviceDiscovery: FakeDeviceDiscovery(
             flutterDevices: <FlutterDevice>[
               FlutterDevice(
                 id: 'pixel-8',
@@ -939,7 +939,7 @@ steps:
         );
         final FakeScenarioRunner runner = FakeScenarioRunner(_passedReport());
         final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
-          deviceDiscovery: const FakeDeviceDiscovery(
+          deviceDiscovery: FakeDeviceDiscovery(
             flutterDevices: <FlutterDevice>[
               FlutterDevice(
                 id: 'pixel-8',
@@ -1055,7 +1055,7 @@ steps:
         );
         final FakeScenarioRunner runner = FakeScenarioRunner(_passedReport());
         final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
-          deviceDiscovery: const FakeDeviceDiscovery(
+          deviceDiscovery: FakeDeviceDiscovery(
             flutterDevices: <FlutterDevice>[
               FlutterDevice(
                 id: 'pixel-8',
@@ -1331,7 +1331,7 @@ steps:
         );
         final FakeScenarioRunner runner = FakeScenarioRunner(_passedReport());
         final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
-          deviceDiscovery: const FakeDeviceDiscovery(),
+          deviceDiscovery: FakeDeviceDiscovery(),
           launcher: TargetAppLauncher(starter: starter),
           runnerFactory: FakeScenarioRunnerFactory(runner),
         );
@@ -1389,7 +1389,7 @@ steps:
           process,
         );
         final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
-          deviceDiscovery: const FakeDeviceDiscovery(),
+          deviceDiscovery: FakeDeviceDiscovery(),
           launcher: TargetAppLauncher(starter: starter),
           runnerFactory: FakeScenarioRunnerFactory(
             FakeScenarioRunner(_passedReport()),
@@ -1451,7 +1451,7 @@ steps:
         final StreamController<void> ticks = StreamController<void>();
         DateTime now = DateTime.utc(2026, 6, 30, 12);
         final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
-          deviceDiscovery: const FakeDeviceDiscovery(),
+          deviceDiscovery: FakeDeviceDiscovery(),
           launcher: TargetAppLauncher(starter: starter),
           runnerFactory: FakeScenarioRunnerFactory(
             FakeScenarioRunner(_passedReport()),
@@ -1528,7 +1528,7 @@ steps:
       final StreamController<void> interruptController =
           StreamController<void>();
       final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
-        deviceDiscovery: const FakeDeviceDiscovery(),
+        deviceDiscovery: FakeDeviceDiscovery(),
         launcher: TargetAppLauncher(starter: starter),
         runnerFactory: FakeScenarioRunnerFactory(runner),
         interruptSignals: interruptController.stream,
@@ -1659,6 +1659,271 @@ steps:
             '2026-07-01_09-30_checkout',
           ),
         );
+      });
+    },
+  );
+
+  test(
+    'default Project Run executor resolves explicit Target Device before launch',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTargetAppProcess process = FakeTargetAppProcess();
+        final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+          process,
+        );
+        final FakeScenarioRunner runner = FakeScenarioRunner(
+          _passedReportFor('login'),
+        );
+        final FakeDeviceDiscovery deviceDiscovery = FakeDeviceDiscovery(
+          flutterDevices: <FlutterDevice>[
+            FlutterDevice(
+              id: 'pixel-8',
+              name: 'Pixel 8',
+              targetPlatform: 'android-arm64',
+              isSupported: true,
+              emulator: true,
+              sdk: 'Android 35',
+            ),
+          ],
+        );
+        final DefaultProjectRunCommandExecutor executor =
+            DefaultProjectRunCommandExecutor(
+              deviceDiscovery: deviceDiscovery,
+              launcher: TargetAppLauncher(starter: starter),
+              runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+                runner,
+              ]),
+              outputDirectory: Directory.current,
+              clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+            );
+        final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
+          ProjectScenarioFile(
+            path: 'pilot/login.yaml',
+            relativePath: 'login.yaml',
+            scenario: _scenario('login'),
+          ),
+        ];
+
+        final Future<ProjectRunCommandReport> reportFuture = executor.run(
+          ProjectRunCommandOptions(
+            discoveryRootPath: 'pilot',
+            scenarios: scenarios,
+            device: 'Pixel',
+            flavor: 'staging',
+            target: 'lib/main_staging.dart',
+            jsonOutput: false,
+          ),
+        );
+        process.emitStdout(
+          jsonEncode(<String, Object?>{
+            'event': 'app.debugPort',
+            'params': <String, Object?>{
+              'wsUri': 'ws://127.0.0.1:1234/token=/ws',
+            },
+          }),
+        );
+
+        final ProjectRunCommandReport report = await reportFuture;
+
+        expect(report.passed, isTrue);
+        expect(deviceDiscovery.flutterDeviceListCount, 1);
+        expect(starter.startedArguments, <String>[
+          'run',
+          '--machine',
+          '--device-id',
+          'pixel-8',
+          '--flavor',
+          'staging',
+          '--target',
+          'lib/main_staging.dart',
+        ]);
+        expect(runner.targetDevice?.id, 'pixel-8');
+      });
+    },
+  );
+
+  test(
+    'default Project Run executor resolves recordable Target Device before launch',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTargetAppProcess process = FakeTargetAppProcess();
+        final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+          process,
+        );
+        final FakeScenarioRunner runner = FakeScenarioRunner(
+          _passedReportFor('recorded'),
+        );
+        final FakeDeviceDiscovery deviceDiscovery = FakeDeviceDiscovery(
+          flutterDevices: <FlutterDevice>[
+            FlutterDevice(
+              id: 'pixel-8',
+              name: 'Pixel 8',
+              targetPlatform: 'android-arm64',
+              isSupported: true,
+              emulator: true,
+              sdk: 'Android 35',
+            ),
+          ],
+          recordingDevices: <RecordingDeviceIdentity>[
+            RecordingDeviceIdentity(id: 'pixel-8'),
+          ],
+        );
+        final DefaultProjectRunCommandExecutor executor =
+            DefaultProjectRunCommandExecutor(
+              deviceDiscovery: deviceDiscovery,
+              launcher: TargetAppLauncher(starter: starter),
+              runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+                runner,
+              ]),
+              outputDirectory: Directory.current,
+              clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+            );
+        final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
+          ProjectScenarioFile(
+            path: 'pilot/recorded.yaml',
+            relativePath: 'recorded.yaml',
+            scenario: Scenario(
+              name: 'recorded',
+              recording: const ScenarioRecording(enabled: true),
+              steps: const <ScenarioStep>[
+                ScenarioStep(
+                  index: 1,
+                  action: CaptureAction(
+                    screenshot: false,
+                    snapshot: false,
+                    widgetTree: false,
+                    logs: false,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ];
+
+        final Future<ProjectRunCommandReport> reportFuture = executor.run(
+          ProjectRunCommandOptions(
+            discoveryRootPath: 'pilot',
+            scenarios: scenarios,
+            device: null,
+            flavor: null,
+            target: null,
+            jsonOutput: false,
+          ),
+        );
+        process.emitStdout(
+          jsonEncode(<String, Object?>{
+            'event': 'app.debugPort',
+            'params': <String, Object?>{
+              'wsUri': 'ws://127.0.0.1:1234/token=/ws',
+            },
+          }),
+        );
+
+        final ProjectRunCommandReport report = await reportFuture;
+
+        expect(report.passed, isTrue);
+        expect(deviceDiscovery.flutterDeviceListCount, 1);
+        expect(deviceDiscovery.recordingDeviceListCount, 1);
+        expect(starter.startedArguments, <String>[
+          'run',
+          '--machine',
+          '--device-id',
+          'pixel-8',
+        ]);
+        expect(runner.targetDevice?.id, 'pixel-8');
+        expect(runner.recordingController, isNotNull);
+      });
+    },
+  );
+
+  test(
+    'default Project Run executor rejects ambiguous recording-required selection',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTargetAppProcess process = FakeTargetAppProcess();
+        final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+          process,
+        );
+        final FakeDeviceDiscovery deviceDiscovery = FakeDeviceDiscovery(
+          flutterDevices: <FlutterDevice>[
+            FlutterDevice(
+              id: 'pixel-8',
+              name: 'Pixel 8',
+              targetPlatform: 'android-arm64',
+              isSupported: true,
+              emulator: true,
+              sdk: 'Android 35',
+            ),
+            FlutterDevice(
+              id: 'iphone-15',
+              name: 'iPhone 15',
+              targetPlatform: 'ios',
+              isSupported: true,
+              emulator: false,
+              sdk: 'iOS 18',
+            ),
+          ],
+          recordingDevices: <RecordingDeviceIdentity>[
+            const RecordingDeviceIdentity(id: 'pixel-8'),
+            const RecordingDeviceIdentity(id: 'iphone-15'),
+          ],
+        );
+        final DefaultProjectRunCommandExecutor executor =
+            DefaultProjectRunCommandExecutor(
+              deviceDiscovery: deviceDiscovery,
+              launcher: TargetAppLauncher(starter: starter),
+              runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+                FakeScenarioRunner(_passedReportFor('recorded')),
+              ]),
+              outputDirectory: Directory.current,
+              clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+            );
+        final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
+          ProjectScenarioFile(
+            path: 'pilot/recorded.yaml',
+            relativePath: 'recorded.yaml',
+            scenario: Scenario(
+              name: 'recorded',
+              recording: const ScenarioRecording(enabled: true),
+              steps: const <ScenarioStep>[
+                ScenarioStep(
+                  index: 1,
+                  action: CaptureAction(
+                    screenshot: false,
+                    snapshot: false,
+                    widgetTree: false,
+                    logs: false,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ];
+
+        final Future<ProjectRunCommandReport> reportFuture = executor.run(
+          ProjectRunCommandOptions(
+            discoveryRootPath: 'pilot',
+            scenarios: scenarios,
+            device: null,
+            flavor: null,
+            target: null,
+            jsonOutput: false,
+          ),
+        );
+
+        await expectLater(
+          reportFuture,
+          throwsA(
+            isA<TestCommandException>().having(
+              (TestCommandException error) => error.exitCode,
+              'exitCode',
+              64,
+            ),
+          ),
+        );
+        expect(deviceDiscovery.flutterDeviceListCount, 1);
+        expect(deviceDiscovery.recordingDeviceListCount, 1);
+        expect(starter.startedArguments, isEmpty);
       });
     },
   );
@@ -2000,21 +2265,25 @@ Scenario _scenario(String name) {
 }
 
 class FakeDeviceDiscovery implements TestDeviceDiscovery {
-  const FakeDeviceDiscovery({
+  FakeDeviceDiscovery({
     this.flutterDevices = const <FlutterDevice>[],
     this.recordingDevices = const <RecordingDeviceIdentity>[],
   });
 
   final List<FlutterDevice> flutterDevices;
   final List<RecordingDeviceIdentity> recordingDevices;
+  int flutterDeviceListCount = 0;
+  int recordingDeviceListCount = 0;
 
   @override
   Future<List<FlutterDevice>> listFlutterDevices() async {
+    flutterDeviceListCount++;
     return flutterDevices;
   }
 
   @override
   Future<List<RecordingDeviceIdentity>> listRecordingDevices() async {
+    recordingDeviceListCount++;
     return recordingDevices;
   }
 }
