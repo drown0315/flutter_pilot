@@ -11,6 +11,7 @@ import 'diagnostic_text_renderer.dart';
 import 'html_timeline_report.dart';
 import 'recording/recording_contract.dart';
 import 'recording/screen_recorder_recording_controller.dart';
+import 'project_scenario_discovery.dart';
 import 'runtime/mcp_flutter_runtime_adapter.dart';
 import 'runtime/runtime_contract.dart';
 import 'run_diff.dart';
@@ -38,9 +39,13 @@ class FlutterPilotCli {
   const FlutterPilotCli({
     TestCommandExecutor testCommandExecutor =
         const DefaultTestCommandExecutor(),
-  }) : _testCommandExecutor = testCommandExecutor;
+    ProjectRunCommandExecutor projectRunCommandExecutor =
+        const DefaultProjectRunCommandExecutor(),
+  }) : _testCommandExecutor = testCommandExecutor,
+       _projectRunCommandExecutor = projectRunCommandExecutor;
 
   final TestCommandExecutor _testCommandExecutor;
+  final ProjectRunCommandExecutor _projectRunCommandExecutor;
 
   /// Run the CLI with already-tokenized command-line arguments.
   ///
@@ -57,7 +62,12 @@ class FlutterPilotCli {
             'Replay Flutter UI scenarios and collect debugging artifacts.',
           )
           ..addCommand(_ValidateCommand())
-          ..addCommand(_TestCommand(executor: _testCommandExecutor))
+          ..addCommand(
+            _TestCommand(
+              executor: _testCommandExecutor,
+              projectRunExecutor: _projectRunCommandExecutor,
+            ),
+          )
           ..addCommand(_ReportCommand())
           ..addCommand(_DiffCommand())
           ..addCommand(_DoctorCommand())
@@ -384,7 +394,11 @@ class _ValidateCommand extends Command<int> {
 /// It checks Scenario YAML and validates `--until` / `--print` relationships
 /// before the Target App Package is launched.
 class _TestCommand extends Command<int> {
-  _TestCommand({required TestCommandExecutor executor}) : _executor = executor {
+  _TestCommand({
+    required TestCommandExecutor executor,
+    required ProjectRunCommandExecutor projectRunExecutor,
+  }) : _executor = executor,
+       _projectRunExecutor = projectRunExecutor {
     argParser
       ..addOption(
         'device',
@@ -414,6 +428,7 @@ class _TestCommand extends Command<int> {
   }
 
   final TestCommandExecutor _executor;
+  final ProjectRunCommandExecutor _projectRunExecutor;
 
   @override
   String get description => 'Launch the Target App Package and run a Scenario.';
@@ -423,8 +438,26 @@ class _TestCommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    if (argResults!.rest.length != 1) {
-      throw UsageException('Expected exactly one scenario file.', usage);
+    if (argResults!.rest.length > 1) {
+      throw UsageException('Expected zero or one scenario path.', usage);
+    }
+    final String? scenarioPath = argResults!.rest.isEmpty
+        ? null
+        : argResults!.rest.single;
+    if (scenarioPath == null) {
+      return _runProjectRun(
+        ProjectScenarioDiscovery.defaultPilotDirectory,
+        defaultDiscovery: true,
+      );
+    }
+    if (FileSystemEntity.isDirectorySync(scenarioPath)) {
+      return _runProjectRun(scenarioPath);
+    }
+    if (!FileSystemEntity.isFileSync(scenarioPath)) {
+      throw UsageException(
+        'Scenario path does not exist: $scenarioPath',
+        usage,
+      );
     }
     if (argResults!.multiOption('print').isNotEmpty &&
         argResults!.option('until') == null) {
@@ -433,7 +466,7 @@ class _TestCommand extends Command<int> {
 
     final Scenario parsedScenario;
     try {
-      parsedScenario = ScenarioParser.parseFile(argResults!.rest.single);
+      parsedScenario = ScenarioParser.parseFile(scenarioPath);
     } on ScenarioValidationException catch (error) {
       _writeValidationErrors(error.errors);
       return 1;
@@ -509,6 +542,56 @@ class _TestCommand extends Command<int> {
       stdout.writeln('Run report: ${report.runDirectoryPath}/run_report.json');
       stdout.writeln('HTML report: ${report.runDirectoryPath}/timeline.html');
       return report.status == ScenarioRunStatus.passed ? 0 : 1;
+    } on TestCommandException catch (error) {
+      if (!error.alreadyRendered) {
+        stderr.writeln(error.message);
+      }
+      return error.exitCode;
+    }
+  }
+
+  /// Discover Project Scenarios and delegate Project Run execution.
+  Future<int> _runProjectRun(
+    String discoveryRootPath, {
+    bool defaultDiscovery = false,
+  }) async {
+    if (argResults!.option('until') != null) {
+      throw UsageException(
+        '--until is only supported for one Scenario file.',
+        usage,
+      );
+    }
+    if (argResults!.multiOption('print').isNotEmpty) {
+      throw UsageException(
+        '--print is only supported for one Scenario file.',
+        usage,
+      );
+    }
+    final List<ProjectScenarioFile> scenarios;
+    try {
+      scenarios = defaultDiscovery
+          ? ProjectScenarioDiscovery.discoverDefault()
+          : ProjectScenarioDiscovery.discoverInDirectory(discoveryRootPath);
+    } on ProjectScenarioDiscoveryException catch (error) {
+      stderr.writeln(error.message);
+      return error.usageError ? 64 : 1;
+    } on ScenarioValidationException catch (error) {
+      _writeValidationErrors(error.errors);
+      return 1;
+    }
+    final ProjectRunCommandOptions options = ProjectRunCommandOptions(
+      discoveryRootPath: discoveryRootPath,
+      scenarios: scenarios,
+      device: argResults!.option('device')?.trim(),
+      flavor: argResults!.option('flavor')?.trim(),
+      target: argResults!.option('target')?.trim(),
+      jsonOutput: argResults!.flag('json'),
+    );
+    try {
+      final ProjectRunCommandReport report = await _projectRunExecutor.run(
+        options,
+      );
+      return report.passed ? 0 : 1;
     } on TestCommandException catch (error) {
       if (!error.alreadyRendered) {
         stderr.writeln(error.message);
@@ -621,6 +704,57 @@ class TestCommandOptions {
   final RunStopPoint? stopPoint;
   final Set<PrintDiagnostic> printDiagnostics;
   final bool jsonOutput;
+}
+
+/// Parsed Project Run inputs selected by the `test` command.
+class ProjectRunCommandOptions {
+  /// Creates validated Project Run command inputs.
+  const ProjectRunCommandOptions({
+    required this.discoveryRootPath,
+    required this.scenarios,
+    required this.device,
+    required this.flavor,
+    required this.target,
+    required this.jsonOutput,
+  });
+
+  /// Directory used to discover Project Scenarios.
+  final String discoveryRootPath;
+
+  /// Validated Entry Scenario files selected for the Project Run.
+  final List<ProjectScenarioFile> scenarios;
+
+  final String? device;
+  final String? flavor;
+  final String? target;
+  final bool jsonOutput;
+}
+
+/// Minimal Project Run command result used by mode selection.
+class ProjectRunCommandReport {
+  const ProjectRunCommandReport({required this.passed});
+
+  /// Whether the selected Project Scenarios all passed.
+  final bool passed;
+}
+
+/// Executes a validated Project Run selected by `test`.
+abstract interface class ProjectRunCommandExecutor {
+  /// Run the Project Scenarios described by [options].
+  Future<ProjectRunCommandReport> run(ProjectRunCommandOptions options);
+}
+
+/// Placeholder Project Run executor until orchestration lands in later slices.
+class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
+  const DefaultProjectRunCommandExecutor();
+
+  @override
+  Future<ProjectRunCommandReport> run(ProjectRunCommandOptions options) async {
+    throw const TestCommandException(
+      message: 'Project Run execution is not implemented yet.',
+      exitCode: 1,
+    );
+  }
 }
 
 /// Terminal output helpers for the `test` command.

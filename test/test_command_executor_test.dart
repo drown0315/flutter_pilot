@@ -12,6 +12,186 @@ import 'package:test/test.dart';
 /// command path that parses a Scenario, builds launch options, runs through an
 /// executor, prints report paths, and performs cleanup.
 void main() {
+  test('test command delegates no-argument Project Run from pilot', () async {
+    await FileTestkit.runZoned(() async {
+      Directory('pilot').createSync();
+      File('pilot/login.yaml').writeAsStringSync('''
+scenario:
+  name: login
+steps:
+  - capture: {}
+''');
+      final FakeProjectRunCommandExecutor projectExecutor =
+          FakeProjectRunCommandExecutor(report: _passedProjectReport());
+
+      final int exitCode = await FlutterPilotCli(
+        projectRunCommandExecutor: projectExecutor,
+      ).run(<String>['test']);
+
+      expect(exitCode, 0);
+      expect(projectExecutor.options.discoveryRootPath, 'pilot');
+      expect(
+        projectExecutor.options.scenarios.map(
+          (ProjectScenarioFile file) => file.relativePath,
+        ),
+        <String>['login.yaml'],
+      );
+    });
+  });
+
+  test(
+    'test command delegates directory input as a focused Project Run',
+    () async {
+      await FileTestkit.runZoned(() async {
+        Directory('flows').createSync();
+        File('flows/checkout.yaml').writeAsStringSync('''
+scenario:
+  name: checkout
+steps:
+  - capture: {}
+''');
+        final FakeProjectRunCommandExecutor projectExecutor =
+            FakeProjectRunCommandExecutor(report: _passedProjectReport());
+
+        final int exitCode = await FlutterPilotCli(
+          projectRunCommandExecutor: projectExecutor,
+        ).run(<String>['test', 'flows']);
+
+        expect(exitCode, 0);
+        expect(projectExecutor.options.discoveryRootPath, 'flows');
+        expect(
+          projectExecutor.options.scenarios.map(
+            (ProjectScenarioFile file) => file.relativePath,
+          ),
+          <String>['checkout.yaml'],
+        );
+      });
+    },
+  );
+
+  test('test command keeps file input in single Entry Scenario mode', () async {
+    await FileTestkit.runZoned(() async {
+      final File scenarioFile = File('scenario.yaml')
+        ..writeAsStringSync('''
+steps:
+  - capture: {}
+''');
+      final FakeTestCommandExecutor executor = FakeTestCommandExecutor(
+        report: _passedReport(),
+      );
+      final FakeProjectRunCommandExecutor projectExecutor =
+          FakeProjectRunCommandExecutor(report: _passedProjectReport());
+
+      final int exitCode = await FlutterPilotCli(
+        testCommandExecutor: executor,
+        projectRunCommandExecutor: projectExecutor,
+      ).run(<String>['test', scenarioFile.path]);
+
+      expect(exitCode, 0);
+      expect(executor.options.scenario.name, 'scenario');
+      expect(projectExecutor.ran, isFalse);
+    });
+  });
+
+  test('test command rejects multiple positional inputs', () async {
+    await FileTestkit.runZoned(() async {
+      File('a.yaml').writeAsStringSync('''
+steps:
+  - capture: {}
+''');
+      File('b.yaml').writeAsStringSync('''
+steps:
+  - capture: {}
+''');
+
+      final int exitCode = await FlutterPilotCli().run(<String>[
+        'test',
+        'a.yaml',
+        'b.yaml',
+      ]);
+
+      expect(exitCode, 64);
+    });
+  });
+
+  test('test command does not introduce glob-style inputs', () async {
+    await FileTestkit.runZoned(() async {
+      File('scenario.yaml').writeAsStringSync('''
+steps:
+  - capture: {}
+''');
+
+      final int exitCode = await FlutterPilotCli().run(<String>[
+        'test',
+        '*.yaml',
+      ]);
+
+      expect(exitCode, 64);
+    });
+  });
+
+  test(
+    'test command reports empty Project Run discovery before launch',
+    () async {
+      await FileTestkit.runZoned(() async {
+        Directory('pilot').createSync();
+        File('pilot/library.yaml').writeAsStringSync('''
+steps:
+  - capture: {}
+''');
+        final FakeProjectRunCommandExecutor projectExecutor =
+            FakeProjectRunCommandExecutor(report: _passedProjectReport());
+
+        final int exitCode = await FlutterPilotCli(
+          projectRunCommandExecutor: projectExecutor,
+        ).run(<String>['test']);
+
+        expect(exitCode, 64);
+        expect(projectExecutor.ran, isFalse);
+      });
+    },
+  );
+
+  test('test command rejects --until in Project Run mode', () async {
+    await FileTestkit.runZoned(() async {
+      Directory('pilot').createSync();
+      File('pilot/login.yaml').writeAsStringSync('''
+scenario:
+  name: login
+steps:
+  - capture: {}
+''');
+
+      final int exitCode = await FlutterPilotCli().run(<String>[
+        'test',
+        '--until',
+        '1',
+      ]);
+
+      expect(exitCode, 64);
+    });
+  });
+
+  test('test command rejects --print in Project Run mode', () async {
+    await FileTestkit.runZoned(() async {
+      Directory('pilot').createSync();
+      File('pilot/login.yaml').writeAsStringSync('''
+scenario:
+  name: login
+steps:
+  - capture: {}
+''');
+
+      final int exitCode = await FlutterPilotCli().run(<String>[
+        'test',
+        '--print',
+        'snapshot',
+      ]);
+
+      expect(exitCode, 64);
+    });
+  });
+
   test('test command delegates validated options to the executor', () async {
     await FileTestkit.runZoned(() async {
       final File scenarioFile = File('scenario.yaml')
@@ -1265,6 +1445,25 @@ class FakeTestCommandExecutor implements TestCommandExecutor {
     }
     return report;
   }
+}
+
+class FakeProjectRunCommandExecutor implements ProjectRunCommandExecutor {
+  FakeProjectRunCommandExecutor({required this.report});
+
+  final ProjectRunCommandReport report;
+  late ProjectRunCommandOptions options;
+  bool ran = false;
+
+  @override
+  Future<ProjectRunCommandReport> run(ProjectRunCommandOptions options) async {
+    this.options = options;
+    ran = true;
+    return report;
+  }
+}
+
+ProjectRunCommandReport _passedProjectReport() {
+  return const ProjectRunCommandReport(passed: true);
 }
 
 ScenarioRunReport _passedReport({TargetDevice? targetDevice}) {
