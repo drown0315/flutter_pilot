@@ -103,6 +103,27 @@ class TargetAppLaunchSucceededEvent extends TargetAppLaunchProgressEvent {
   final DateTime finishedAt;
 }
 
+/// Event emitted when the Target App launch cannot provide a Runtime Target.
+class TargetAppLaunchFailedEvent extends TargetAppLaunchProgressEvent {
+  /// Creates a launch-failed event.
+  const TargetAppLaunchFailedEvent({
+    required super.startedAt,
+    required this.failedAt,
+    required this.message,
+    this.stderrLines = const <String>[],
+    super.choices,
+  });
+
+  /// Time when Flutter Pilot observed the launch failure.
+  final DateTime failedAt;
+
+  /// Human-readable failure message.
+  final String message;
+
+  /// Buffered Flutter stderr tail from the launcher.
+  final List<String> stderrLines;
+}
+
 /// Plain-text Target App Launch Progress renderer.
 class TargetAppLaunchProgressRenderer {
   /// Creates a renderer that writes launch progress to `sink`.
@@ -135,6 +156,22 @@ class TargetAppLaunchProgressRenderer {
           'Target App launched in '
           '${_formatElapsed(finishedAt.difference(event.startedAt))}',
         );
+      case TargetAppLaunchFailedEvent(
+        :final DateTime failedAt,
+        :final String message,
+        :final List<String> stderrLines,
+      ):
+        sink.writeln(
+          'Target App launch failed after '
+          '${_formatElapsed(failedAt.difference(event.startedAt))}',
+        );
+        sink.writeln(message);
+        if (stderrLines.isNotEmpty) {
+          sink.writeln('Flutter stderr tail:');
+          for (final String line in stderrLines) {
+            sink.writeln(line);
+          }
+        }
     }
   }
 

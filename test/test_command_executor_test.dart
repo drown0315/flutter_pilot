@@ -136,6 +136,36 @@ steps:
     },
   );
 
+  test(
+    'test command suppresses JSON launch failure progress but preserves failure',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final File scenarioFile = File('scenario.yaml')
+          ..writeAsStringSync('''
+scenario:
+  name: launch_progress_failure_json
+steps:
+  - tap:
+      byText: Continue
+''');
+        final FakeTestCommandExecutor executor = FakeTestCommandExecutor(
+          report: _passedReport(),
+          exception: const TestCommandException(
+            message: 'Flutter exited before Runtime Target URI was available.',
+            exitCode: 1,
+          ),
+        );
+
+        final int exitCode = await FlutterPilotCli(
+          testCommandExecutor: executor,
+        ).run(<String>['test', scenarioFile.path, '--json']);
+
+        expect(exitCode, 1);
+        expect(executor.onLaunchProgress, isNull);
+      });
+    },
+  );
+
   test('plain launch progress renders before Step progress', () async {
     await FileTestkit.runZoned(() async {
       final File output = File('progress.log');
@@ -752,6 +782,35 @@ steps:
     },
   );
 
+  test('plain launch progress shows bounded failure details', () async {
+    await FileTestkit.runZoned(() async {
+      final File output = File('progress.log');
+      final IOSink sink = output.openWrite();
+      final TargetAppLaunchProgressRenderer renderer =
+          TargetAppLaunchProgressRenderer(sink: sink);
+
+      renderer.render(
+        TargetAppLaunchFailedEvent(
+          startedAt: DateTime.utc(2026, 6, 30, 12),
+          failedAt: DateTime.utc(2026, 6, 30, 12, 0, 4),
+          message: 'Flutter exited before Runtime Target URI was available.',
+          stderrLines: const <String>['stderr line 6', 'stderr line 45'],
+        ),
+      );
+      await sink.close();
+
+      final String rendered = output.readAsStringSync();
+      expect(rendered, contains('Target App launch failed after 4s'));
+      expect(
+        rendered,
+        contains('Flutter exited before Runtime Target URI was available.'),
+      );
+      expect(rendered, contains('Flutter stderr tail:'));
+      expect(rendered, contains('stderr line 6'));
+      expect(rendered, contains('stderr line 45'));
+    });
+  });
+
   test(
     'default executor reports flavor and entrypoint launch choices',
     () async {
@@ -807,6 +866,66 @@ steps:
 
         expect(launchChoices?.flavor, 'staging');
         expect(launchChoices?.target, 'lib/main_staging.dart');
+      });
+    },
+  );
+
+  test(
+    'default executor emits launch failure progress with stderr tail',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTargetAppProcess process = FakeTargetAppProcess();
+        final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+          process,
+        );
+        final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
+          deviceDiscovery: const FakeDeviceDiscovery(),
+          launcher: TargetAppLauncher(starter: starter),
+          runnerFactory: FakeScenarioRunnerFactory(
+            FakeScenarioRunner(_passedReport()),
+          ),
+        );
+        final Scenario scenario = Scenario(
+          name: 'launch_failure',
+          steps: const <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              action: TapAction(finder: Finder(byText: 'Continue')),
+            ),
+          ],
+        );
+        final List<TargetAppLaunchProgressEvent> launchEvents =
+            <TargetAppLaunchProgressEvent>[];
+
+        final Future<ScenarioRunReport> reportFuture = executor.run(
+          TestCommandOptions(
+            scenario: scenario,
+            device: null,
+            flavor: null,
+            target: null,
+            stopPoint: null,
+            printDiagnostics: const <PrintDiagnostic>{},
+            jsonOutput: false,
+          ),
+          onLaunchProgress: launchEvents.add,
+        );
+        for (int index = 1; index <= 45; index++) {
+          process.emitStderr('stderr line $index');
+        }
+        process.exit(1);
+
+        await expectLater(reportFuture, throwsA(isA<TestCommandException>()));
+        final TargetAppLaunchFailedEvent failedEvent = launchEvents
+            .whereType<TargetAppLaunchFailedEvent>()
+            .single;
+        expect(
+          failedEvent.message,
+          contains('Flutter exited before Runtime Target URI was available.'),
+        );
+        expect(failedEvent.stderrLines, hasLength(40));
+        expect(failedEvent.stderrLines, isNot(contains('stderr line 5')));
+        expect(failedEvent.stderrLines, contains('stderr line 6'));
+        expect(failedEvent.stderrLines, contains('stderr line 45'));
       });
     },
   );
@@ -888,9 +1007,10 @@ steps:
 }
 
 class FakeTestCommandExecutor implements TestCommandExecutor {
-  FakeTestCommandExecutor({required this.report});
+  FakeTestCommandExecutor({required this.report, this.exception});
 
   final ScenarioRunReport report;
+  final TestCommandException? exception;
   late TestCommandOptions options;
   void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress;
   void Function(StepProgressEvent event)? onProgress;
@@ -904,6 +1024,10 @@ class FakeTestCommandExecutor implements TestCommandExecutor {
     this.options = options;
     this.onLaunchProgress = onLaunchProgress;
     this.onProgress = onProgress;
+    final TestCommandException? exception = this.exception;
+    if (exception != null) {
+      throw exception;
+    }
     return report;
   }
 }
@@ -1058,6 +1182,10 @@ class FakeTargetAppProcess implements TargetAppProcess {
 
   void emitStdout(String line) {
     _stdoutController.add(utf8.encode('$line\n'));
+  }
+
+  void emitStderr(String line) {
+    _stderrController.add(utf8.encode('$line\n'));
   }
 
   void exit(int exitCode) {

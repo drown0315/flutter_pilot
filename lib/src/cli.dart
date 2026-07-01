@@ -751,6 +751,15 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
         ),
       );
     } on TargetAppLaunchException catch (error) {
+      onLaunchProgress?.call(
+        TargetAppLaunchFailedEvent(
+          startedAt: launchStartedAt,
+          failedAt: DateTime.now(),
+          message: error.message,
+          stderrLines: error.stderrLines,
+          choices: launchChoices,
+        ),
+      );
       final String stderrContext = error.stderrLines.isEmpty
           ? ''
           : '\n${error.stderrLines.join('\n')}';
