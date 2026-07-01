@@ -88,7 +88,7 @@ buffered Flutter stderr lines.
 - Target App Launch Progress is separate from Step progress and must not render as Step `0/N`.
 - Target App Launch Progress should use the glossary term Target App Launch Progress in documentation and code comments where appropriate.
 - Human-readable Target App Launch Progress should be written to stderr.
-- Existing stdout lines for `Run report:` and `HTML report:` remain unchanged.
+- Existing stdout lines for `Run report:`, `HTML report:`, and Project Run report paths remain unchanged.
 - `test --json` suppresses Target App Launch Progress.
 - Interactive terminals should render a compact in-place panel with current stage and elapsed time.
 - Non-interactive output should render deterministic plain-text launch status.

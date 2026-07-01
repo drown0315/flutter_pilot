@@ -8,6 +8,135 @@ import 'package:test/test.dart';
 
 /// Exercises Artifact Store layout through its public API.
 void main() {
+  test(
+    'creates Project Run directories with child Scenario run layout',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final RunArtifactStore store = RunArtifactStore(
+          Directory('artifact_output'),
+        );
+        const Scenario scenario = Scenario(
+          name: 'login',
+          steps: <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              action: CaptureAction(
+                screenshot: true,
+                snapshot: true,
+                widgetTree: false,
+                logs: true,
+              ),
+            ),
+          ],
+        );
+
+        final ProjectRunArtifactWriter projectRun = store.createProjectRun(
+          startedAt: DateTime.utc(2026, 7, 1, 9, 30),
+        );
+        final RunArtifactWriter childRun = projectRun.createScenarioRun(
+          scenario: scenario,
+          startedAt: DateTime.utc(2026, 7, 1, 9, 31),
+        );
+
+        expect(
+          projectRun.runDirectory.path,
+          'artifact_output/.runs/2026-07-01_09-30_project-run',
+        );
+        expect(
+          childRun.runDirectory.path,
+          'artifact_output/.runs/2026-07-01_09-30_project-run/2026-07-01_09-31_login',
+        );
+        expect(
+          File('${childRun.runDirectory.path}/scenario.json').existsSync(),
+          isTrue,
+        );
+      });
+    },
+  );
+
+  test('writes Project Run report at the batch root', () async {
+    await FileTestkit.runZoned(() async {
+      final RunArtifactStore store = RunArtifactStore(
+        Directory('artifact_output'),
+      );
+      final ProjectRunArtifactWriter projectRun = store.createProjectRun(
+        startedAt: DateTime.utc(2026, 7, 1, 9, 30),
+      );
+
+      final ArtifactReport reportArtifact = projectRun.writeProjectRunReport(
+        <String, Object?>{
+          'status': 'failed',
+          'discoveryRoot': 'pilot',
+          'scenarios': <Object?>[
+            <String, Object?>{
+              'path': 'checkout/login.yaml',
+              'status': 'passed',
+              'runReportPath': '2026-07-01_09-31_login/run_report.json',
+            },
+          ],
+        },
+      );
+
+      expect(reportArtifact.type, ArtifactType.projectRunReport);
+      expect(reportArtifact.path, 'project_run_report.json');
+      final Map<String, Object?> reportJson =
+          jsonDecode(
+                File(
+                  '${projectRun.runDirectory.path}/project_run_report.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, Object?>;
+      expect(reportJson['status'], 'failed');
+      expect(reportJson['discoveryRoot'], 'pilot');
+      expect(reportJson['scenarios'], isA<List<Object?>>());
+      expect(
+        Directory('${projectRun.runDirectory.path}/timeline.html').existsSync(),
+        isFalse,
+      );
+    });
+  });
+
+  test(
+    'returns Project Run relative paths for child Scenario reports',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final RunArtifactStore store = RunArtifactStore(
+          Directory('artifact_output'),
+        );
+        const Scenario scenario = Scenario(
+          name: 'checkout',
+          steps: <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              action: CaptureAction(
+                screenshot: true,
+                snapshot: true,
+                widgetTree: false,
+                logs: true,
+              ),
+            ),
+          ],
+        );
+        final ProjectRunArtifactWriter projectRun = store.createProjectRun(
+          startedAt: DateTime.utc(2026, 7, 1, 9, 30),
+        );
+        final RunArtifactWriter childRun = projectRun.createScenarioRun(
+          scenario: scenario,
+          startedAt: DateTime.utc(2026, 7, 1, 9, 31),
+        );
+
+        expect(
+          projectRun.relativePathFor(childRun, 'run_report.json'),
+          '2026-07-01_09-31_checkout/run_report.json',
+        );
+        expect(
+          projectRun.relativePathFor(childRun, 'timeline.html'),
+          '2026-07-01_09-31_checkout/timeline.html',
+        );
+      });
+    },
+  );
+
   test('creates unique run directories for repeated scenario runs', () async {
     await FileTestkit.runZoned(() async {
       final RunArtifactStore store = RunArtifactStore(

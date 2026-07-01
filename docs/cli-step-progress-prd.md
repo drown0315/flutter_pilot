@@ -26,9 +26,10 @@ refresh from `running` to the final status. Non-interactive output must degrade
 to deterministic plain text suitable for CI logs and subprocess tests.
 
 Step progress is status output and should be written to stderr. Existing final
-artifact path lines such as `Run report:` and `HTML report:` remain on stdout so
-scripts and smoke verifiers can continue to consume them. `test --json` suppresses
-Step progress because JSON output is for machine consumption.
+artifact path lines such as `Run report:`, `HTML report:`, and Project Run
+report paths remain on stdout so scripts and smoke verifiers can continue to
+consume them. `test --json` suppresses Step progress because JSON output is for
+machine consumption.
 
 ## User Stories
 
@@ -78,7 +79,7 @@ Step progress because JSON output is for machine consumption.
 - The CLI should decide whether progress is enabled.
 - The CLI should suppress progress for `test --json`.
 - Human-readable Step progress should be written to stderr.
-- Existing stdout lines for final artifact paths should remain stable, including `Run report:` and `HTML report:`.
+- Existing stdout lines for final artifact paths should remain stable, including `Run report:`, `HTML report:`, and Project Run report paths.
 - The CLI should print a human-readable header before Step execution that includes Scenario name and total Step count.
 - When `--until` is present, the human-readable header should include the requested stop point in a readable form.
 - Progress lines should include Step number, total Step count, action, label placeholder, status, duration on completion, and include source file path (e.g. `[flows/login.yaml]`) for Steps expanded from Step Libraries.

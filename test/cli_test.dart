@@ -202,14 +202,17 @@ steps:
     expect(result.stderr, contains('--until must be a 1-based step number'));
   });
 
-  test('test requires exactly one scenario file', () async {
+  test('test without a path uses the default Pilot Directory', () async {
     final ProcessResult result = await Process.run(
       Platform.resolvedExecutable,
       ['run', 'bin/flutter_pilot.dart', 'test'],
     );
 
     expect(result.exitCode, isNonZero);
-    expect(result.stderr, contains('Expected exactly one scenario file'));
+    expect(
+      result.stderr,
+      contains('Project Scenario discovery root does not exist: ./pilot.'),
+    );
   });
 
   test('test validates scenario before app launch', () async {

@@ -3,14 +3,18 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:path/path.dart' as p;
 import 'package:screen_recorder/screen_recorder.dart' as screen_recorder;
 import 'package:yaml/yaml.dart';
 
 import 'app_setup.dart';
+import 'artifacts/artifact_store.dart';
 import 'diagnostic_text_renderer.dart';
 import 'html_timeline_report.dart';
 import 'recording/recording_contract.dart';
 import 'recording/screen_recorder_recording_controller.dart';
+import 'project_scenario_discovery.dart';
+import 'project_run_report.dart';
 import 'runtime/mcp_flutter_runtime_adapter.dart';
 import 'runtime/runtime_contract.dart';
 import 'run_diff.dart';
@@ -38,9 +42,13 @@ class FlutterPilotCli {
   const FlutterPilotCli({
     TestCommandExecutor testCommandExecutor =
         const DefaultTestCommandExecutor(),
-  }) : _testCommandExecutor = testCommandExecutor;
+    ProjectRunCommandExecutor projectRunCommandExecutor =
+        const DefaultProjectRunCommandExecutor(),
+  }) : _testCommandExecutor = testCommandExecutor,
+       _projectRunCommandExecutor = projectRunCommandExecutor;
 
   final TestCommandExecutor _testCommandExecutor;
+  final ProjectRunCommandExecutor _projectRunCommandExecutor;
 
   /// Run the CLI with already-tokenized command-line arguments.
   ///
@@ -57,7 +65,12 @@ class FlutterPilotCli {
             'Replay Flutter UI scenarios and collect debugging artifacts.',
           )
           ..addCommand(_ValidateCommand())
-          ..addCommand(_TestCommand(executor: _testCommandExecutor))
+          ..addCommand(
+            _TestCommand(
+              executor: _testCommandExecutor,
+              projectRunExecutor: _projectRunCommandExecutor,
+            ),
+          )
           ..addCommand(_ReportCommand())
           ..addCommand(_DiffCommand())
           ..addCommand(_DoctorCommand())
@@ -384,7 +397,11 @@ class _ValidateCommand extends Command<int> {
 /// It checks Scenario YAML and validates `--until` / `--print` relationships
 /// before the Target App Package is launched.
 class _TestCommand extends Command<int> {
-  _TestCommand({required TestCommandExecutor executor}) : _executor = executor {
+  _TestCommand({
+    required TestCommandExecutor executor,
+    required ProjectRunCommandExecutor projectRunExecutor,
+  }) : _executor = executor,
+       _projectRunExecutor = projectRunExecutor {
     argParser
       ..addOption(
         'device',
@@ -414,6 +431,7 @@ class _TestCommand extends Command<int> {
   }
 
   final TestCommandExecutor _executor;
+  final ProjectRunCommandExecutor _projectRunExecutor;
 
   @override
   String get description => 'Launch the Target App Package and run a Scenario.';
@@ -423,8 +441,26 @@ class _TestCommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    if (argResults!.rest.length != 1) {
-      throw UsageException('Expected exactly one scenario file.', usage);
+    if (argResults!.rest.length > 1) {
+      throw UsageException('Expected zero or one scenario path.', usage);
+    }
+    final String? scenarioPath = argResults!.rest.isEmpty
+        ? null
+        : argResults!.rest.single;
+    if (scenarioPath == null) {
+      return _runProjectRun(
+        ProjectScenarioDiscovery.defaultPilotDirectory,
+        defaultDiscovery: true,
+      );
+    }
+    if (FileSystemEntity.isDirectorySync(scenarioPath)) {
+      return _runProjectRun(scenarioPath);
+    }
+    if (!FileSystemEntity.isFileSync(scenarioPath)) {
+      throw UsageException(
+        'Scenario path does not exist: $scenarioPath',
+        usage,
+      );
     }
     if (argResults!.multiOption('print').isNotEmpty &&
         argResults!.option('until') == null) {
@@ -433,7 +469,7 @@ class _TestCommand extends Command<int> {
 
     final Scenario parsedScenario;
     try {
-      parsedScenario = ScenarioParser.parseFile(argResults!.rest.single);
+      parsedScenario = ScenarioParser.parseFile(scenarioPath);
     } on ScenarioValidationException catch (error) {
       _writeValidationErrors(error.errors);
       return 1;
@@ -509,6 +545,87 @@ class _TestCommand extends Command<int> {
       stdout.writeln('Run report: ${report.runDirectoryPath}/run_report.json');
       stdout.writeln('HTML report: ${report.runDirectoryPath}/timeline.html');
       return report.status == ScenarioRunStatus.passed ? 0 : 1;
+    } on TestCommandException catch (error) {
+      if (!error.alreadyRendered) {
+        stderr.writeln(error.message);
+      }
+      return error.exitCode;
+    }
+  }
+
+  /// Discover Project Scenarios and delegate Project Run execution.
+  Future<int> _runProjectRun(
+    String discoveryRootPath, {
+    bool defaultDiscovery = false,
+  }) async {
+    if (argResults!.option('until') != null) {
+      throw UsageException(
+        '--until is only supported for one Scenario file.',
+        usage,
+      );
+    }
+    if (argResults!.multiOption('print').isNotEmpty) {
+      throw UsageException(
+        '--print is only supported for one Scenario file.',
+        usage,
+      );
+    }
+    final String? device = argResults!.option('device')?.trim();
+    if (device != null && device.isEmpty) {
+      stderr.writeln('--device must not be empty.');
+      return 64;
+    }
+    final String? flavor = argResults!.option('flavor')?.trim();
+    if (flavor != null && flavor.isEmpty) {
+      stderr.writeln('--flavor must not be empty.');
+      return 64;
+    }
+    final String? target = argResults!.option('target')?.trim();
+    if (target != null && target.isEmpty) {
+      stderr.writeln('--target must not be empty.');
+      return 64;
+    }
+    final List<ProjectScenarioFile> scenarios;
+    try {
+      scenarios = defaultDiscovery
+          ? ProjectScenarioDiscovery.discoverDefault()
+          : ProjectScenarioDiscovery.discoverInDirectory(discoveryRootPath);
+    } on ProjectScenarioDiscoveryException catch (error) {
+      stderr.writeln(error.message);
+      return error.usageError ? 64 : 1;
+    } on ScenarioValidationException catch (error) {
+      _writeValidationErrors(error.errors);
+      return 1;
+    }
+    final ProjectRunCommandOptions options = ProjectRunCommandOptions(
+      discoveryRootPath: discoveryRootPath,
+      scenarios: scenarios,
+      device: device,
+      flavor: flavor,
+      target: target,
+      jsonOutput: argResults!.flag('json'),
+    );
+    try {
+      final StepProgressRenderer? progressRenderer =
+          TestCommandOutput.stepProgressRenderer(
+            sink: stderr,
+            jsonOutput: options.jsonOutput,
+            stderrHasTerminal: stderr.hasTerminal,
+          );
+      final TargetAppLaunchProgressRenderer? launchProgressRenderer =
+          TestCommandOutput.targetAppLaunchProgressRenderer(
+            sink: stderr,
+            jsonOutput: options.jsonOutput,
+            stderrHasTerminal: stderr.hasTerminal,
+          );
+      final ProjectRunCommandReport report = await _projectRunExecutor.run(
+        options,
+        onLaunchProgress: launchProgressRenderer?.render,
+        launchHeartbeatEnabled: launchProgressRenderer != null,
+        onProgress: progressRenderer?.render,
+      );
+      stdout.write(TestCommandOutput.renderProjectRunSummary(report));
+      return report.passed ? 0 : 1;
     } on TestCommandException catch (error) {
       if (!error.alreadyRendered) {
         stderr.writeln(error.message);
@@ -623,6 +740,409 @@ class TestCommandOptions {
   final bool jsonOutput;
 }
 
+/// Parsed Project Run inputs selected by the `test` command.
+class ProjectRunCommandOptions {
+  /// Creates validated Project Run command inputs.
+  const ProjectRunCommandOptions({
+    required this.discoveryRootPath,
+    required this.scenarios,
+    required this.device,
+    required this.flavor,
+    required this.target,
+    required this.jsonOutput,
+  });
+
+  /// Directory used to discover Project Scenarios.
+  final String discoveryRootPath;
+
+  /// Validated Entry Scenario files selected for the Project Run.
+  final List<ProjectScenarioFile> scenarios;
+
+  final String? device;
+  final String? flavor;
+  final String? target;
+  final bool jsonOutput;
+}
+
+/// Project Run command result used by mode selection and stdout rendering.
+class ProjectRunCommandReport {
+  const ProjectRunCommandReport({
+    required this.passed,
+    required this.status,
+    required this.projectRunReportPath,
+    required this.scenarioReports,
+  });
+
+  /// Whether the selected Project Scenarios all passed.
+  final bool passed;
+
+  /// Overall Project Run status.
+  final ProjectRunStatus status;
+
+  /// Path to the batch-level `project_run_report.json`.
+  final String projectRunReportPath;
+
+  /// Per-Scenario report paths to print after the Project Run finishes.
+  final List<ProjectRunScenarioOutputReport> scenarioReports;
+}
+
+/// Report paths for one Scenario inside Project Run stdout.
+class ProjectRunScenarioOutputReport {
+  const ProjectRunScenarioOutputReport({
+    required this.scenarioPath,
+    required this.status,
+    required this.runReportPath,
+    required this.htmlReportPath,
+  });
+
+  /// Project Scenario path relative to the discovery root.
+  final String scenarioPath;
+
+  /// Scenario status in the Project Run summary.
+  final ProjectScenarioRunStatus status;
+
+  /// Path to the child Scenario Run report.
+  final String runReportPath;
+
+  /// Path to the child Scenario HTML timeline report.
+  final String htmlReportPath;
+}
+
+/// Executes a validated Project Run selected by `test`.
+abstract interface class ProjectRunCommandExecutor {
+  /// Run the Project Scenarios described by [options].
+  ///
+  /// `onLaunchProgress`, when provided, receives the batch-level Target App
+  /// Launch Progress events before any Project Scenario executes.
+  Future<ProjectRunCommandReport> run(
+    ProjectRunCommandOptions options, {
+    void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
+    bool launchHeartbeatEnabled = false,
+    void Function(StepProgressEvent event)? onProgress,
+  });
+}
+
+/// Default Project Run executor for launch reuse and batch Scenario execution.
+class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
+  const DefaultProjectRunCommandExecutor({
+    this.deviceDiscovery = const DefaultTestDeviceDiscovery(),
+    this.launcher = const TargetAppLauncher(),
+    this.runnerFactory = const DefaultTestScenarioRunnerFactory(),
+    this.interruptSignals,
+    this.outputDirectory,
+    this.clock = DateTime.now,
+    this.launchHeartbeatTicks,
+  });
+
+  /// Discovers Flutter and Recording Devices before app launch when needed.
+  final TestDeviceDiscovery deviceDiscovery;
+
+  /// Starts the Target App Package and exposes hot restart.
+  final TargetAppLauncher launcher;
+
+  /// Creates Scenario runners for each selected Project Scenario.
+  final TestScenarioRunnerFactory runnerFactory;
+
+  /// Optional interrupt stream used by tests and Ctrl-C handling.
+  final Stream<void>? interruptSignals;
+
+  /// Directory where Project Run artifacts are written.
+  final Directory? outputDirectory;
+
+  /// Clock used for report timestamps, durations, and tests.
+  final TargetAppLaunchClock clock;
+
+  /// Optional heartbeat stream used by launch progress tests.
+  final Stream<void>? launchHeartbeatTicks;
+
+  @override
+  Future<ProjectRunCommandReport> run(
+    ProjectRunCommandOptions options, {
+    void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
+    bool launchHeartbeatEnabled = false,
+    void Function(StepProgressEvent event)? onProgress,
+  }) async {
+    final DateTime startedAt = clock().toUtc();
+    final ProjectRunArtifactWriter projectRunWriter = RunArtifactStore(
+      outputDirectory ?? Directory.current,
+    ).createProjectRun(startedAt: startedAt);
+    final Stopwatch stopwatch = Stopwatch()..start();
+    final List<ProjectScenarioRunReport> scenarioResults =
+        <ProjectScenarioRunReport>[];
+    ProjectRunEnvironmentFailure? environmentFailure;
+    TargetAppLaunch? launch;
+    TargetDevice? targetDevice;
+    final bool recordingRequired = options.scenarios.any(
+      (ProjectScenarioFile file) => file.scenario.recording?.enabled == true,
+    );
+    if (options.device != null || recordingRequired) {
+      try {
+        final List<FlutterDevice> flutterDevices = await deviceDiscovery
+            .listFlutterDevices();
+        final List<RecordingDeviceIdentity> recordingDevices = recordingRequired
+            ? await deviceDiscovery.listRecordingDevices()
+            : const <RecordingDeviceIdentity>[];
+        targetDevice = TargetDeviceResolver.resolve(
+          selector: options.device,
+          recordingRequired: recordingRequired,
+          flutterDevices: flutterDevices,
+          recordingDevices: recordingDevices,
+        );
+      } on TargetDeviceResolutionException catch (error) {
+        environmentFailure = ProjectRunEnvironmentFailure(
+          phase: ProjectRunEnvironmentFailurePhase.targetDeviceResolution,
+          message: error.message,
+        );
+      } on DeviceDiscoveryException catch (error) {
+        environmentFailure = ProjectRunEnvironmentFailure(
+          phase: ProjectRunEnvironmentFailurePhase.targetDeviceResolution,
+          message: error.message,
+        );
+      }
+    }
+    if (environmentFailure != null) {
+      stopwatch.stop();
+      final ProjectRunReport projectReport =
+          ProjectRunReport.environmentFailure(
+            discoveryRootPath: options.discoveryRootPath,
+            startedAt: startedAt,
+            durationMs: stopwatch.elapsedMilliseconds,
+            commandInputs: ProjectRunCommandInputs(
+              device: options.device,
+              flavor: options.flavor,
+              target: options.target,
+            ),
+            failure: environmentFailure,
+            scenarioResults: scenarioResults,
+          );
+      projectRunWriter.writeProjectRunReport(projectReport.toJson());
+      return ProjectRunCommandReport(
+        passed: false,
+        status: ProjectRunStatus.environmentFailed,
+        projectRunReportPath: p.join(
+          projectRunWriter.runDirectory.path,
+          'project_run_report.json',
+        ),
+        scenarioReports: const <ProjectRunScenarioOutputReport>[],
+      );
+    }
+    final TargetAppLaunchChoices launchChoices = TargetAppLaunchChoices(
+      targetDevice: targetDevice,
+      selectionReason: _targetDeviceSelectionReason(
+        deviceSelector: options.device,
+        recordingRequired: recordingRequired,
+      ),
+      flavor: options.flavor,
+      target: options.target,
+    );
+    final TargetAppLaunchStartedEvent launchStartedEvent =
+        TargetAppLaunchStartedEvent(
+          startedAt: startedAt,
+          choices: launchChoices,
+        );
+    onLaunchProgress?.call(launchStartedEvent);
+    TargetAppLaunchHeartbeat? launchHeartbeat;
+    if (onLaunchProgress != null && launchHeartbeatEnabled) {
+      launchHeartbeat = TargetAppLaunchHeartbeat(
+        ticks:
+            launchHeartbeatTicks ??
+            Stream<void>.periodic(const Duration(seconds: 10)),
+        onProgress: onLaunchProgress,
+        clock: clock,
+      );
+      launchHeartbeat.start(launchStartedEvent);
+    }
+    try {
+      launch = await launcher.launch(
+        TargetAppLaunchCommand(
+          flavor: options.flavor,
+          target: options.target,
+          deviceId: targetDevice?.id,
+        ),
+      );
+      onLaunchProgress?.call(
+        TargetAppLaunchSucceededEvent(
+          startedAt: startedAt,
+          finishedAt: clock().toUtc(),
+          choices: launchChoices,
+        ),
+      );
+      await launchHeartbeat?.stop();
+      for (int index = 0; index < options.scenarios.length; index++) {
+        final ProjectScenarioFile scenarioFile = options.scenarios[index];
+        if (index > 0) {
+          try {
+            await launch.hotRestart();
+          } on TargetAppLaunchException catch (error) {
+            environmentFailure = ProjectRunEnvironmentFailure(
+              phase: ProjectRunEnvironmentFailurePhase.hotRestart,
+              message: error.message,
+            );
+            break;
+          }
+        }
+        final RunArtifactWriter childRun = projectRunWriter.createScenarioRun(
+          scenario: scenarioFile.scenario,
+          startedAt: clock().toUtc(),
+        );
+        final TestScenarioRunner runner = runnerFactory.create(
+          runtimeTarget: RuntimeTarget(vmServiceUri: launch.runtimeTargetUri),
+          targetDevice: targetDevice,
+          recordingController: scenarioFile.scenario.recording?.enabled == true
+              ? ScreenRecorderRecordingController(
+                  recorder: screen_recorder.ScreenRecorder.defaultRecorder(),
+                  deviceSelector: targetDevice!.id,
+                  outputDirectory: Directory.current,
+                )
+              : null,
+        );
+        final Future<ScenarioRunReport> runFuture = runner.run(
+          scenarioFile.scenario,
+          runArtifactWriter: childRun,
+          onProgress: onProgress,
+        );
+        final ScenarioRunReport scenarioReport =
+            await _runScenarioWithInterrupt(runFuture);
+        final ProjectScenarioRunStatus scenarioStatus =
+            scenarioReport.status == ScenarioRunStatus.passed
+            ? ProjectScenarioRunStatus.passed
+            : ProjectScenarioRunStatus.failed;
+        scenarioResults.add(
+          ProjectScenarioRunReport(
+            scenarioPath: scenarioFile.relativePath,
+            status: scenarioStatus,
+            runReportPath: projectRunWriter.relativePathFor(
+              childRun,
+              'run_report.json',
+            ),
+            htmlReportPath: projectRunWriter.relativePathFor(
+              childRun,
+              'timeline.html',
+            ),
+          ),
+        );
+      }
+    } on TargetAppLaunchException catch (error) {
+      environmentFailure = ProjectRunEnvironmentFailure(
+        phase: ProjectRunEnvironmentFailurePhase.launch,
+        message: error.message,
+      );
+      onLaunchProgress?.call(
+        TargetAppLaunchFailedEvent(
+          startedAt: startedAt,
+          failedAt: clock().toUtc(),
+          message: error.message,
+          stderrLines: error.stderrLines,
+          choices: launchChoices,
+        ),
+      );
+      await launchHeartbeat?.stop();
+    } on TestCommandException catch (error) {
+      if (error.exitCode == 130) {
+        rethrow;
+      }
+      environmentFailure = ProjectRunEnvironmentFailure(
+        phase: ProjectRunEnvironmentFailurePhase.validation,
+        message: error.message,
+      );
+    } finally {
+      stopwatch.stop();
+      await launchHeartbeat?.stop();
+      await launch?.cleanup();
+    }
+    final bool allPassed =
+        environmentFailure == null &&
+        scenarioResults.every(
+          (ProjectScenarioRunReport report) =>
+              report.status == ProjectScenarioRunStatus.passed,
+        );
+    final ProjectRunStatus projectStatus = environmentFailure != null
+        ? ProjectRunStatus.environmentFailed
+        : allPassed
+        ? ProjectRunStatus.passed
+        : ProjectRunStatus.failed;
+    final ProjectRunReport projectReport = environmentFailure == null
+        ? ProjectRunReport(
+            discoveryRootPath: options.discoveryRootPath,
+            scenarioResults: scenarioResults,
+            status: projectStatus,
+            startedAt: startedAt,
+            durationMs: stopwatch.elapsedMilliseconds,
+            commandInputs: ProjectRunCommandInputs(
+              device: options.device,
+              flavor: options.flavor,
+              target: options.target,
+            ),
+          )
+        : ProjectRunReport.environmentFailure(
+            discoveryRootPath: options.discoveryRootPath,
+            startedAt: startedAt,
+            durationMs: stopwatch.elapsedMilliseconds,
+            commandInputs: ProjectRunCommandInputs(
+              device: options.device,
+              flavor: options.flavor,
+              target: options.target,
+            ),
+            failure: environmentFailure,
+            scenarioResults: scenarioResults,
+          );
+    projectRunWriter.writeProjectRunReport(projectReport.toJson());
+    return ProjectRunCommandReport(
+      passed: projectStatus == ProjectRunStatus.passed,
+      status: projectStatus,
+      projectRunReportPath: p.join(
+        projectRunWriter.runDirectory.path,
+        'project_run_report.json',
+      ),
+      scenarioReports: <ProjectRunScenarioOutputReport>[
+        for (final ProjectScenarioRunReport scenarioReport in scenarioResults)
+          ProjectRunScenarioOutputReport(
+            scenarioPath: scenarioReport.scenarioPath,
+            status: scenarioReport.status,
+            runReportPath: p.join(
+              projectRunWriter.runDirectory.path,
+              scenarioReport.runReportPath,
+            ),
+            htmlReportPath: p.join(
+              projectRunWriter.runDirectory.path,
+              scenarioReport.htmlReportPath,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<ScenarioRunReport> _runScenarioWithInterrupt(
+    Future<ScenarioRunReport> runFuture,
+  ) async {
+    StreamSubscription<void>? interruptSub;
+    try {
+      final Completer<ScenarioRunReport> interruptCompleter =
+          Completer<ScenarioRunReport>();
+      interruptSub =
+          (interruptSignals ??
+                  ProcessSignal.sigint.watch().map<void>((ProcessSignal _) {}))
+              .listen((_) {
+                if (!interruptCompleter.isCompleted) {
+                  interruptCompleter.completeError(
+                    const TestCommandException(
+                      message: 'test command interrupted.',
+                      exitCode: 130,
+                    ),
+                  );
+                }
+              });
+      return await Future.any(<Future<ScenarioRunReport>>[
+        runFuture,
+        interruptCompleter.future,
+      ]);
+    } finally {
+      runFuture.ignore();
+      await interruptSub?.cancel();
+    }
+  }
+}
+
 /// Terminal output helpers for the `test` command.
 class TestCommandOutput {
   TestCommandOutput._();
@@ -660,6 +1180,41 @@ class TestCommandOutput {
       interactive: stderrHasTerminal,
     );
   }
+
+  /// Return deterministic stdout summary lines for a completed Project Run.
+  ///
+  /// The summary keeps the batch-level report path first, then prints each
+  /// Scenario's existing report paths in execution order.
+  static String renderProjectRunSummary(ProjectRunCommandReport report) {
+    final StringBuffer buffer = StringBuffer()
+      ..writeln('Project Run: ${report.status.name}')
+      ..writeln('Project Run report: ${report.projectRunReportPath}');
+    for (final ProjectRunScenarioOutputReport scenarioReport
+        in report.scenarioReports) {
+      buffer
+        ..writeln(
+          'Scenario: ${scenarioReport.scenarioPath} '
+          '(${scenarioReport.status.name})',
+        )
+        ..writeln('Run report: ${scenarioReport.runReportPath}')
+        ..writeln('HTML report: ${scenarioReport.htmlReportPath}');
+    }
+    return buffer.toString();
+  }
+}
+
+/// Return the user-facing reason for the selected Target Device.
+TargetDeviceSelectionReason? _targetDeviceSelectionReason({
+  required String? deviceSelector,
+  required bool recordingRequired,
+}) {
+  if (deviceSelector != null) {
+    return TargetDeviceSelectionReason.explicit(selector: deviceSelector);
+  }
+  if (recordingRequired) {
+    return const TargetDeviceSelectionReason.autoSelectedForRecording();
+  }
+  return null;
 }
 
 /// Executes a validated `test` command.
@@ -851,20 +1406,6 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
       await launch.cleanup();
     }
   }
-
-  /// Return the user-facing reason for the selected Target Device.
-  TargetDeviceSelectionReason? _targetDeviceSelectionReason({
-    required String? deviceSelector,
-    required bool recordingRequired,
-  }) {
-    if (deviceSelector != null) {
-      return TargetDeviceSelectionReason.explicit(selector: deviceSelector);
-    }
-    if (recordingRequired) {
-      return const TargetDeviceSelectionReason.autoSelectedForRecording();
-    }
-    return null;
-  }
 }
 
 /// Discovers Flutter Devices and Recording Devices for `test`.
@@ -930,6 +1471,7 @@ abstract interface class TestScenarioRunner {
     RunStopPoint? stopPoint,
     Set<PrintDiagnostic> printDiagnostics,
     void Function(StepProgressEvent event)? onProgress,
+    RunArtifactWriter? runArtifactWriter,
   });
 }
 
@@ -966,12 +1508,14 @@ class _ScenarioRunnerAdapter implements TestScenarioRunner {
     RunStopPoint? stopPoint,
     Set<PrintDiagnostic> printDiagnostics = const <PrintDiagnostic>{},
     void Function(StepProgressEvent event)? onProgress,
+    RunArtifactWriter? runArtifactWriter,
   }) {
     return _runner.run(
       scenario,
       stopPoint: stopPoint,
       printDiagnostics: printDiagnostics,
       onProgress: onProgress,
+      runArtifactWriter: runArtifactWriter,
     );
   }
 }

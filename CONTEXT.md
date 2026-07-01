@@ -12,6 +12,18 @@ _Avoid_: Flow, script, test case
 The Scenario YAML file passed directly to Flutter Pilot CLI validation or execution. Its Scenario metadata is optional and, when present, belongs to the Scenario being validated or run.
 _Avoid_: Root scenario, main scenario, scenario file
 
+**Pilot Directory**:
+The conventional project directory that contains Flutter Pilot-authored Scenario assets for a Target App Package. It is the default discovery location for Project Scenarios.
+_Avoid_: Test directory, scenarios directory, e2e directory
+
+**Project Scenarios**:
+The Entry Scenario files discovered for a Target App Package when Flutter Pilot is asked to run the project's Scenario set. Directory discovery includes only files that declare Scenario metadata, so Step Libraries are not run by themselves.
+_Avoid_: Scenario Suite, full test, all YAML files
+
+**Project Run**:
+A Flutter Pilot execution that runs multiple Project Scenarios as one batch for a Target App Package. A Project Run has one batch-level run directory that groups each Scenario Run directory and a project-level summary report.
+_Avoid_: Full test run, test suite run, all-Scenario run
+
 **Runtime Target**:
 The running Flutter app instance that a Scenario is executed against. Connection details for the Runtime Target are provided outside the Scenario.
 _Avoid_: Target configuration, environment block

@@ -123,9 +123,11 @@ Future<void> main() async {
 
 Run `flutter_pilot test` from the Flutter app package. Flutter Pilot launches
 the app with `flutter run --machine`, reads the Runtime Target URI from Flutter,
-runs the Scenario, and stops the launched app during cleanup.
+runs the selected Scenario or Project Run, and stops the launched app during
+cleanup.
 Human-readable runs show Target App Launch Progress and Step progress on stderr;
-the final `Run report:` and `HTML report:` paths stay on stdout for scripts.
+the final `Run report:`, `HTML report:`, and Project Run report paths stay on
+stdout for scripts.
 `test --json` suppresses progress output.
 
 Check app-side Flutter Pilot setup from the Flutter app package:
@@ -154,6 +156,18 @@ Run a Scenario by launching the current Target App Package:
 
 ```bash
 dart run flutter_pilot test examples/smoke_scenario.yaml
+```
+
+Run all Project Scenarios from the default Pilot Directory, `pilot/`:
+
+```bash
+dart run flutter_pilot test
+```
+
+Run all Project Scenarios from a specific directory:
+
+```bash
+dart run flutter_pilot test pilot/regression
 ```
 
 Select the Target Device, Flutter flavor, or app entrypoint when needed:
@@ -202,7 +216,9 @@ flutter_pilot validate <scenario.yaml>
 flutter_pilot validate <scenario.yaml> --json
 flutter_pilot doctor
 flutter_pilot init
+flutter_pilot test
 flutter_pilot test <scenario.yaml>
+flutter_pilot test <scenario-directory>
 flutter_pilot test <scenario.yaml> --device <device-id-or-name>
 flutter_pilot test <scenario.yaml> --flavor <flavor> --target <entrypoint.dart>
 flutter_pilot test <scenario.yaml> --until <step-or-label>
@@ -215,6 +231,12 @@ flutter_pilot diff <before-run> <after-run> --json
 `--print` may be repeated. When several diagnostics are requested, Flutter Pilot
 prints them in a stable order: Snapshot, Widget Tree, then errors.
 
+With no Scenario file, `test` discovers Project Scenarios under `pilot/`. With
+a directory argument, it discovers Project Scenarios under that directory.
+Directory discovery recursively scans `.yaml` and `.yml` files, but only files
+with top-level `scenario:` metadata are run; YAML files without that metadata
+are treated as Step Library candidates.
+
 `run` is no longer a Flutter Pilot command. `test --target` follows Flutter CLI
 vocabulary and selects the app entrypoint file; it does not accept a VM service
 URI.
@@ -226,8 +248,9 @@ exactly one supported Flutter Device id is also recordable.
 
 ## Artifacts
 
-A Scenario run writes a run directory under `.runs/`. The artifact model is
-designed for both human review and machine consumption.
+A Scenario Run writes a run directory under `.runs/`. A Project Run writes one
+batch run directory under `.runs/` and child Scenario Run directories inside it.
+The artifact model is designed for both human review and machine consumption.
 
 - Screenshot: what a user saw on screen.
 - Snapshot: structured UI state for tools and AI agents.
@@ -236,8 +259,10 @@ designed for both human review and machine consumption.
 - Device Video Recording: optional run-level video saved when
   `scenario.recording` is enabled, stored as
   `artifacts/device-video-recording.<ext>`.
-- `run_report.json`: machine-readable execution summary.
+- `run_report.json`: machine-readable Scenario Run summary.
 - `timeline.html`: visual timeline generated from run artifacts.
+- `project_run_report.json`: machine-readable Project Run summary when
+  multiple Project Scenarios are run together.
 
 ## Development
 
@@ -258,12 +283,18 @@ consistent.
   Regression rules, and acceptance fixtures.
 - [docs/flutter-pilot-prd.md](docs/flutter-pilot-prd.md): product scope and
   implementation decisions.
+- [docs/test-command-prd.md](docs/test-command-prd.md): `test` command launch,
+  device, recording, and Project Run behavior.
+- [docs/project-run-prd.md](docs/project-run-prd.md): Project Scenario
+  discovery, Project Run execution, and batch artifact requirements.
 - [docs/cli-step-progress-prd.md](docs/cli-step-progress-prd.md): CLI Step
   progress feature requirements and implementation decisions.
 - [docs/target-app-launch-progress-prd.md](docs/target-app-launch-progress-prd.md):
   Target App Launch Progress requirements and implementation decisions.
 - [docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md](docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md):
   architecture decision for the Dart CLI and YAML Scenario DSL.
+- [docs/adr/0004-run-project-scenarios-through-test.md](docs/adr/0004-run-project-scenarios-through-test.md):
+  architecture decision for Project Run mode through `test`.
 
 ## Scope
 

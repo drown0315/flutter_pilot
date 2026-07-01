@@ -166,6 +166,58 @@ void main() {
     });
   });
 
+  test('starts a new Scenario header when the Scenario name changes', () async {
+    await FileTestkit.runZoned(() async {
+      final File output = File('progress.log');
+      final IOSink sink = output.openWrite();
+      final StepProgressRenderer renderer = StepProgressRenderer(sink: sink);
+
+      renderer.render(
+        const StepStartedEvent(
+          scenarioName: 'login',
+          totalSteps: 1,
+          step: ScenarioStep(
+            index: 1,
+            action: CaptureAction(
+              screenshot: false,
+              snapshot: false,
+              widgetTree: false,
+              logs: false,
+            ),
+          ),
+          action: 'capture',
+        ),
+      );
+      renderer.render(
+        const StepStartedEvent(
+          scenarioName: 'checkout',
+          totalSteps: 1,
+          step: ScenarioStep(
+            index: 1,
+            action: CaptureAction(
+              screenshot: false,
+              snapshot: false,
+              widgetTree: false,
+              logs: false,
+            ),
+          ),
+          action: 'capture',
+        ),
+      );
+      await sink.close();
+
+      final String rendered = output.readAsStringSync();
+      expect(rendered, contains('Scenario: login (1 steps)'));
+      expect(rendered, contains('Scenario: checkout (1 steps)'));
+      expect(
+        rendered
+            .split('\n')
+            .where((String line) => line.startsWith('Scenario:')),
+        hasLength(2),
+      );
+    });
+  });
+
   test(
     'truncates long failure summaries without changing the report',
     () async {

@@ -33,12 +33,8 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
     );
     final List<RecordingDevice> devices = _parseDevices(result.stdout);
     try {
-      final ScreenRecorderCommandResult xctraceResult =
-          await _commandRunner.run('xcrun', <String>[
-        'xctrace',
-        'list',
-        'devices',
-      ]);
+      final ScreenRecorderCommandResult xctraceResult = await _commandRunner
+          .run('xcrun', <String>['xctrace', 'list', 'devices']);
       if (xctraceResult.exitCode == 0) {
         _addMissingDevices(devices, _parseXctraceDevices(xctraceResult.stdout));
       }

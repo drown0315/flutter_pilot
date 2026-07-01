@@ -54,6 +54,26 @@ class RunArtifactStore {
     return runStore;
   }
 
+  /// Create a batch-level Project Run directory under `.runs/`.
+  ///
+  /// Args:
+  /// `startedAt` provides the timestamp prefix for the Project Run directory.
+  ///
+  /// Returns:
+  /// A `ProjectRunArtifactWriter` that can create child Scenario Run
+  /// directories inside the batch directory.
+  ProjectRunArtifactWriter createProjectRun({required DateTime startedAt}) {
+    final Directory runsDirectory = Directory(
+      p.join(outputDirectory.path, '.runs'),
+    )..createSync(recursive: true);
+    final Directory runDirectory = _createUniqueRunDirectory(
+      runsDirectory: runsDirectory,
+      startedAt: startedAt,
+      scenarioName: 'project-run',
+    );
+    return ProjectRunArtifactWriter(runDirectory);
+  }
+
   /// Create the next available run directory for a timestamp and Scenario name.
   ///
   /// Args:
@@ -90,27 +110,121 @@ class RunArtifactStore {
       suffix++;
     }
   }
+}
 
-  /// Convert a timestamp into the run directory timestamp prefix.
+/// Writer for files inside one Project Run batch directory.
+///
+/// It owns the batch-level `.runs/<project-run>/` directory and can create
+/// child Scenario Run directories that keep the existing single-Scenario run
+/// layout.
+class ProjectRunArtifactWriter {
+  const ProjectRunArtifactWriter(this.runDirectory);
+
+  /// Batch-level Project Run directory.
+  final Directory runDirectory;
+
+  /// Write the Project Run summary as `project_run_report.json`.
   ///
   /// Args:
-  /// `startedAt` is any `DateTime`; local values are converted to UTC before
-  /// formatting.
+  /// `reportJson` is the JSON-compatible Project Run report object assembled by
+  /// the Project Run executor.
   ///
   /// Returns:
-  /// A filesystem-friendly timestamp without colons.
-  ///
-  /// Example:
-  /// `2026-06-11T10:20:30Z` returns `2026-06-11_10-20`.
-  String _formatTimestamp(DateTime startedAt) {
-    final DateTime utcStartedAt = startedAt.toUtc();
-    String twoDigits(int value) => value.toString().padLeft(2, '0');
-    return '${utcStartedAt.year}-'
-        '${twoDigits(utcStartedAt.month)}-'
-        '${twoDigits(utcStartedAt.day)}_'
-        '${twoDigits(utcStartedAt.hour)}-'
-        '${twoDigits(utcStartedAt.minute)}';
+  /// An artifact record with `type: projectRunReport` and path
+  /// `project_run_report.json`.
+  ArtifactReport writeProjectRunReport(Map<String, Object?> reportJson) {
+    const String relativePath = 'project_run_report.json';
+    final File reportFile = File(p.join(runDirectory.path, relativePath));
+    reportFile.parent.createSync(recursive: true);
+    reportFile.writeAsStringSync(_artifactJsonEncoder.convert(reportJson));
+    return const ArtifactReport(
+      type: ArtifactType.projectRunReport,
+      path: relativePath,
+    );
   }
+
+  /// Return a path from the Project Run root to a child Scenario artifact.
+  ///
+  /// Args:
+  /// `scenarioRun` is a child run writer created by this Project Run writer.
+  /// `relativeArtifactPath` is the artifact path relative to that child run,
+  /// such as `run_report.json` or `timeline.html`.
+  ///
+  /// Returns:
+  /// A POSIX-style path that can be stored in `project_run_report.json`.
+  String relativePathFor(
+    RunArtifactWriter scenarioRun,
+    String relativeArtifactPath,
+  ) {
+    final String relativeRunDirectory = p.relative(
+      scenarioRun.runDirectory.path,
+      from: runDirectory.path,
+    );
+    return p
+        .split(p.join(relativeRunDirectory, relativeArtifactPath))
+        .join('/');
+  }
+
+  /// Create a child Scenario Run directory inside this Project Run.
+  ///
+  /// The child directory uses the same timestamp and Scenario name convention
+  /// as standalone Scenario Runs, and writes `scenario.json` immediately.
+  RunArtifactWriter createScenarioRun({
+    required Scenario scenario,
+    required DateTime startedAt,
+  }) {
+    final Directory childDirectory = _createUniqueChildRunDirectory(
+      startedAt: startedAt,
+      scenarioName: scenario.name,
+    );
+    final RunArtifactWriter writer = RunArtifactWriter(childDirectory);
+    writer.writeScenario(scenario);
+    return writer;
+  }
+
+  /// Create a unique child run directory in the Project Run directory.
+  Directory _createUniqueChildRunDirectory({
+    required DateTime startedAt,
+    required String scenarioName,
+  }) {
+    final String timestamp = _formatTimestamp(startedAt);
+    final String baseName = '${timestamp}_$scenarioName';
+    var suffix = 0;
+    while (true) {
+      final String directoryName = suffix == 0
+          ? baseName
+          : '${baseName}_$suffix';
+      final Directory directory = Directory(
+        p.join(runDirectory.path, directoryName),
+      );
+      if (!directory.existsSync()) {
+        directory.createSync(recursive: true);
+        return directory;
+      }
+      suffix++;
+    }
+  }
+}
+
+/// Convert a timestamp into the run directory timestamp prefix.
+///
+/// Args:
+/// `startedAt` is any `DateTime`; local values are converted to UTC before
+/// formatting.
+///
+/// Returns:
+/// A filesystem-friendly timestamp without colons.
+///
+/// Example:
+/// `2026-06-11T10:20:30Z` returns `2026-06-11_10-20`.
+String _formatTimestamp(DateTime startedAt) {
+  final DateTime utcStartedAt = startedAt.toUtc();
+  String twoDigits(int value) => value.toString().padLeft(2, '0');
+  return '${utcStartedAt.year}-'
+      '${twoDigits(utcStartedAt.month)}-'
+      '${twoDigits(utcStartedAt.day)}_'
+      '${twoDigits(utcStartedAt.hour)}-'
+      '${twoDigits(utcStartedAt.minute)}';
 }
 
 /// Writer for files inside one Scenario run directory.
@@ -517,6 +631,7 @@ class RunArtifactWriter {
 /// Each value identifies the kind of file referenced by an `ArtifactReport`.
 enum ArtifactType {
   scenario,
+  projectRunReport,
   runReport,
   htmlReport,
   stepMetadata,

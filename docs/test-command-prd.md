@@ -15,15 +15,18 @@ process.
 
 ## Solution
 
-Make `flutter_pilot test <scenario.yaml>` the only CLI command that executes a
-Scenario. The command launches the current Flutter app with
+Make `flutter_pilot test <scenario.yaml>` the command that executes one
+Scenario, and make `flutter_pilot test` the command that executes the Target App
+Package's Project Scenarios. The command launches the current Flutter app with
 `flutter run --machine`, extracts `app.debugPort.wsUri`, creates the internal
-Runtime Target, and then runs the Scenario through the existing runner.
+Runtime Target, and then runs the Scenario or Project Run through the existing
+runner. When the user passes a directory, Flutter Pilot discovers Project
+Scenarios from that directory instead of the default Pilot Directory.
 
 Human-readable `test` runs show Target App Launch Progress while launch is
 pending, then Step progress after the Runtime Target is available. Progress is
-written to stderr so final `Run report:` and `HTML report:` paths remain stable
-on stdout. `test --json` suppresses progress output.
+written to stderr so final `Run report:`, `HTML report:`, and Project Run
+report paths remain stable on stdout. `test --json` suppresses progress output.
 
 The command supports common Flutter app launch options:
 
@@ -46,65 +49,76 @@ launch flow, not a user-provided command option.
 ## User Stories
 
 1. As a Flutter developer, I want one command to launch my app and run a Scenario, so that I do not need to manually copy a VM service URI.
-2. As a Flutter developer, I want `flutter_pilot test scenario.yaml`, so that the normal e2e path is short and memorable.
-3. As a Flutter developer, I want Flutter Pilot to launch the current Target App Package, so that the command behaves like a local app test.
-4. As a Flutter developer, I want `--device` to select the Target Device, so that I can choose where the app runs.
-5. As a Flutter developer, I want `-d` as a short form for `--device`, so that the command feels familiar from `flutter run`.
-6. As a Flutter developer, I want `--device` to accept a Flutter Device id, name, or name prefix, so that I do not need to copy long device identifiers.
-7. As a Flutter developer, I want a device selector to resolve to exactly one Flutter Device, so that Flutter Pilot never guesses the Target Device.
-8. As a Flutter developer, I want Flutter Pilot to pass the resolved Target Device id to Flutter, so that app launch uses stable device identity.
-9. As a Flutter developer, I want `--flavor` to be passed to Flutter, so that production-style flavored apps can be tested.
-10. As a Flutter developer, I want `--target` to mean Flutter app entrypoint file, so that Flutter Pilot matches Flutter CLI vocabulary.
-11. As a Flutter developer, I want `-t` as a short form for `--target`, so that entrypoint selection matches `flutter run`.
-12. As a Flutter developer, I want `--target lib/main_staging.dart`, so that I can test apps with non-default entrypoints.
-13. As a Flutter developer, I want `test --device PHK110 --flavor staging --target lib/main_staging.dart`, so that common production launch configuration is supported.
-14. As a Flutter developer, I want Scenario YAML parsing to happen before app launch, so that invalid Scenarios fail without starting Flutter.
-15. As a Flutter developer, I want `test` to support `--until`, so that I can stop at a known Step while using the easy app-launching entrypoint.
-16. As a Flutter developer, I want `test` to support `--print`, so that I can inspect Snapshot, Widget Tree, or errors after a stopped Step.
-17. As a Flutter developer, I want `--print` to keep requiring `--until`, so that diagnostic output remains tied to a precise checkpoint.
-18. As a Flutter developer, I want `--json` to keep its existing diagnostic-print meaning, so that startup events do not change the JSON contract.
-19. As a Flutter developer, I want Scenario Recording to record the same device that runs the app, so that the Device Video Recording reflects the actual Scenario Run.
-20. As a Flutter developer, I want recording-enabled Scenarios to fail when no recordable Target Device exists, so that requested video artifacts are never silently skipped.
-21. As a Flutter developer, I want recording-enabled Scenarios to fail when multiple recordable Target Devices exist and I did not pass `--device`, so that Flutter Pilot does not choose the wrong device.
-22. As a Flutter developer, I want recording-enabled Scenarios to auto-select the Target Device when exactly one supported Flutter Device id is also a Recording Device id, so that single-device setups stay convenient.
-23. As a Flutter developer, I want `scenario.recording.enabled: false` to behave like no recording, so that templates can disable recording without triggering device discovery.
-24. As a Flutter developer, I want recording-disabled Scenarios to run on macOS or Chrome when Flutter supports them, so that ordinary Scenario execution is not limited by screen recording.
-25. As a Flutter developer, I want recording-enabled Scenarios to reject macOS and Chrome Target Devices, so that unsupported recording platforms fail clearly.
-26. As a Flutter developer, I want Flutter Pilot to show the resolved Target Device when one is selected, so that I know what app launch and recording will use.
-27. As a Flutter developer, I want Flutter Pilot to leave a launch success summary, so that I can see the app produced a Runtime Target before Step execution begins.
-28. As a Flutter developer, I want `test` to stop the launched Flutter app when the Scenario finishes, so that repeated runs do not leave stray app processes.
-29. As a Flutter developer, I want Ctrl-C cleanup to stop recording before stopping the Flutter app, so that interrupted recordings can still finalize when possible.
-30. As a Flutter developer, I want `flutter run` startup failure to show useful stderr context, so that I can diagnose build or launch failures.
-31. As a Flutter developer, I want Flutter Pilot to avoid printing raw `flutter run --machine` JSON during normal startup, so that command output stays readable.
-32. As a Flutter developer, I want `flutter run` stderr context only when startup fails or the launched process exits unexpectedly, so that ordinary Scenario failures stay focused on Scenario diagnostics.
-33. As a Flutter developer, I want no Flutter Pilot launch timeout, so that long Flutter builds follow Flutter CLI behavior and can be interrupted manually.
-34. As a Flutter developer, I want `test` to run from the current Target App Package directory, so that Flutter app launch matches manual `flutter run`.
-35. As a Flutter developer, I want Scenario files to live outside the Target App Package if needed, so that Scenario repositories can be shared.
-36. As a Flutter developer, I want run artifacts to be written under the current Target App Package `.runs/` directory, so that app test results are easy to find.
-37. As a Flutter developer, I want Flutter Pilot not to run setup checks before `test`, so that `test` has no doctor/init side effects.
-38. As a Flutter developer, I want `doctor` and `init` to remain separate commands, so that app setup remains explicit.
-39. As a Flutter developer, I want no automatic `flutter pub get` wrapper beyond Flutter's own `flutter run` behavior, so that `test` does not duplicate Flutter CLI responsibilities.
-40. As a Flutter developer, I want no arbitrary Flutter argument passthrough in the first version, so that the supported command surface stays predictable.
-41. As a Flutter developer, I want no CLI flag to enable or disable Scenario Recording, so that the Scenario YAML remains the source of recording intent.
-42. As a Flutter developer, I want Device Video Recording files to stay inside the run artifact bundle, so that generated run directories are portable.
-43. As a Flutter developer, I want Target Device metadata in the run report, so that artifacts explain which device produced them.
-44. As a Flutter developer, I want run directories not to include device ids in their names, so that artifact paths remain stable and readable.
-45. As a Flutter developer, I want `validate` to remain schema-only, so that I can lint Scenario YAML without devices or Flutter app launch.
-46. As a Flutter developer, I want `report` and `diff` to continue working on run directories, so that post-run workflows are preserved.
-47. As a CI user, I want `test` to fail non-interactively when Target Device selection is ambiguous, so that pipelines do not hang waiting for input.
-48. As a CI user, I want to pass an explicit Target Device id, so that the same device is used for Flutter launch and recording.
-49. As an AI coding agent, I want `test` to be the deterministic reproduction command, so that I can run one command to launch the app and collect artifacts.
-50. As an AI coding agent, I want Target Device resolution errors before app launch, so that I can fix command inputs without producing partial run directories.
-51. As a maintainer, I want the existing ScenarioRunner reused by `test`, so that `test` and prior Scenario execution behavior do not diverge.
-52. As a maintainer, I want app launch orchestration isolated behind a deep module, so that `flutter run --machine` parsing and cleanup can be tested independently.
-53. As a maintainer, I want Target Device resolution isolated behind a deep module, so that device matching rules can be tested independently.
-54. As a maintainer, I want the Runtime Adapter to continue depending only on Runtime Target, so that device selection does not leak into Flutter UI operation mapping.
-55. As a maintainer, I want Target Device to remain separate from Recording Device, so that screen recording backend details do not become the app launch model.
-56. As a maintainer, I want the `run` command removed rather than kept as an alias, so that the CLI surface has one Scenario execution path.
-57. As a maintainer, I want old `run` invocations to fail as unknown commands, so that the code does not preserve deprecated behavior.
-58. As a maintainer, I want physical iOS Recording Device discovery to include devices visible through `xcrun xctrace list devices`, so that Flutter-visible physical iPhones can participate in Target Device matching.
-59. As a maintainer, I want Device Video Recording path metadata to be run-directory-relative, so that reports and HTML timeline links remain portable.
-60. As a maintainer, I want future full-suite testing left out of this slice, so that single-Scenario `test` can be implemented without suite discovery and aggregation complexity.
+1. As a Flutter developer, I want `flutter_pilot test scenario.yaml`, so that the normal e2e path is short and memorable.
+1. As a Flutter developer, I want `flutter_pilot test` to run all Project Scenarios in the Target App Package, so that I can verify the app's Scenario set with one command.
+1. As a Flutter developer, I want `flutter_pilot test pilot/login.yaml`, so that I can still run one Scenario directly.
+1. As a Flutter developer, I want `flutter_pilot test pilot/regression`, so that I can run a focused Scenario directory.
+1. As a Flutter developer, I want Project Scenarios to be discovered from `pilot/` by default, so that Flutter Pilot assets have a short conventional home.
+1. As a Flutter developer, I want directory discovery to ignore Step Libraries, so that shared Step fragments are not run by themselves.
+1. As a Flutter developer, I want Project Scenarios to run in a deterministic order, so that local and CI results are stable.
+1. As a Flutter developer, I want Project Run artifacts grouped into one run directory, so that a full project verification is easy to upload or inspect.
+1. As a Flutter developer, I want each Scenario in a Project Run to keep its own run report and timeline, so that per-Scenario debugging artifacts remain familiar.
+1. As a Flutter developer, I want a failed Scenario in a Project Run not to block later Scenarios, so that one failure does not hide the rest of the project state.
+1. As a Flutter developer, I want Flutter Pilot to reuse the launched app across a Project Run, so that running all Project Scenarios is faster than cold-launching for every Scenario.
+1. As a Flutter developer, I want Flutter Pilot to hot restart the app before each later Scenario, so that Scenario state is reset while the app process is reused.
+1. As a Flutter developer, I want Flutter Pilot to launch the current Target App Package, so that the command behaves like a local app test.
+1. As a Flutter developer, I want `--device` to select the Target Device, so that I can choose where the app runs.
+1. As a Flutter developer, I want `-d` as a short form for `--device`, so that the command feels familiar from `flutter run`.
+1. As a Flutter developer, I want `--device` to accept a Flutter Device id, name, or name prefix, so that I do not need to copy long device identifiers.
+1. As a Flutter developer, I want a device selector to resolve to exactly one Flutter Device, so that Flutter Pilot never guesses the Target Device.
+1. As a Flutter developer, I want Flutter Pilot to pass the resolved Target Device id to Flutter, so that app launch uses stable device identity.
+1. As a Flutter developer, I want `--flavor` to be passed to Flutter, so that production-style flavored apps can be tested.
+1. As a Flutter developer, I want `--target` to mean Flutter app entrypoint file, so that Flutter Pilot matches Flutter CLI vocabulary.
+1. As a Flutter developer, I want `-t` as a short form for `--target`, so that entrypoint selection matches `flutter run`.
+1. As a Flutter developer, I want `--target lib/main_staging.dart`, so that I can test apps with non-default entrypoints.
+1. As a Flutter developer, I want `test --device PHK110 --flavor staging --target lib/main_staging.dart`, so that common production launch configuration is supported.
+1. As a Flutter developer, I want Scenario YAML parsing to happen before app launch, so that invalid Scenarios fail without starting Flutter.
+1. As a Flutter developer, I want `test` to support `--until`, so that I can stop at a known Step while using the easy app-launching entrypoint.
+1. As a Flutter developer, I want `test` to support `--print`, so that I can inspect Snapshot, Widget Tree, or errors after a stopped Step.
+1. As a Flutter developer, I want `--print` to keep requiring `--until`, so that diagnostic output remains tied to a precise checkpoint.
+1. As a Flutter developer, I want `--json` to keep its existing diagnostic-print meaning, so that startup events do not change the JSON contract.
+1. As a Flutter developer, I want Scenario Recording to record the same device that runs the app, so that the Device Video Recording reflects the actual Scenario Run.
+1. As a Flutter developer, I want recording-enabled Scenarios to fail when no recordable Target Device exists, so that requested video artifacts are never silently skipped.
+1. As a Flutter developer, I want recording-enabled Scenarios to fail when multiple recordable Target Devices exist and I did not pass `--device`, so that Flutter Pilot does not choose the wrong device.
+1. As a Flutter developer, I want recording-enabled Scenarios to auto-select the Target Device when exactly one supported Flutter Device id is also a Recording Device id, so that single-device setups stay convenient.
+1. As a Flutter developer, I want `scenario.recording.enabled: false` to behave like no recording, so that templates can disable recording without triggering device discovery.
+1. As a Flutter developer, I want recording-disabled Scenarios to run on macOS or Chrome when Flutter supports them, so that ordinary Scenario execution is not limited by screen recording.
+1. As a Flutter developer, I want recording-enabled Scenarios to reject macOS and Chrome Target Devices, so that unsupported recording platforms fail clearly.
+1. As a Flutter developer, I want Flutter Pilot to show the resolved Target Device when one is selected, so that I know what app launch and recording will use.
+1. As a Flutter developer, I want Flutter Pilot to leave a launch success summary, so that I can see the app produced a Runtime Target before Step execution begins.
+1. As a Flutter developer, I want `test` to stop the launched Flutter app when the Scenario finishes, so that repeated runs do not leave stray app processes.
+1. As a Flutter developer, I want Ctrl-C cleanup to stop recording before stopping the Flutter app, so that interrupted recordings can still finalize when possible.
+1. As a Flutter developer, I want `flutter run` startup failure to show useful stderr context, so that I can diagnose build or launch failures.
+1. As a Flutter developer, I want Flutter Pilot to avoid printing raw `flutter run --machine` JSON during normal startup, so that command output stays readable.
+1. As a Flutter developer, I want `flutter run` stderr context only when startup fails or the launched process exits unexpectedly, so that ordinary Scenario failures stay focused on Scenario diagnostics.
+1. As a Flutter developer, I want no Flutter Pilot launch timeout, so that long Flutter builds follow Flutter CLI behavior and can be interrupted manually.
+1. As a Flutter developer, I want `test` to run from the current Target App Package directory, so that Flutter app launch matches manual `flutter run`.
+1. As a Flutter developer, I want Scenario files to live outside the Target App Package if needed, so that Scenario repositories can be shared.
+1. As a Flutter developer, I want run artifacts to be written under the current Target App Package `.runs/` directory, so that app test results are easy to find.
+1. As a Flutter developer, I want Flutter Pilot not to run setup checks before `test`, so that `test` has no doctor/init side effects.
+1. As a Flutter developer, I want `doctor` and `init` to remain separate commands, so that app setup remains explicit.
+1. As a Flutter developer, I want no automatic `flutter pub get` wrapper beyond Flutter's own `flutter run` behavior, so that `test` does not duplicate Flutter CLI responsibilities.
+1. As a Flutter developer, I want no arbitrary Flutter argument passthrough in the first version, so that the supported command surface stays predictable.
+1. As a Flutter developer, I want no CLI flag to enable or disable Scenario Recording, so that the Scenario YAML remains the source of recording intent.
+1. As a Flutter developer, I want Device Video Recording files to stay inside the run artifact bundle, so that generated run directories are portable.
+1. As a Flutter developer, I want Target Device metadata in the run report, so that artifacts explain which device produced them.
+1. As a Flutter developer, I want run directories not to include device ids in their names, so that artifact paths remain stable and readable.
+1. As a Flutter developer, I want `validate` to remain schema-only, so that I can lint Scenario YAML without devices or Flutter app launch.
+1. As a Flutter developer, I want `report` and `diff` to continue working on run directories, so that post-run workflows are preserved.
+1. As a CI user, I want `test` to fail non-interactively when Target Device selection is ambiguous, so that pipelines do not hang waiting for input.
+1. As a CI user, I want to pass an explicit Target Device id, so that the same device is used for Flutter launch and recording.
+1. As an AI coding agent, I want `test` to be the deterministic reproduction command, so that I can run one command to launch the app and collect artifacts.
+1. As an AI coding agent, I want Target Device resolution errors before app launch, so that I can fix command inputs before Scenario execution begins.
+1. As a maintainer, I want the existing ScenarioRunner reused by `test`, so that `test` and prior Scenario execution behavior do not diverge.
+1. As a maintainer, I want app launch orchestration isolated behind a deep module, so that `flutter run --machine` parsing and cleanup can be tested independently.
+1. As a maintainer, I want Target Device resolution isolated behind a deep module, so that device matching rules can be tested independently.
+1. As a maintainer, I want the Runtime Adapter to continue depending only on Runtime Target, so that device selection does not leak into Flutter UI operation mapping.
+1. As a maintainer, I want Target Device to remain separate from Recording Device, so that screen recording backend details do not become the app launch model.
+1. As a maintainer, I want the `run` command removed rather than kept as an alias, so that the CLI surface has one Scenario execution path.
+1. As a maintainer, I want old `run` invocations to fail as unknown commands, so that the code does not preserve deprecated behavior.
+1. As a maintainer, I want physical iOS Recording Device discovery to include devices visible through `xcrun xctrace list devices`, so that Flutter-visible physical iPhones can participate in Target Device matching.
+1. As a maintainer, I want Device Video Recording path metadata to be run-directory-relative, so that reports and HTML timeline links remain portable.
+1. As a maintainer, I want Project Run discovery and aggregation to stay narrow in the first version, so that it adds batch execution without suite configuration, parallel orchestration, or a second report format.
 
 ## Implementation Decisions
 
@@ -114,15 +128,30 @@ launch flow, not a user-provided command option.
 - `validate` remains pure Scenario YAML/schema validation and does not launch Flutter, discover devices, or validate recording backends.
 - `doctor` and `init` remain explicit setup commands and are not automatically run by `test`.
 - `report` and `diff` continue to operate on existing run directories.
-- `test` requires exactly one Scenario file in the first version.
-- `test` does not support no-argument full-suite discovery in the first version.
-- `test` does not support directory inputs or glob inputs in the first version.
-- `test` reads the Scenario file before launching Flutter.
-- Scenario validation failures prevent Flutter app launch.
+- `test` with one Scenario file runs that Entry Scenario.
+- `test` with no Scenario file runs a Project Run discovered from the default Pilot Directory, `pilot/`.
+- `test` with one directory runs a Project Run discovered from that directory.
+- `test` does not support multiple file or directory inputs in one invocation.
+- `test` does not support glob inputs in the first version.
+- The Pilot Directory is named `pilot/`.
+- Project Scenario discovery recursively scans the discovery directory for `.yaml` and `.yml` files.
+- Directory discovery includes only YAML files that declare top-level `scenario:` metadata.
+- Directory discovery treats YAML files without top-level `scenario:` metadata as Step Library candidates and does not run them directly.
+- Single-file `test` keeps the existing Entry Scenario rule: `scenario:` metadata is optional.
+- Project Scenarios run in deterministic lexicographic order by POSIX-style path relative to the discovery directory.
+- If Project Scenario discovery finds no Entry Scenarios, `test` exits `64` before launching Flutter.
+- `test` reads and validates all selected Entry Scenario files before launching Flutter.
+- Scenario validation failures prevent Flutter app launch and do not create Project Run artifacts.
 - `test` launches the Target App Package from the current working directory.
 - `test` does not search upward for a Flutter package root.
 - `test` allows the Scenario file to be outside the Target App Package directory.
 - `test` writes run artifacts under the current working directory's `.runs/` directory.
+- Discovery and Scenario validation failures happen before app launch and before Project Run artifact creation.
+- A Project Run writes one batch-level run directory under `.runs/` after discovery and validation succeed.
+- Each Scenario Run inside a Project Run writes its own run directory under the Project Run directory.
+- The Project Run writes `project_run_report.json` summarizing discovered Scenarios, per-Scenario statuses, per-Scenario report paths, and final Project Run status.
+- The first Project Run version does not generate a batch-level HTML report.
+- Project Run stdout prints the Project Run report path and each Scenario's existing report paths.
 - `test` invokes `flutter run --machine`.
 - `test` does not explicitly pass `--debug`, `--host-vmservice-port`, `--device-vmservice-port`, `--pub`, or `--no-pub`.
 - `test` inherits the current process environment when launching Flutter.
@@ -135,7 +164,8 @@ launch flow, not a user-provided command option.
 - `test --target` and `test -t` select the Flutter app entrypoint file passed to `flutter run --target`.
 - `test --target` rejects empty or whitespace-only values as usage errors.
 - `test --target` does not check whether the entrypoint file exists; Flutter CLI owns that validation.
-- `test` supports existing Scenario debugging options: `--until`, repeated `--print`, and `--json`.
+- Single-file `test` supports existing Scenario debugging options: `--until`, repeated `--print`, and `--json`.
+- Project Run mode rejects `--until` and `--print` as usage errors.
 - `--print` remains valid only with `--until`.
 - `--json` remains scoped to printed diagnostics and does not turn startup events into JSON.
 - Target Device is a Flutter Pilot domain model distinct from Runtime Target and Recording Device.
@@ -150,7 +180,7 @@ launch flow, not a user-provided command option.
 - If the user does not pass `--device` and Scenario Recording is enabled, `test` builds the id intersection of supported Flutter Devices and Recording Devices.
 - If the recording-required device id intersection has exactly one device, `test` auto-selects that Target Device.
 - If the recording-required device id intersection has zero or multiple devices, `test` fails with exit code `64` before launching Flutter.
-- Device resolution failures do not create run directories.
+- Single-file Target Device resolution failures do not create Scenario Run directories. Project Run Target Device resolution failures create the batch directory and `project_run_report.json` with an environment-level failure.
 - Scenario Recording startup failure after a Runtime Target URI is available is a Scenario Run failure and creates a run report.
 - `test` shows the resolved Target Device in Target App Launch Progress when
   one is selected.
@@ -179,6 +209,12 @@ launch flow, not a user-provided command option.
 - `test` does not record Flutter build, install, or app cold-start time before the Runtime Target URI is available.
 - `test` stops Scenario Recording before stopping the launched Flutter app during normal cleanup and Ctrl-C cleanup.
 - `test` stops the launched Flutter app process when the Scenario completes or fails.
+- A Project Run launches the Target App Package once and reuses that launched app for all selected Project Scenarios.
+- In a Project Run, the first Scenario runs after launch without an extra hot restart.
+- In a Project Run, Flutter Pilot performs a hot restart before every later Scenario, including after a previous Scenario failure.
+- A Scenario execution failure inside a Project Run records that Scenario's artifacts and does not stop later Scenarios.
+- A launch, Target Device resolution, hot restart, or other executor-level environment failure stops the Project Run and is recorded in `project_run_report.json`.
+- A Project Run exits `0` only when every selected Scenario passes; it exits `1` when one or more Scenario Runs fail.
 - App cleanup first attempts the normal Flutter CLI quit path by sending `q` to `flutter run`; if that fails, cleanup may kill the process.
 - `test` does not provide `--keep-running` in the first version.
 - `test` does not support interactive device selection.
@@ -200,7 +236,10 @@ launch flow, not a user-provided command option.
 - Tests should verify public behavior and stable contracts, not private helper implementation details.
 - Target Device resolution should be tested as an isolated module because it owns the recording-required device rules.
 - Target App Launcher should be tested with fake process streams so `flutter run --machine` parsing and cleanup behavior do not require a live Flutter app.
+- Target App Launcher tests should cover the hot restart command path with fake process streams.
 - CLI subprocess tests should remain for help output, usage errors, `validate`, and other command-shell behavior that does not require fake Flutter processes.
+- Project Scenario discovery tests should cover the default Pilot Directory, explicit directory inputs, recursive discovery, lexicographic ordering, ignored Step Libraries, and empty discovery directories.
+- Project Run executor tests should cover launch reuse, hot restart between Scenarios, continuing after Scenario failures, stopping on hot restart failure, project-level report output, and final exit status.
 - Complex `test` success paths should be covered through injectable modules or command-level tests rather than subprocess tests that would start a real Flutter app.
 - Existing ScenarioRunner tests should remain the primary coverage for Scenario execution, Step lifecycle, capture, failure handling, `--until`, `--print`, and Scenario Recording lifecycle.
 - Screen recorder package tests should cover physical iOS discovery through `xcrun xctrace list devices`.
@@ -213,10 +252,11 @@ launch flow, not a user-provided command option.
 
 ## Out of Scope
 
-- Full-suite or all-Scenario discovery.
-- Directory or glob Scenario inputs.
-- Running multiple Scenario files in one `test` invocation.
-- Suite-level reports.
+- Glob Scenario inputs.
+- Multiple explicit file or directory inputs in one `test` invocation.
+- Batch-level HTML reports.
+- Configurable Project Scenario ordering.
+- Running directory-discovered Scenario files that omit `scenario:` metadata.
 - Parallel device orchestration.
 - Interactive device selection.
 - A `devices` command.
