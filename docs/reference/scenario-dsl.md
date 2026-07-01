@@ -1,0 +1,173 @@
+# Scenario DSL
+
+Scenario YAML is Flutter Pilot's portable format for describing a reproducible
+Flutter UI path. It records actions and diagnostic checkpoints. Runtime Target
+connection details stay in CLI options.
+
+## Minimal Scenario
+
+```scenario-yaml
+steps:
+  - tap:
+      byText: Continue
+```
+
+`steps` is required. `scenario` metadata is optional.
+
+## Complete Example
+
+```scenario-yaml
+scenario:
+  name: login_error
+  description: Reproduce the invalid login message.
+steps:
+  - label: enter_email
+    type:
+      byType: textField
+      text: bad@example.com
+  - label: submit_login
+    tap:
+      byText: Continue
+      byType: button
+  - label: error_visible
+    waitFor:
+      byText: Invalid email or password
+      timeoutMs: 5000
+  - label: review_lower_content
+    scroll:
+      deltaY: -500
+  - label: capture_failure
+    capture:
+      screenshot: true
+      snapshot: true
+      widgetTree: false
+      logs: true
+```
+
+## Scenario Metadata
+
+`scenario.name` is optional. When present, it must start with a letter or digit
+and may contain letters, digits, `_`, or `-`.
+
+`scenario.description` is optional and must be a string.
+
+Scenario Recording is optional run-level metadata under `scenario.recording`.
+It is not a Step action.
+
+```scenario-yaml
+scenario:
+  name: recorded_login
+  recording: {}
+steps:
+  - label: capture_start
+    capture: {}
+```
+
+## Steps
+
+Each item in `steps` is either a Step or a Step Include. A Step may have a
+`label` and must have exactly one action.
+
+```scenario-yaml
+steps:
+  - label: submit_login
+    tap:
+      byText: Continue
+```
+
+The label belongs beside the action, not inside it. Labels must be unique within
+the expanded Scenario.
+
+## Step Includes
+
+A Step Include pulls Steps from a Step Library file into the current Scenario at
+the include position.
+
+```yaml
+steps:
+  - include: flows/login.yaml
+```
+
+Step Libraries contain `steps` and do not define `scenario` metadata. Includes
+are expanded before execution, so the runner receives a flat Step list.
+
+## Finders
+
+A Finder identifies the widget that an action should interact with or wait for.
+
+| Field | Meaning |
+| --- | --- |
+| `byText` | Exact visible text. |
+| `byType` | Semantic Snapshot node type from `mcp_flutter`. |
+
+```scenario-yaml
+steps:
+  - label: tap_primary_button
+    tap:
+      byText: Continue
+      byType: button
+```
+
+When several Finder fields are present, all constraints must match. Finder
+fields are single strings.
+
+## Actions
+
+Flutter Pilot supports these Scenario actions:
+
+| Action | Purpose |
+| --- | --- |
+| `tap` | Tap exactly one Finder Match. |
+| `type` | Replace text in exactly one Finder Match. |
+| `scroll` | Drag a scrollable area by logical-pixel deltas. |
+| `waitFor` | Wait until a Finder resolves to exactly one match. |
+| `capture` | Record diagnostic artifacts at that Step. |
+
+### tap
+
+```scenario-yaml
+steps:
+  - label: open_details
+    tap:
+      byText: Details
+```
+
+### type
+
+```scenario-yaml
+steps:
+  - label: enter_email
+    type:
+      byType: textField
+      text: user@example.com
+```
+
+### scroll
+
+```scenario-yaml
+steps:
+  - label: reveal_footer
+    scroll:
+      deltaY: -500
+```
+
+### waitFor
+
+```scenario-yaml
+steps:
+  - label: wait_for_success
+    waitFor:
+      byText: Saved
+      timeoutMs: 3000
+```
+
+### capture
+
+```scenario-yaml
+steps:
+  - label: capture_state
+    capture: {}
+```
+
+`capture: {}` records the default bundle: screenshot, Snapshot, and logs.
+Widget Tree capture is off by default.
