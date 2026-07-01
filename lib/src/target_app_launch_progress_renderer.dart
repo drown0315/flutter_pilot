@@ -124,7 +124,7 @@ class TargetAppLaunchFailedEvent extends TargetAppLaunchProgressEvent {
   final List<String> stderrLines;
 }
 
-/// Plain-text Target App Launch Progress renderer.
+/// Target App Launch Progress renderer for plain and interactive terminals.
 class TargetAppLaunchProgressRenderer {
   /// Creates a renderer that writes launch progress to `sink`.
   ///
@@ -132,17 +132,26 @@ class TargetAppLaunchProgressRenderer {
   /// verify elapsed launch time without waiting in real time.
   TargetAppLaunchProgressRenderer({
     required this.sink,
+    this.interactive = false,
     TargetAppLaunchClock? clock,
   }) : _clock = clock ?? DateTime.now;
 
   /// Destination for human-readable launch progress, normally stderr.
   final IOSink sink;
 
+  /// Whether launch progress should redraw a compact in-place panel.
+  final bool interactive;
+
   final TargetAppLaunchClock _clock;
   bool _headerWritten = false;
+  int _lastInteractiveLineCount = 0;
 
   /// Render one launch progress event as deterministic plain text.
   void render(TargetAppLaunchProgressEvent event) {
+    if (interactive) {
+      _renderInteractive(event);
+      return;
+    }
     _writeHeader();
     switch (event) {
       case TargetAppLaunchStartedEvent():
@@ -175,35 +184,97 @@ class TargetAppLaunchProgressRenderer {
     }
   }
 
+  void _renderInteractive(TargetAppLaunchProgressEvent event) {
+    switch (event) {
+      case TargetAppLaunchStartedEvent():
+        _redrawInteractiveBlock(<String>[
+          '> Target App Launch',
+          ..._choiceLines(event.choices),
+          '⏳ Waiting for Runtime Target... elapsed '
+              '${_formatElapsed(_clock().difference(event.startedAt))}',
+        ]);
+      case TargetAppLaunchSucceededEvent(:final DateTime finishedAt):
+        _clearInteractiveBlock();
+        _writeHeader();
+        sink.writeln(
+          'Target App launched in '
+          '${_formatElapsed(finishedAt.difference(event.startedAt))}',
+        );
+      case TargetAppLaunchFailedEvent(
+        :final DateTime failedAt,
+        :final String message,
+        :final List<String> stderrLines,
+      ):
+        _clearInteractiveBlock();
+        _writeHeader();
+        sink.writeln(
+          'Target App launch failed after '
+          '${_formatElapsed(failedAt.difference(event.startedAt))}',
+        );
+        sink.writeln(message);
+        if (stderrLines.isNotEmpty) {
+          sink.writeln('Flutter stderr tail:');
+          for (final String line in stderrLines) {
+            sink.writeln(line);
+          }
+        }
+    }
+  }
+
+  void _redrawInteractiveBlock(List<String> lines) {
+    _clearInteractiveBlock();
+    for (final String line in lines) {
+      sink.writeln(line);
+    }
+    _lastInteractiveLineCount = lines.length;
+  }
+
+  void _clearInteractiveBlock() {
+    if (_lastInteractiveLineCount == 0) {
+      return;
+    }
+    sink.write('\u001b[${_lastInteractiveLineCount}A');
+    sink.write('\u001b[J');
+    _lastInteractiveLineCount = 0;
+  }
+
   void _writeChoices(TargetAppLaunchChoices choices) {
+    for (final String line in _choiceLines(choices)) {
+      sink.writeln(line);
+    }
+  }
+
+  List<String> _choiceLines(TargetAppLaunchChoices choices) {
+    final List<String> lines = <String>[];
     final TargetDevice? targetDevice = choices.targetDevice;
     if (targetDevice != null) {
-      sink.writeln(
+      lines.add(
         'Target Device: ${targetDevice.id} '
         '(${targetDevice.name}, ${targetDevice.targetPlatform}, '
         '${targetDevice.sdk})',
       );
     } else {
-      sink.writeln('Target Device: Flutter default');
+      lines.add('Target Device: Flutter default');
     }
     final TargetDeviceSelectionReason? selectionReason =
         choices.selectionReason;
     switch (selectionReason) {
       case ExplicitTargetDeviceSelectionReason(:final String selector):
-        sink.writeln('Selection: --device $selector');
+        lines.add('Selection: --device $selector');
       case AutoSelectedForRecordingTargetDeviceSelectionReason():
-        sink.writeln('Selection: auto-selected for recording');
+        lines.add('Selection: auto-selected for recording');
       case null:
         break;
     }
     final String? flavor = choices.flavor;
     if (flavor != null) {
-      sink.writeln('Flavor: $flavor');
+      lines.add('Flavor: $flavor');
     }
     final String? target = choices.target;
     if (target != null) {
-      sink.writeln('Entrypoint: $target');
+      lines.add('Entrypoint: $target');
     }
+    return lines;
   }
 
   void _writeHeader() {

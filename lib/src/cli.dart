@@ -487,6 +487,7 @@ class _TestCommand extends Command<int> {
           TestCommandOutput.targetAppLaunchProgressRenderer(
             sink: stderr,
             jsonOutput: options.jsonOutput,
+            stderrHasTerminal: stderr.hasTerminal,
           );
       final ScenarioRunReport report = await _executor.run(
         options,
@@ -657,11 +658,15 @@ class TestCommandOutput {
   static TargetAppLaunchProgressRenderer? targetAppLaunchProgressRenderer({
     required IOSink sink,
     required bool jsonOutput,
+    required bool stderrHasTerminal,
   }) {
     if (jsonOutput) {
       return null;
     }
-    return TargetAppLaunchProgressRenderer(sink: sink);
+    return TargetAppLaunchProgressRenderer(
+      sink: sink,
+      interactive: stderrHasTerminal,
+    );
   }
 }
 

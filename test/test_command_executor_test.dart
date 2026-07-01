@@ -277,10 +277,24 @@ steps:
                 jsonOutput: false,
                 stderrHasTerminal: false,
               );
+          final TargetAppLaunchProgressRenderer? terminalLaunchRenderer =
+              TestCommandOutput.targetAppLaunchProgressRenderer(
+                sink: sink,
+                jsonOutput: false,
+                stderrHasTerminal: true,
+              );
+          final TargetAppLaunchProgressRenderer? redirectedLaunchRenderer =
+              TestCommandOutput.targetAppLaunchProgressRenderer(
+                sink: sink,
+                jsonOutput: false,
+                stderrHasTerminal: false,
+              );
 
           expect(jsonRenderer, isNull);
           expect(terminalRenderer?.interactive, isTrue);
           expect(redirectedRenderer?.interactive, isFalse);
+          expect(terminalLaunchRenderer?.interactive, isTrue);
+          expect(redirectedLaunchRenderer?.interactive, isFalse);
         } finally {
           await sink.close();
         }
@@ -808,6 +822,45 @@ steps:
       expect(rendered, contains('Flutter stderr tail:'));
       expect(rendered, contains('stderr line 6'));
       expect(rendered, contains('stderr line 45'));
+    });
+  });
+
+  test('redraws the interactive launch panel in place', () async {
+    await FileTestkit.runZoned(() async {
+      final File output = File('launch_refresh.log');
+      final IOSink sink = output.openWrite();
+      DateTime now = DateTime.utc(2026, 6, 30, 12, 0, 1);
+      final TargetAppLaunchProgressRenderer renderer =
+          TargetAppLaunchProgressRenderer(
+            sink: sink,
+            interactive: true,
+            clock: () => now,
+          );
+      final TargetAppLaunchStartedEvent started = TargetAppLaunchStartedEvent(
+        startedAt: DateTime.utc(2026, 6, 30, 12),
+        choices: const TargetAppLaunchChoices(flavor: 'staging'),
+      );
+
+      renderer.render(started);
+      now = DateTime.utc(2026, 6, 30, 12, 0, 2);
+      renderer.render(started);
+      renderer.render(
+        TargetAppLaunchSucceededEvent(
+          startedAt: DateTime.utc(2026, 6, 30, 12),
+          finishedAt: DateTime.utc(2026, 6, 30, 12, 0, 3),
+          choices: started.choices,
+        ),
+      );
+      await sink.close();
+
+      final String rendered = output.readAsStringSync();
+      expect(rendered, contains('\u001b['));
+      final String plain = TerminalStyle.stripAnsi(rendered);
+      expect(plain, contains('> Target App Launch'));
+      expect(plain, contains('⏳ Waiting for Runtime Target... elapsed 2s'));
+      expect(plain, contains('Flavor: staging'));
+      expect(plain, contains('Target App launched in 3s'));
+      expect(plain, isNot(contains('%')));
     });
   });
 
