@@ -6,7 +6,7 @@ connection details stay in CLI options.
 
 ## Minimal Scenario
 
-```scenario-yaml
+```yaml scenario
 steps:
   - tap:
       byText: Continue
@@ -16,7 +16,7 @@ steps:
 
 ## Complete Example
 
-```scenario-yaml
+```yaml scenario
 scenario:
   name: login_error
   description: Reproduce the invalid login message.
@@ -54,7 +54,7 @@ and may contain letters, digits, `_`, or `-`.
 Scenario Recording is optional run-level metadata under `scenario.recording`.
 It is not a Step action.
 
-```scenario-yaml
+```yaml scenario
 scenario:
   name: recorded_login
   recording: {}
@@ -68,7 +68,7 @@ steps:
 Each item in `steps` is either a Step or a Step Include. A Step may have a
 `label` and must have exactly one action.
 
-```scenario-yaml
+```yaml scenario
 steps:
   - label: submit_login
     tap:
@@ -100,7 +100,7 @@ A Finder identifies the widget that an action should interact with or wait for.
 | `byText` | Exact visible text. |
 | `byType` | Semantic Snapshot node type from `mcp_flutter`. |
 
-```scenario-yaml
+```yaml scenario
 steps:
   - label: tap_primary_button
     tap:
@@ -125,7 +125,7 @@ Flutter Pilot supports these Scenario actions:
 
 ### tap
 
-```scenario-yaml
+```yaml scenario
 steps:
   - label: open_details
     tap:
@@ -134,7 +134,7 @@ steps:
 
 ### type
 
-```scenario-yaml
+```yaml scenario
 steps:
   - label: enter_email
     type:
@@ -144,7 +144,7 @@ steps:
 
 ### scroll
 
-```scenario-yaml
+```yaml scenario
 steps:
   - label: reveal_footer
     scroll:
@@ -153,7 +153,7 @@ steps:
 
 ### waitFor
 
-```scenario-yaml
+```yaml scenario
 steps:
   - label: wait_for_success
     waitFor:
@@ -163,7 +163,7 @@ steps:
 
 ### capture
 
-```scenario-yaml
+```yaml scenario
 steps:
   - label: capture_state
     capture: {}

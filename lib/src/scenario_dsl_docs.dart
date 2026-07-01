@@ -14,8 +14,9 @@ class ScenarioDocExample {
 
 /// Loader for Scenario examples embedded in documentation Markdown.
 ///
-/// It extracts fenced code blocks declared as `scenario-yaml`. The most recent
-/// Markdown heading before the fence becomes the example name.
+/// It extracts fenced code blocks declared as `scenario-yaml` or
+/// `yaml scenario`. The most recent Markdown heading before the fence becomes
+/// the example name.
 class ScenarioDocExamples {
   ScenarioDocExamples._();
 
@@ -37,8 +38,8 @@ class ScenarioDocExamples {
   /// `markdown` is the full Markdown document text.
   ///
   /// Returns:
-  /// Every fenced `scenario-yaml` block with the nearest preceding heading as
-  /// its name, or `example_N` when no heading exists.
+  /// Every fenced `scenario-yaml` or `yaml scenario` block with the nearest
+  /// preceding heading as its name, or `example_N` when no heading exists.
   static List<ScenarioDocExample> load(String markdown) {
     final List<String> lines = markdown.split('\n');
     final List<ScenarioDocExample> examples = <ScenarioDocExample>[];
@@ -51,7 +52,7 @@ class ScenarioDocExamples {
         currentHeading = line.replaceFirst(RegExp(r'^#+\s*'), '').trim();
       }
 
-      if (line.trim() == '```scenario-yaml') {
+      if (_isScenarioFenceStart(line.trim())) {
         inScenarioFence = true;
         yamlLines.clear();
         continue;
@@ -75,5 +76,10 @@ class ScenarioDocExamples {
     }
 
     return examples;
+  }
+
+  /// Return whether a Markdown fence starts a Scenario YAML example.
+  static bool _isScenarioFenceStart(String line) {
+    return line == '```scenario-yaml' || line == '```yaml scenario';
   }
 }

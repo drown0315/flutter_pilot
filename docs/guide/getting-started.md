@@ -22,7 +22,7 @@ flutter_pilot --help
 
 Create a YAML file such as `scenarios/login.yaml`:
 
-```scenario-yaml
+```yaml scenario
 scenario:
   name: login_error
 steps:

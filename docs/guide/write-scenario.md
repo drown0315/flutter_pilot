@@ -3,7 +3,7 @@
 A Scenario is an ordered list of Steps. Each Step may have a label and must have
 exactly one action.
 
-```scenario-yaml
+```yaml scenario
 scenario:
   name: checkout_path
 steps:
@@ -24,7 +24,7 @@ steps:
 
 Labels make CLI debugging and reports easier to read:
 
-```scenario-yaml
+```yaml scenario
 steps:
   - label: open_settings
     tap:
@@ -38,7 +38,7 @@ Labels must be unique inside a Scenario.
 Use `byText` for exact visible text and `byType` for semantic Snapshot node
 types exposed by `mcp_flutter`.
 
-```scenario-yaml
+```yaml scenario
 steps:
   - label: tap_primary_button
     tap:
@@ -53,7 +53,7 @@ When a Finder has multiple fields, every configured field must match.
 Use `capture: {}` when you want the default diagnostic bundle at a specific
 point in the run.
 
-```scenario-yaml
+```yaml scenario
 steps:
   - label: capture_current_state
     capture: {}
