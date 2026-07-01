@@ -54,6 +54,21 @@ class TargetAppLaunch {
 
   final TargetAppProcess _process;
 
+  /// Request a hot restart from the launched Flutter process.
+  ///
+  /// The request uses Flutter CLI's machine-run stdin control channel and does
+  /// not execute Scenario semantics. Write failures are reported as launch
+  /// failures because the Target App process can no longer be controlled.
+  Future<void> hotRestart() async {
+    try {
+      _process.writeStdin('R\n');
+    } catch (error) {
+      throw TargetAppLaunchException(
+        message: 'Failed to hot restart Target App: $error',
+      );
+    }
+  }
+
   /// Stop the launched Flutter process.
   ///
   /// The cleanup path first sends Flutter CLI's quit command. If the process
