@@ -142,6 +142,9 @@ The worktree may contain user changes. Do not revert unrelated changes. If a
 file has user edits that overlap with your task, read the file carefully and
 work with those edits.
 
+When writing, reviewing, or recommending commit messages, read
+`code_conventions/commits.md`. Do not load it for unrelated code or docs work.
+
 Before recommending commits, check:
 
 ```bash
