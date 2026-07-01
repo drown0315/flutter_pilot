@@ -88,7 +88,7 @@ Boolean shorthand such as `recording: true` is invalid.
 
 The HTML timeline report turns the same journey into a visual review surface:
 
-![Example Flutter Pilot HTML timeline report](docs/assets/timeline-report-example.svg)
+![Example Flutter Pilot HTML timeline report](docs-internal/assets/timeline-report-example.svg)
 
 ## Usage
 
@@ -206,7 +206,7 @@ Scenario YAML is Flutter Pilot's portable description of a UI journey. It
 supports ordered Steps, Step labels, Step Includes for shared Step Libraries,
 Finders, actions, waits, scrolling, and capture checkpoints.
 
-See [docs/scenario-yaml.md](docs/scenario-yaml.md) for the full syntax,
+See [docs-internal/scenario-yaml.md](docs-internal/scenario-yaml.md) for the full syntax,
 examples, and validation rules.
 
 ## Commands
@@ -278,22 +278,22 @@ consistent.
 ## Documentation
 
 - [CONTEXT.md](CONTEXT.md): project vocabulary.
-- [docs/scenario-yaml.md](docs/scenario-yaml.md): Scenario YAML syntax.
-- [docs/run-diff.md](docs/run-diff.md): Run Diff command, output, outcomes,
+- [docs-internal/scenario-yaml.md](docs-internal/scenario-yaml.md): Scenario YAML syntax.
+- [docs-internal/run-diff.md](docs-internal/run-diff.md): Run Diff command, output, outcomes,
   Regression rules, and acceptance fixtures.
-- [docs/flutter-pilot-prd.md](docs/flutter-pilot-prd.md): product scope and
+- [docs-internal/flutter-pilot-prd.md](docs-internal/flutter-pilot-prd.md): product scope and
   implementation decisions.
-- [docs/test-command-prd.md](docs/test-command-prd.md): `test` command launch,
+- [docs-internal/test-command-prd.md](docs-internal/test-command-prd.md): `test` command launch,
   device, recording, and Project Run behavior.
-- [docs/project-run-prd.md](docs/project-run-prd.md): Project Scenario
+- [docs-internal/project-run-prd.md](docs-internal/project-run-prd.md): Project Scenario
   discovery, Project Run execution, and batch artifact requirements.
-- [docs/cli-step-progress-prd.md](docs/cli-step-progress-prd.md): CLI Step
+- [docs-internal/cli-step-progress-prd.md](docs-internal/cli-step-progress-prd.md): CLI Step
   progress feature requirements and implementation decisions.
-- [docs/target-app-launch-progress-prd.md](docs/target-app-launch-progress-prd.md):
+- [docs-internal/target-app-launch-progress-prd.md](docs-internal/target-app-launch-progress-prd.md):
   Target App Launch Progress requirements and implementation decisions.
-- [docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md](docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md):
+- [docs-internal/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md](docs-internal/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md):
   architecture decision for the Dart CLI and YAML Scenario DSL.
-- [docs/adr/0004-run-project-scenarios-through-test.md](docs/adr/0004-run-project-scenarios-through-test.md):
+- [docs-internal/adr/0004-run-project-scenarios-through-test.md](docs-internal/adr/0004-run-project-scenarios-through-test.md):
   architecture decision for Project Run mode through `test`.
 
 ## Scope
