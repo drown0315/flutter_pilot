@@ -7,22 +7,87 @@ library;
 
 import 'dart:io';
 
+import 'target_device.dart';
+
 /// Clock function used to compute elapsed launch time in renderer tests.
 typedef TargetAppLaunchClock = DateTime Function();
+
+/// Launch choices displayed before Flutter Pilot waits for the Runtime Target.
+///
+/// The object contains only user-facing launch metadata. It does not control
+/// process startup or Target Device resolution.
+class TargetAppLaunchChoices {
+  /// Creates display metadata for one Target App launch.
+  const TargetAppLaunchChoices({
+    this.targetDevice,
+    this.selectionReason,
+    this.flavor,
+    this.target,
+  });
+
+  /// Resolved Target Device, or `null` when Flutter chooses its default.
+  final TargetDevice? targetDevice;
+
+  /// Reason explaining how `targetDevice` was selected.
+  final TargetDeviceSelectionReason? selectionReason;
+
+  /// Flutter flavor passed to `flutter run --flavor`, when provided.
+  final String? flavor;
+
+  /// Flutter entrypoint passed to `flutter run --target`, when provided.
+  final String? target;
+}
+
+/// User-facing reason for Target Device selection.
+sealed class TargetDeviceSelectionReason {
+  /// Creates a Target Device selection reason.
+  const TargetDeviceSelectionReason();
+
+  /// Creates a reason for user-provided `--device` selection.
+  const factory TargetDeviceSelectionReason.explicit({
+    required String selector,
+  }) = ExplicitTargetDeviceSelectionReason;
+
+  /// Creates a reason for Scenario Recording-driven automatic selection.
+  const factory TargetDeviceSelectionReason.autoSelectedForRecording() =
+      AutoSelectedForRecordingTargetDeviceSelectionReason;
+}
+
+/// Reason used when the user supplied `--device`.
+class ExplicitTargetDeviceSelectionReason extends TargetDeviceSelectionReason {
+  /// Creates an explicit Target Device selection reason.
+  const ExplicitTargetDeviceSelectionReason({required this.selector});
+
+  /// Original `--device` selector provided by the user.
+  final String selector;
+}
+
+/// Reason used when Scenario Recording selects the only recordable device.
+class AutoSelectedForRecordingTargetDeviceSelectionReason
+    extends TargetDeviceSelectionReason {
+  /// Creates a Scenario Recording auto-selection reason.
+  const AutoSelectedForRecordingTargetDeviceSelectionReason();
+}
 
 /// Progress event emitted while Flutter Pilot launches the Target App Package.
 sealed class TargetAppLaunchProgressEvent {
   /// Creates a launch progress event with the launch start time.
-  const TargetAppLaunchProgressEvent({required this.startedAt});
+  const TargetAppLaunchProgressEvent({
+    required this.startedAt,
+    this.choices = const TargetAppLaunchChoices(),
+  });
 
   /// Time when Target App launch began.
   final DateTime startedAt;
+
+  /// User-facing launch choices known before app startup.
+  final TargetAppLaunchChoices choices;
 }
 
 /// Event emitted immediately before Flutter Pilot starts `flutter run`.
 class TargetAppLaunchStartedEvent extends TargetAppLaunchProgressEvent {
   /// Creates a launch-started event.
-  const TargetAppLaunchStartedEvent({required super.startedAt});
+  const TargetAppLaunchStartedEvent({required super.startedAt, super.choices});
 }
 
 /// Event emitted after Flutter Pilot has discovered the Runtime Target.
@@ -31,6 +96,7 @@ class TargetAppLaunchSucceededEvent extends TargetAppLaunchProgressEvent {
   const TargetAppLaunchSucceededEvent({
     required super.startedAt,
     required this.finishedAt,
+    super.choices,
   });
 
   /// Time when the Runtime Target became available.
@@ -59,6 +125,7 @@ class TargetAppLaunchProgressRenderer {
     _writeHeader();
     switch (event) {
       case TargetAppLaunchStartedEvent():
+        _writeChoices(event.choices);
         sink.writeln(
           'Launching Target App Package... elapsed '
           '${_formatElapsed(_clock().difference(event.startedAt))}',
@@ -68,6 +135,37 @@ class TargetAppLaunchProgressRenderer {
           'Target App launched in '
           '${_formatElapsed(finishedAt.difference(event.startedAt))}',
         );
+    }
+  }
+
+  void _writeChoices(TargetAppLaunchChoices choices) {
+    final TargetDevice? targetDevice = choices.targetDevice;
+    if (targetDevice != null) {
+      sink.writeln(
+        'Target Device: ${targetDevice.id} '
+        '(${targetDevice.name}, ${targetDevice.targetPlatform}, '
+        '${targetDevice.sdk})',
+      );
+    } else {
+      sink.writeln('Target Device: Flutter default');
+    }
+    final TargetDeviceSelectionReason? selectionReason =
+        choices.selectionReason;
+    switch (selectionReason) {
+      case ExplicitTargetDeviceSelectionReason(:final String selector):
+        sink.writeln('Selection: --device $selector');
+      case AutoSelectedForRecordingTargetDeviceSelectionReason():
+        sink.writeln('Selection: auto-selected for recording');
+      case null:
+        break;
+    }
+    final String? flavor = choices.flavor;
+    if (flavor != null) {
+      sink.writeln('Flavor: $flavor');
+    }
+    final String? target = choices.target;
+    if (target != null) {
+      sink.writeln('Entrypoint: $target');
     }
   }
 

@@ -184,6 +184,46 @@ steps:
   });
 
   test(
+    'plain launch progress shows explicit Target Device selection',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final File output = File('progress.log');
+        final IOSink sink = output.openWrite();
+        final TargetAppLaunchProgressRenderer renderer =
+            TargetAppLaunchProgressRenderer(sink: sink);
+
+        renderer.render(
+          TargetAppLaunchStartedEvent(
+            startedAt: DateTime.utc(2026, 6, 30, 12),
+            choices: const TargetAppLaunchChoices(
+              targetDevice: TargetDevice(
+                id: 'pixel-8',
+                name: 'Pixel 8',
+                targetPlatform: 'android-arm64',
+                emulator: true,
+                sdk: 'Android 35',
+              ),
+              selectionReason: TargetDeviceSelectionReason.explicit(
+                selector: 'Pixel',
+              ),
+            ),
+          ),
+        );
+        await sink.close();
+
+        final String rendered = output.readAsStringSync();
+        expect(
+          rendered,
+          contains(
+            'Target Device: pixel-8 (Pixel 8, android-arm64, Android 35)',
+          ),
+        );
+        expect(rendered, contains('Selection: --device Pixel'));
+      });
+    },
+  );
+
+  test(
     'test command chooses interactive progress only for terminals',
     () async {
       await FileTestkit.runZoned(() async {
@@ -465,6 +505,308 @@ steps:
         ]);
         expect(runner.targetDevice?.id, 'pixel-8');
         expect(runner.recordingController, isNotNull);
+      });
+    },
+  );
+
+  test(
+    'default executor reports explicit Target Device launch choices',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTargetAppProcess process = FakeTargetAppProcess();
+        final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+          process,
+        );
+        final FakeScenarioRunner runner = FakeScenarioRunner(_passedReport());
+        final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
+          deviceDiscovery: const FakeDeviceDiscovery(
+            flutterDevices: <FlutterDevice>[
+              FlutterDevice(
+                id: 'pixel-8',
+                name: 'Pixel 8',
+                targetPlatform: 'android-arm64',
+                isSupported: true,
+                emulator: true,
+                sdk: 'Android 35',
+              ),
+            ],
+          ),
+          launcher: TargetAppLauncher(starter: starter),
+          runnerFactory: FakeScenarioRunnerFactory(runner),
+        );
+        final Scenario scenario = Scenario(
+          name: 'explicit_device',
+          steps: const <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              action: TapAction(finder: Finder(byText: 'Continue')),
+            ),
+          ],
+        );
+        TargetAppLaunchChoices? launchChoices;
+
+        final Future<ScenarioRunReport> reportFuture = executor.run(
+          TestCommandOptions(
+            scenario: scenario,
+            device: 'Pixel',
+            flavor: null,
+            target: null,
+            stopPoint: null,
+            printDiagnostics: const <PrintDiagnostic>{},
+            jsonOutput: false,
+          ),
+          onLaunchProgress: (TargetAppLaunchProgressEvent event) {
+            if (event is TargetAppLaunchStartedEvent) {
+              launchChoices = event.choices;
+            }
+          },
+        );
+        process.emitStdout(
+          jsonEncode(<String, Object?>{
+            'event': 'app.debugPort',
+            'params': <String, Object?>{
+              'wsUri': 'ws://127.0.0.1:1234/token=/ws',
+            },
+          }),
+        );
+        await Future<void>.delayed(Duration.zero);
+        process.exit(0);
+        await reportFuture;
+
+        expect(launchChoices?.targetDevice?.id, 'pixel-8');
+        expect(
+          launchChoices?.selectionReason,
+          isA<ExplicitTargetDeviceSelectionReason>().having(
+            (ExplicitTargetDeviceSelectionReason reason) => reason.selector,
+            'selector',
+            'Pixel',
+          ),
+        );
+      });
+    },
+  );
+
+  test(
+    'plain launch progress shows recording auto-selected Target Device',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final File output = File('progress.log');
+        final IOSink sink = output.openWrite();
+        final TargetAppLaunchProgressRenderer renderer =
+            TargetAppLaunchProgressRenderer(sink: sink);
+
+        renderer.render(
+          TargetAppLaunchStartedEvent(
+            startedAt: DateTime.utc(2026, 6, 30, 12),
+            choices: const TargetAppLaunchChoices(
+              targetDevice: TargetDevice(
+                id: 'pixel-8',
+                name: 'Pixel 8',
+                targetPlatform: 'android-arm64',
+                emulator: true,
+                sdk: 'Android 35',
+              ),
+              selectionReason:
+                  TargetDeviceSelectionReason.autoSelectedForRecording(),
+            ),
+          ),
+        );
+        await sink.close();
+
+        final String rendered = output.readAsStringSync();
+        expect(
+          rendered,
+          contains(
+            'Target Device: pixel-8 (Pixel 8, android-arm64, Android 35)',
+          ),
+        );
+        expect(rendered, contains('Selection: auto-selected for recording'));
+      });
+    },
+  );
+
+  test(
+    'default executor reports recording auto-selected launch choices',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTargetAppProcess process = FakeTargetAppProcess();
+        final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+          process,
+        );
+        final FakeScenarioRunner runner = FakeScenarioRunner(_passedReport());
+        final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
+          deviceDiscovery: const FakeDeviceDiscovery(
+            flutterDevices: <FlutterDevice>[
+              FlutterDevice(
+                id: 'pixel-8',
+                name: 'Pixel 8',
+                targetPlatform: 'android-arm64',
+                isSupported: true,
+                emulator: true,
+                sdk: 'Android 35',
+              ),
+            ],
+            recordingDevices: <RecordingDeviceIdentity>[
+              RecordingDeviceIdentity(id: 'pixel-8'),
+            ],
+          ),
+          launcher: TargetAppLauncher(starter: starter),
+          runnerFactory: FakeScenarioRunnerFactory(runner),
+        );
+        final Scenario scenario = Scenario(
+          name: 'recorded',
+          recording: const ScenarioRecording(enabled: true),
+          steps: const <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              action: TapAction(finder: Finder(byText: 'Continue')),
+            ),
+          ],
+        );
+        TargetAppLaunchChoices? launchChoices;
+
+        final Future<ScenarioRunReport> reportFuture = executor.run(
+          TestCommandOptions(
+            scenario: scenario,
+            device: null,
+            flavor: null,
+            target: null,
+            stopPoint: null,
+            printDiagnostics: const <PrintDiagnostic>{},
+            jsonOutput: false,
+          ),
+          onLaunchProgress: (TargetAppLaunchProgressEvent event) {
+            if (event is TargetAppLaunchStartedEvent) {
+              launchChoices = event.choices;
+            }
+          },
+        );
+        process.emitStdout(
+          jsonEncode(<String, Object?>{
+            'event': 'app.debugPort',
+            'params': <String, Object?>{
+              'wsUri': 'ws://127.0.0.1:1234/token=/ws',
+            },
+          }),
+        );
+        await Future<void>.delayed(Duration.zero);
+        process.exit(0);
+        await reportFuture;
+
+        expect(launchChoices?.targetDevice?.id, 'pixel-8');
+        expect(
+          launchChoices?.selectionReason,
+          isA<AutoSelectedForRecordingTargetDeviceSelectionReason>(),
+        );
+      });
+    },
+  );
+
+  test(
+    'plain launch progress shows Flutter default without placeholders',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final File output = File('progress.log');
+        final IOSink sink = output.openWrite();
+        final TargetAppLaunchProgressRenderer renderer =
+            TargetAppLaunchProgressRenderer(sink: sink);
+
+        renderer.render(
+          TargetAppLaunchStartedEvent(startedAt: DateTime.utc(2026, 6, 30, 12)),
+        );
+        await sink.close();
+
+        final String rendered = output.readAsStringSync();
+        expect(rendered, contains('Target Device: Flutter default'));
+        expect(rendered, isNot(contains('Selection:')));
+        expect(rendered, isNot(contains('Flavor:')));
+        expect(rendered, isNot(contains('Entrypoint:')));
+      });
+    },
+  );
+
+  test(
+    'plain launch progress shows flavor and entrypoint when provided',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final File output = File('progress.log');
+        final IOSink sink = output.openWrite();
+        final TargetAppLaunchProgressRenderer renderer =
+            TargetAppLaunchProgressRenderer(sink: sink);
+
+        renderer.render(
+          TargetAppLaunchStartedEvent(
+            startedAt: DateTime.utc(2026, 6, 30, 12),
+            choices: const TargetAppLaunchChoices(
+              flavor: 'staging',
+              target: 'lib/main_staging.dart',
+            ),
+          ),
+        );
+        await sink.close();
+
+        final String rendered = output.readAsStringSync();
+        expect(rendered, contains('Flavor: staging'));
+        expect(rendered, contains('Entrypoint: lib/main_staging.dart'));
+      });
+    },
+  );
+
+  test(
+    'default executor reports flavor and entrypoint launch choices',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTargetAppProcess process = FakeTargetAppProcess();
+        final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+          process,
+        );
+        final FakeScenarioRunner runner = FakeScenarioRunner(_passedReport());
+        final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
+          deviceDiscovery: const FakeDeviceDiscovery(),
+          launcher: TargetAppLauncher(starter: starter),
+          runnerFactory: FakeScenarioRunnerFactory(runner),
+        );
+        final Scenario scenario = Scenario(
+          name: 'flavored',
+          steps: const <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              action: TapAction(finder: Finder(byText: 'Continue')),
+            ),
+          ],
+        );
+        TargetAppLaunchChoices? launchChoices;
+
+        final Future<ScenarioRunReport> reportFuture = executor.run(
+          TestCommandOptions(
+            scenario: scenario,
+            device: null,
+            flavor: 'staging',
+            target: 'lib/main_staging.dart',
+            stopPoint: null,
+            printDiagnostics: const <PrintDiagnostic>{},
+            jsonOutput: false,
+          ),
+          onLaunchProgress: (TargetAppLaunchProgressEvent event) {
+            if (event is TargetAppLaunchStartedEvent) {
+              launchChoices = event.choices;
+            }
+          },
+        );
+        process.emitStdout(
+          jsonEncode(<String, Object?>{
+            'event': 'app.debugPort',
+            'params': <String, Object?>{
+              'wsUri': 'ws://127.0.0.1:1234/token=/ws',
+            },
+          }),
+        );
+        await Future<void>.delayed(Duration.zero);
+        process.exit(0);
+        await reportFuture;
+
+        expect(launchChoices?.flavor, 'staging');
+        expect(launchChoices?.target, 'lib/main_staging.dart');
       });
     },
   );

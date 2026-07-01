@@ -720,8 +720,20 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
 
     TargetAppLaunch launch;
     final DateTime launchStartedAt = DateTime.now();
+    final TargetAppLaunchChoices launchChoices = TargetAppLaunchChoices(
+      targetDevice: targetDevice,
+      selectionReason: _targetDeviceSelectionReason(
+        deviceSelector: options.device,
+        recordingRequired: recordingRequired,
+      ),
+      flavor: options.flavor,
+      target: options.target,
+    );
     onLaunchProgress?.call(
-      TargetAppLaunchStartedEvent(startedAt: launchStartedAt),
+      TargetAppLaunchStartedEvent(
+        startedAt: launchStartedAt,
+        choices: launchChoices,
+      ),
     );
     try {
       launch = await launcher.launch(
@@ -735,6 +747,7 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
         TargetAppLaunchSucceededEvent(
           startedAt: launchStartedAt,
           finishedAt: DateTime.now(),
+          choices: launchChoices,
         ),
       );
     } on TargetAppLaunchException catch (error) {
@@ -797,6 +810,20 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
     } finally {
       await launch.cleanup();
     }
+  }
+
+  /// Return the user-facing reason for the selected Target Device.
+  TargetDeviceSelectionReason? _targetDeviceSelectionReason({
+    required String? deviceSelector,
+    required bool recordingRequired,
+  }) {
+    if (deviceSelector != null) {
+      return TargetDeviceSelectionReason.explicit(selector: deviceSelector);
+    }
+    if (recordingRequired) {
+      return const TargetDeviceSelectionReason.autoSelectedForRecording();
+    }
+    return null;
   }
 }
 
