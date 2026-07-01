@@ -790,9 +790,10 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
         ),
       );
       await launchHeartbeat?.stop();
-      final String stderrContext = error.stderrLines.isEmpty
-          ? ''
-          : '\n${error.stderrLines.join('\n')}';
+      final String stderrContext =
+          onLaunchProgress == null && error.stderrLines.isNotEmpty
+              ? '\n${error.stderrLines.join('\n')}'
+              : '';
       throw TestCommandException(
         message: '${error.message}$stderrContext',
         exitCode: 1,
