@@ -570,6 +570,21 @@ class _TestCommand extends Command<int> {
         usage,
       );
     }
+    final String? device = argResults!.option('device')?.trim();
+    if (device != null && device.isEmpty) {
+      stderr.writeln('--device must not be empty.');
+      return 64;
+    }
+    final String? flavor = argResults!.option('flavor')?.trim();
+    if (flavor != null && flavor.isEmpty) {
+      stderr.writeln('--flavor must not be empty.');
+      return 64;
+    }
+    final String? target = argResults!.option('target')?.trim();
+    if (target != null && target.isEmpty) {
+      stderr.writeln('--target must not be empty.');
+      return 64;
+    }
     final List<ProjectScenarioFile> scenarios;
     try {
       scenarios = defaultDiscovery
@@ -585,9 +600,9 @@ class _TestCommand extends Command<int> {
     final ProjectRunCommandOptions options = ProjectRunCommandOptions(
       discoveryRootPath: discoveryRootPath,
       scenarios: scenarios,
-      device: argResults!.option('device')?.trim(),
-      flavor: argResults!.option('flavor')?.trim(),
-      target: argResults!.option('target')?.trim(),
+      device: device,
+      flavor: flavor,
+      target: target,
       jsonOutput: argResults!.flag('json'),
     );
     try {
@@ -815,6 +830,7 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
     this.runnerFactory = const DefaultTestScenarioRunnerFactory(),
     this.outputDirectory,
     this.clock = DateTime.now,
+    this.launchHeartbeatTicks,
   });
 
   final TestDeviceDiscovery deviceDiscovery;
@@ -822,6 +838,7 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
   final TestScenarioRunnerFactory runnerFactory;
   final Directory? outputDirectory;
   final TargetAppLaunchClock clock;
+  final Stream<void>? launchHeartbeatTicks;
 
   @override
   Future<ProjectRunCommandReport> run(
@@ -864,15 +881,30 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
     }
     final TargetAppLaunchChoices launchChoices = TargetAppLaunchChoices(
       targetDevice: targetDevice,
-      selectionReason: options.device == null
-          ? null
-          : TargetDeviceSelectionReason.explicit(selector: options.device!),
+      selectionReason: _targetDeviceSelectionReason(
+        deviceSelector: options.device,
+        recordingRequired: recordingRequired,
+      ),
       flavor: options.flavor,
       target: options.target,
     );
-    onLaunchProgress?.call(
-      TargetAppLaunchStartedEvent(startedAt: startedAt, choices: launchChoices),
-    );
+    final TargetAppLaunchStartedEvent launchStartedEvent =
+        TargetAppLaunchStartedEvent(
+          startedAt: startedAt,
+          choices: launchChoices,
+        );
+    onLaunchProgress?.call(launchStartedEvent);
+    TargetAppLaunchHeartbeat? launchHeartbeat;
+    if (onLaunchProgress != null && launchHeartbeatEnabled) {
+      launchHeartbeat = TargetAppLaunchHeartbeat(
+        ticks:
+            launchHeartbeatTicks ??
+            Stream<void>.periodic(const Duration(seconds: 10)),
+        onProgress: onLaunchProgress,
+        clock: clock,
+      );
+      launchHeartbeat.start(launchStartedEvent);
+    }
     try {
       launch = await launcher.launch(
         TargetAppLaunchCommand(
@@ -888,6 +920,7 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
           choices: launchChoices,
         ),
       );
+      await launchHeartbeat?.stop();
       for (int index = 0; index < options.scenarios.length; index++) {
         final ProjectScenarioFile scenarioFile = options.scenarios[index];
         if (index > 0) {
@@ -958,6 +991,7 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
           choices: launchChoices,
         ),
       );
+      await launchHeartbeat?.stop();
     } on TestCommandException catch (error) {
       environmentFailure = ProjectRunEnvironmentFailure(
         phase: ProjectRunEnvironmentFailurePhase.validation,
@@ -965,6 +999,7 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
       );
     } finally {
       stopwatch.stop();
+      await launchHeartbeat?.stop();
       await launch?.cleanup();
     }
     final bool allPassed =
@@ -1088,6 +1123,20 @@ class TestCommandOutput {
     }
     return buffer.toString();
   }
+}
+
+/// Return the user-facing reason for the selected Target Device.
+TargetDeviceSelectionReason? _targetDeviceSelectionReason({
+  required String? deviceSelector,
+  required bool recordingRequired,
+}) {
+  if (deviceSelector != null) {
+    return TargetDeviceSelectionReason.explicit(selector: deviceSelector);
+  }
+  if (recordingRequired) {
+    return const TargetDeviceSelectionReason.autoSelectedForRecording();
+  }
+  return null;
 }
 
 /// Executes a validated `test` command.
@@ -1278,20 +1327,6 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
     } finally {
       await launch.cleanup();
     }
-  }
-
-  /// Return the user-facing reason for the selected Target Device.
-  TargetDeviceSelectionReason? _targetDeviceSelectionReason({
-    required String? deviceSelector,
-    required bool recordingRequired,
-  }) {
-    if (deviceSelector != null) {
-      return TargetDeviceSelectionReason.explicit(selector: deviceSelector);
-    }
-    if (recordingRequired) {
-      return const TargetDeviceSelectionReason.autoSelectedForRecording();
-    }
-    return null;
   }
 }
 

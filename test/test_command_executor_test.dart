@@ -327,6 +327,35 @@ steps:
     });
   });
 
+  test('test command rejects empty Project Run launch options', () async {
+    await FileTestkit.runZoned(() async {
+      Directory('pilot').createSync();
+      File('pilot/login.yaml').writeAsStringSync('''
+scenario:
+  name: login
+steps:
+  - capture: {}
+''');
+      final List<List<String>> optionCases = <List<String>>[
+        <String>['--device', ' '],
+        <String>['--flavor', ' '],
+        <String>['--target', ' '],
+      ];
+
+      for (final List<String> optionCase in optionCases) {
+        final FakeProjectRunCommandExecutor projectExecutor =
+            FakeProjectRunCommandExecutor(report: _passedProjectReport());
+
+        final int exitCode = await FlutterPilotCli(
+          projectRunCommandExecutor: projectExecutor,
+        ).run(<String>['test', ...optionCase]);
+
+        expect(exitCode, 64);
+        expect(projectExecutor.ran, isFalse);
+      }
+    });
+  });
+
   test(
     'test command enables Step progress for human-readable output',
     () async {
@@ -1778,6 +1807,8 @@ steps:
               outputDirectory: Directory.current,
               clock: () => DateTime.utc(2026, 7, 1, 9, 30),
             );
+        final List<TargetAppLaunchProgressEvent> launchEvents =
+            <TargetAppLaunchProgressEvent>[];
         final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
           ProjectScenarioFile(
             path: 'pilot/recorded.yaml',
@@ -1809,6 +1840,7 @@ steps:
             target: null,
             jsonOutput: false,
           ),
+          onLaunchProgress: launchEvents.add,
         );
         process.emitStdout(
           jsonEncode(<String, Object?>{
@@ -1832,6 +1864,13 @@ steps:
         ]);
         expect(runner.targetDevice?.id, 'pixel-8');
         expect(runner.recordingController, isNotNull);
+        final TargetAppLaunchStartedEvent startedEvent = launchEvents
+            .whereType<TargetAppLaunchStartedEvent>()
+            .single;
+        expect(
+          startedEvent.choices.selectionReason,
+          isA<AutoSelectedForRecordingTargetDeviceSelectionReason>(),
+        );
       });
     },
   );
@@ -1987,6 +2026,79 @@ steps:
       );
     });
   });
+
+  test(
+    'default Project Run executor emits launch heartbeat until success',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTargetAppProcess process = FakeTargetAppProcess();
+        final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+          process,
+        );
+        final FakeScenarioRunner runner = FakeScenarioRunner(
+          _passedReportFor('login'),
+        );
+        final StreamController<void> ticks = StreamController<void>();
+        DateTime now = DateTime.utc(2026, 7, 1, 9, 30);
+        final DefaultProjectRunCommandExecutor executor =
+            DefaultProjectRunCommandExecutor(
+              launcher: TargetAppLauncher(starter: starter),
+              runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+                runner,
+              ]),
+              outputDirectory: Directory.current,
+              clock: () => now,
+              launchHeartbeatTicks: ticks.stream,
+            );
+        final List<TargetAppLaunchProgressEvent> launchEvents =
+            <TargetAppLaunchProgressEvent>[];
+        final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
+          ProjectScenarioFile(
+            path: 'pilot/login.yaml',
+            relativePath: 'login.yaml',
+            scenario: _scenario('login'),
+          ),
+        ];
+
+        final Future<ProjectRunCommandReport> reportFuture = executor.run(
+          ProjectRunCommandOptions(
+            discoveryRootPath: 'pilot',
+            scenarios: scenarios,
+            device: null,
+            flavor: null,
+            target: null,
+            jsonOutput: false,
+          ),
+          onLaunchProgress: launchEvents.add,
+          launchHeartbeatEnabled: true,
+        );
+        while (starter.startedArguments.isEmpty) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        now = DateTime.utc(2026, 7, 1, 9, 30, 10);
+        ticks.add(null);
+        await Future<void>.delayed(Duration.zero);
+        process.emitStdout(
+          jsonEncode(<String, Object?>{
+            'event': 'app.debugPort',
+            'params': <String, Object?>{
+              'wsUri': 'ws://127.0.0.1:1234/token=/ws',
+            },
+          }),
+        );
+        await reportFuture;
+        now = DateTime.utc(2026, 7, 1, 9, 30, 20);
+        ticks.add(null);
+        await Future<void>.delayed(Duration.zero);
+        await ticks.close();
+
+        expect(
+          launchEvents.whereType<TargetAppLaunchHeartbeatEvent>(),
+          hasLength(1),
+        );
+      });
+    },
+  );
 
   test(
     'default Project Run executor continues after a failed Scenario',
