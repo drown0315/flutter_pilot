@@ -91,7 +91,7 @@ class TargetAppLaunchStartedEvent extends TargetAppLaunchProgressEvent {
   const TargetAppLaunchStartedEvent({required super.startedAt, super.choices});
 }
 
-/// Event emitted for non-interactive heartbeat output while launch is pending.
+/// Event emitted for heartbeat output while launch is pending.
 class TargetAppLaunchHeartbeatEvent extends TargetAppLaunchProgressEvent {
   /// Creates a launch heartbeat event.
   const TargetAppLaunchHeartbeatEvent({
@@ -138,7 +138,7 @@ class TargetAppLaunchFailedEvent extends TargetAppLaunchProgressEvent {
   final List<String> stderrLines;
 }
 
-/// Emits non-interactive launch heartbeat progress at a fixed cadence.
+/// Emits launch heartbeat progress at a fixed cadence.
 class TargetAppLaunchHeartbeat {
   /// Creates a heartbeat driver controlled by `ticks`.
   ///
@@ -270,8 +270,13 @@ class TargetAppLaunchProgressRenderer {
           '⏳ Waiting for Runtime Target... elapsed '
               '${_formatElapsed(_clock().difference(event.startedAt))}',
         ]);
-      case TargetAppLaunchHeartbeatEvent():
-        break;
+      case TargetAppLaunchHeartbeatEvent(:final DateTime heartbeatAt):
+        _redrawInteractiveBlock(<String>[
+          '> Target App Launch',
+          ..._choiceLines(event.choices),
+          '⏳ Waiting for Runtime Target... elapsed '
+              '${_formatElapsed(heartbeatAt.difference(event.startedAt))}',
+        ]);
       case TargetAppLaunchSucceededEvent(:final DateTime finishedAt):
         _clearInteractiveBlock();
         _writeHeader();

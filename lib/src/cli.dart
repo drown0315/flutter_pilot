@@ -492,14 +492,9 @@ class _TestCommand extends Command<int> {
       final ScenarioRunReport report = await _executor.run(
         options,
         onLaunchProgress: launchProgressRenderer?.render,
-        launchHeartbeatEnabled: launchProgressRenderer?.interactive == false,
+        launchHeartbeatEnabled: launchProgressRenderer != null,
         onProgress: progressRenderer?.render,
       );
-      if (report.targetDevice != null) {
-        stdout.writeln(
-          TestCommandOutput.targetDeviceLine(report.targetDevice!),
-        );
-      }
       if (report.printedDiagnostics.isNotEmpty) {
         if (options.jsonOutput) {
           stdout.writeln(
@@ -629,12 +624,6 @@ class TestCommandOptions {
 /// Terminal output helpers for the `test` command.
 class TestCommandOutput {
   TestCommandOutput._();
-
-  /// Return the user-facing selected Target Device line.
-  static String targetDeviceLine(TargetDevice targetDevice) {
-    return 'Target Device: ${targetDevice.id} '
-        '(${targetDevice.name}, ${targetDevice.targetPlatform}, ${targetDevice.sdk})';
-  }
 
   /// Return the Step progress renderer for human-readable `test` output.
   ///
@@ -792,8 +781,8 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
       await launchHeartbeat?.stop();
       final String stderrContext =
           onLaunchProgress == null && error.stderrLines.isNotEmpty
-              ? '\n${error.stderrLines.join('\n')}'
-              : '';
+          ? '\n${error.stderrLines.join('\n')}'
+          : '';
       throw TestCommandException(
         message: '${error.message}$stderrContext',
         exitCode: 1,

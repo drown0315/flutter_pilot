@@ -864,6 +864,39 @@ steps:
     });
   });
 
+  test('interactive launch heartbeat refreshes elapsed time', () async {
+    await FileTestkit.runZoned(() async {
+      final File output = File('launch_heartbeat_refresh.log');
+      final IOSink sink = output.openWrite();
+      DateTime now = DateTime.utc(2026, 6, 30, 12, 0, 1);
+      final TargetAppLaunchProgressRenderer renderer =
+          TargetAppLaunchProgressRenderer(
+            sink: sink,
+            interactive: true,
+            clock: () => now,
+          );
+      final TargetAppLaunchStartedEvent started = TargetAppLaunchStartedEvent(
+        startedAt: DateTime.utc(2026, 6, 30, 12),
+      );
+
+      renderer.render(started);
+      now = DateTime.utc(2026, 6, 30, 12, 0, 11);
+      renderer.render(
+        TargetAppLaunchHeartbeatEvent(
+          startedAt: started.startedAt,
+          heartbeatAt: now,
+          choices: started.choices,
+        ),
+      );
+      await sink.close();
+
+      final String rendered = output.readAsStringSync();
+      expect(rendered, contains('\u001b['));
+      final String plain = TerminalStyle.stripAnsi(rendered);
+      expect(plain, contains('⏳ Waiting for Runtime Target... elapsed 11s'));
+    });
+  });
+
   test(
     'non-interactive launch heartbeat prints every ten seconds until stopped',
     () async {
@@ -1109,21 +1142,6 @@ steps:
     },
   );
 
-  test('renders resolved Target Device output', () {
-    expect(
-      TestCommandOutput.targetDeviceLine(
-        const TargetDevice(
-          id: 'pixel-8',
-          name: 'Pixel 8',
-          targetPlatform: 'android-arm64',
-          emulator: true,
-          sdk: 'Android 35',
-        ),
-      ),
-      'Target Device: pixel-8 (Pixel 8, android-arm64, Android 35)',
-    );
-  });
-
   test('default executor cleans up launched app when interrupted', () async {
     await FileTestkit.runZoned(() async {
       final FakeTargetAppProcess process = FakeTargetAppProcess();
@@ -1214,7 +1232,7 @@ class FakeTestCommandExecutor implements TestCommandExecutor {
   }
 }
 
-ScenarioRunReport _passedReport() {
+ScenarioRunReport _passedReport({TargetDevice? targetDevice}) {
   return ScenarioRunReport(
     scenarioName: 'delegated',
     scenarioDescription: null,
@@ -1225,6 +1243,7 @@ ScenarioRunReport _passedReport() {
     steps: const <StepRunReport>[],
     runDirectoryPath: '.runs/delegated',
     artifacts: const <ArtifactReport>[],
+    targetDevice: targetDevice,
   );
 }
 
