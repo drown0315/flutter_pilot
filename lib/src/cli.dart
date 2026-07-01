@@ -591,8 +591,16 @@ class _TestCommand extends Command<int> {
       jsonOutput: argResults!.flag('json'),
     );
     try {
+      final TargetAppLaunchProgressRenderer? launchProgressRenderer =
+          TestCommandOutput.targetAppLaunchProgressRenderer(
+            sink: stderr,
+            jsonOutput: options.jsonOutput,
+            stderrHasTerminal: stderr.hasTerminal,
+          );
       final ProjectRunCommandReport report = await _projectRunExecutor.run(
         options,
+        onLaunchProgress: launchProgressRenderer?.render,
+        launchHeartbeatEnabled: launchProgressRenderer != null,
       );
       stdout.write(TestCommandOutput.renderProjectRunSummary(report));
       return report.passed ? 0 : 1;
@@ -773,7 +781,14 @@ class ProjectRunScenarioOutputReport {
 /// Executes a validated Project Run selected by `test`.
 abstract interface class ProjectRunCommandExecutor {
   /// Run the Project Scenarios described by [options].
-  Future<ProjectRunCommandReport> run(ProjectRunCommandOptions options);
+  ///
+  /// `onLaunchProgress`, when provided, receives the batch-level Target App
+  /// Launch Progress events before any Project Scenario executes.
+  Future<ProjectRunCommandReport> run(
+    ProjectRunCommandOptions options, {
+    void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
+    bool launchHeartbeatEnabled = false,
+  });
 }
 
 /// Placeholder Project Run executor until orchestration lands in later slices.
@@ -791,7 +806,11 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
   final TargetAppLaunchClock clock;
 
   @override
-  Future<ProjectRunCommandReport> run(ProjectRunCommandOptions options) async {
+  Future<ProjectRunCommandReport> run(
+    ProjectRunCommandOptions options, {
+    void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
+    bool launchHeartbeatEnabled = false,
+  }) async {
     final DateTime startedAt = clock().toUtc();
     final ProjectRunArtifactWriter projectRunWriter = RunArtifactStore(
       outputDirectory ?? Directory.current,
@@ -801,12 +820,26 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
         <ProjectScenarioRunReport>[];
     ProjectRunEnvironmentFailure? environmentFailure;
     TargetAppLaunch? launch;
+    final TargetAppLaunchChoices launchChoices = TargetAppLaunchChoices(
+      flavor: options.flavor,
+      target: options.target,
+    );
+    onLaunchProgress?.call(
+      TargetAppLaunchStartedEvent(startedAt: startedAt, choices: launchChoices),
+    );
     try {
       launch = await launcher.launch(
         TargetAppLaunchCommand(
           flavor: options.flavor,
           target: options.target,
           deviceId: options.device,
+        ),
+      );
+      onLaunchProgress?.call(
+        TargetAppLaunchSucceededEvent(
+          startedAt: startedAt,
+          finishedAt: clock().toUtc(),
+          choices: launchChoices,
         ),
       );
       for (int index = 0; index < options.scenarios.length; index++) {
@@ -858,6 +891,15 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
       environmentFailure = ProjectRunEnvironmentFailure(
         phase: ProjectRunEnvironmentFailurePhase.launch,
         message: error.message,
+      );
+      onLaunchProgress?.call(
+        TargetAppLaunchFailedEvent(
+          startedAt: startedAt,
+          failedAt: clock().toUtc(),
+          message: error.message,
+          stderrLines: error.stderrLines,
+          choices: launchChoices,
+        ),
       );
     } on TestCommandException catch (error) {
       environmentFailure = ProjectRunEnvironmentFailure(

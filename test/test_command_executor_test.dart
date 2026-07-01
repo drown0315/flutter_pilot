@@ -346,6 +346,31 @@ steps:
   );
 
   test(
+    'test command enables Target App Launch Progress for Project Run output',
+    () async {
+      await FileTestkit.runZoned(() async {
+        Directory('pilot').createSync();
+        File('pilot/login.yaml').writeAsStringSync('''
+scenario:
+  name: project_launch_progress
+steps:
+  - capture: {}
+''');
+        final FakeProjectRunCommandExecutor projectExecutor =
+            FakeProjectRunCommandExecutor(report: _passedProjectReport());
+
+        final int exitCode = await FlutterPilotCli(
+          projectRunCommandExecutor: projectExecutor,
+        ).run(<String>['test']);
+
+        expect(exitCode, 0);
+        expect(projectExecutor.onLaunchProgress, isNotNull);
+        expect(projectExecutor.launchHeartbeatEnabled, isTrue);
+      });
+    },
+  );
+
+  test(
     'test command suppresses Target App Launch Progress for JSON output',
     () async {
       await FileTestkit.runZoned(() async {
@@ -1557,6 +1582,66 @@ steps:
     },
   );
 
+  test('default Project Run executor emits launch progress once', () async {
+    await FileTestkit.runZoned(() async {
+      final FakeTargetAppProcess process = FakeTargetAppProcess();
+      final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+        process,
+      );
+      final FakeScenarioRunner runner = FakeScenarioRunner(
+        _passedReportFor('login'),
+      );
+      final DefaultProjectRunCommandExecutor executor =
+          DefaultProjectRunCommandExecutor(
+            launcher: TargetAppLauncher(starter: starter),
+            runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+              runner,
+            ]),
+            outputDirectory: Directory.current,
+            clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          );
+      final List<TargetAppLaunchProgressEvent> launchEvents =
+          <TargetAppLaunchProgressEvent>[];
+      final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
+        ProjectScenarioFile(
+          path: 'pilot/login.yaml',
+          relativePath: 'login.yaml',
+          scenario: _scenario('login'),
+        ),
+      ];
+
+      final Future<ProjectRunCommandReport> reportFuture = executor.run(
+        ProjectRunCommandOptions(
+          discoveryRootPath: 'pilot',
+          scenarios: scenarios,
+          device: null,
+          flavor: null,
+          target: null,
+          jsonOutput: false,
+        ),
+        onLaunchProgress: launchEvents.add,
+      );
+      process.emitStdout(
+        jsonEncode(<String, Object?>{
+          'event': 'app.debugPort',
+          'params': <String, Object?>{'wsUri': 'ws://127.0.0.1:1234/token=/ws'},
+        }),
+      );
+
+      final ProjectRunCommandReport report = await reportFuture;
+
+      expect(report.passed, isTrue);
+      expect(
+        launchEvents.whereType<TargetAppLaunchStartedEvent>(),
+        hasLength(1),
+      );
+      expect(
+        launchEvents.whereType<TargetAppLaunchSucceededEvent>(),
+        hasLength(1),
+      );
+    });
+  });
+
   test(
     'default Project Run executor continues after a failed Scenario',
     () async {
@@ -1724,11 +1809,19 @@ class FakeProjectRunCommandExecutor implements ProjectRunCommandExecutor {
   final ProjectRunCommandReport report;
   late ProjectRunCommandOptions options;
   bool ran = false;
+  void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress;
+  bool? launchHeartbeatEnabled;
 
   @override
-  Future<ProjectRunCommandReport> run(ProjectRunCommandOptions options) async {
+  Future<ProjectRunCommandReport> run(
+    ProjectRunCommandOptions options, {
+    void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
+    bool launchHeartbeatEnabled = false,
+  }) async {
     this.options = options;
     ran = true;
+    this.onLaunchProgress = onLaunchProgress;
+    this.launchHeartbeatEnabled = launchHeartbeatEnabled;
     return report;
   }
 }
