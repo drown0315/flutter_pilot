@@ -85,6 +85,105 @@ steps:
   );
 
   test(
+    'test command enables Target App Launch Progress for human-readable output',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final File scenarioFile = File('scenario.yaml')
+          ..writeAsStringSync('''
+scenario:
+  name: launch_progress
+steps:
+  - tap:
+      byText: Continue
+''');
+        final FakeTestCommandExecutor executor = FakeTestCommandExecutor(
+          report: _passedReport(),
+        );
+
+        final int exitCode = await FlutterPilotCli(
+          testCommandExecutor: executor,
+        ).run(<String>['test', scenarioFile.path]);
+
+        expect(exitCode, 0);
+        expect(executor.onLaunchProgress, isNotNull);
+      });
+    },
+  );
+
+  test(
+    'test command suppresses Target App Launch Progress for JSON output',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final File scenarioFile = File('scenario.yaml')
+          ..writeAsStringSync('''
+scenario:
+  name: launch_progress_json
+steps:
+  - tap:
+      byText: Continue
+''');
+        final FakeTestCommandExecutor executor = FakeTestCommandExecutor(
+          report: _passedReport(),
+        );
+
+        final int exitCode = await FlutterPilotCli(
+          testCommandExecutor: executor,
+        ).run(<String>['test', scenarioFile.path, '--json']);
+
+        expect(exitCode, 0);
+        expect(executor.onLaunchProgress, isNull);
+      });
+    },
+  );
+
+  test('plain launch progress renders before Step progress', () async {
+    await FileTestkit.runZoned(() async {
+      final File output = File('progress.log');
+      final IOSink sink = output.openWrite();
+      final TargetAppLaunchProgressRenderer launchRenderer =
+          TargetAppLaunchProgressRenderer(
+            sink: sink,
+            clock: () => DateTime.utc(2026, 6, 30, 12, 0, 38),
+          );
+      final StepProgressRenderer stepRenderer = StepProgressRenderer(
+        sink: sink,
+      );
+
+      launchRenderer.render(
+        TargetAppLaunchStartedEvent(startedAt: DateTime.utc(2026, 6, 30, 12)),
+      );
+      launchRenderer.render(
+        TargetAppLaunchSucceededEvent(
+          startedAt: DateTime.utc(2026, 6, 30, 12),
+          finishedAt: DateTime.utc(2026, 6, 30, 12, 0, 38),
+        ),
+      );
+      stepRenderer.render(
+        const StepStartedEvent(
+          scenarioName: 'launch_progress',
+          totalSteps: 1,
+          step: ScenarioStep(
+            index: 1,
+            action: TapAction(finder: Finder(byText: 'Continue')),
+          ),
+          action: 'tap',
+        ),
+      );
+      await sink.close();
+
+      final String rendered = output.readAsStringSync();
+      expect(rendered, contains('> Target App Launch'));
+      expect(rendered, contains('Launching Target App Package... elapsed 38s'));
+      expect(rendered, contains('Target App launched in 38s'));
+      expect(rendered, contains('Scenario: launch_progress (1 steps)'));
+      expect(
+        rendered.indexOf('Target App launched in 38s'),
+        lessThan(rendered.indexOf('Scenario: launch_progress (1 steps)')),
+      );
+    });
+  });
+
+  test(
     'test command chooses interactive progress only for terminals',
     () async {
       await FileTestkit.runZoned(() async {
@@ -236,6 +335,65 @@ steps:
       });
     },
   );
+
+  test('default executor emits launch progress before Step progress', () async {
+    await FileTestkit.runZoned(() async {
+      final FakeTargetAppProcess process = FakeTargetAppProcess();
+      final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+        process,
+      );
+      final FakeScenarioRunner runner = FakeScenarioRunner(_passedReport());
+      final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
+        deviceDiscovery: const FakeDeviceDiscovery(),
+        launcher: TargetAppLauncher(starter: starter),
+        runnerFactory: FakeScenarioRunnerFactory(runner),
+      );
+      final Scenario scenario = Scenario(
+        name: 'launch_then_steps',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: TapAction(finder: Finder(byText: 'Continue')),
+          ),
+        ],
+      );
+      final List<String> progressOrder = <String>[];
+
+      final Future<ScenarioRunReport> reportFuture = executor.run(
+        TestCommandOptions(
+          scenario: scenario,
+          device: null,
+          flavor: null,
+          target: null,
+          stopPoint: null,
+          printDiagnostics: const <PrintDiagnostic>{},
+          jsonOutput: false,
+        ),
+        onLaunchProgress: (TargetAppLaunchProgressEvent event) {
+          progressOrder.add(event.runtimeType.toString());
+        },
+        onProgress: (StepProgressEvent event) {
+          progressOrder.add(event.runtimeType.toString());
+        },
+      );
+      process.emitStdout(
+        jsonEncode(<String, Object?>{
+          'event': 'app.debugPort',
+          'params': <String, Object?>{'wsUri': 'ws://127.0.0.1:1234/token=/ws'},
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+      process.exit(0);
+      await reportFuture;
+
+      expect(progressOrder, <String>[
+        'TargetAppLaunchStartedEvent',
+        'TargetAppLaunchSucceededEvent',
+        'StepStartedEvent',
+        'StepFinishedEvent',
+      ]);
+    });
+  });
 
   test(
     'default executor resolves recordable Target Device before launch',
@@ -392,14 +550,17 @@ class FakeTestCommandExecutor implements TestCommandExecutor {
 
   final ScenarioRunReport report;
   late TestCommandOptions options;
+  void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress;
   void Function(StepProgressEvent event)? onProgress;
 
   @override
   Future<ScenarioRunReport> run(
     TestCommandOptions options, {
+    void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
     void Function(StepProgressEvent event)? onProgress,
   }) async {
     this.options = options;
+    this.onLaunchProgress = onLaunchProgress;
     this.onProgress = onProgress;
     return report;
   }

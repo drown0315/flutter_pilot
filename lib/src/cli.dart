@@ -18,6 +18,7 @@ import 'scenario.dart';
 import 'scenario_parser.dart';
 import 'scenario_runner.dart';
 import 'step_progress_renderer.dart';
+import 'target_app_launch_progress_renderer.dart';
 import 'target_app_launcher.dart';
 import 'target_device.dart';
 
@@ -482,8 +483,14 @@ class _TestCommand extends Command<int> {
             jsonOutput: options.jsonOutput,
             stderrHasTerminal: stderr.hasTerminal,
           );
+      final TargetAppLaunchProgressRenderer? launchProgressRenderer =
+          TestCommandOutput.targetAppLaunchProgressRenderer(
+            sink: stderr,
+            jsonOutput: options.jsonOutput,
+          );
       final ScenarioRunReport report = await _executor.run(
         options,
+        onLaunchProgress: launchProgressRenderer?.render,
         onProgress: progressRenderer?.render,
       );
       if (report.targetDevice != null) {
@@ -642,6 +649,20 @@ class TestCommandOutput {
     }
     return StepProgressRenderer(sink: sink, interactive: stderrHasTerminal);
   }
+
+  /// Return the Target App Launch Progress renderer for human-readable output.
+  ///
+  /// Launch progress is stderr-only status. JSON output suppresses it so stdout
+  /// remains machine-oriented.
+  static TargetAppLaunchProgressRenderer? targetAppLaunchProgressRenderer({
+    required IOSink sink,
+    required bool jsonOutput,
+  }) {
+    if (jsonOutput) {
+      return null;
+    }
+    return TargetAppLaunchProgressRenderer(sink: sink);
+  }
 }
 
 /// Executes a validated `test` command.
@@ -649,6 +670,7 @@ abstract interface class TestCommandExecutor {
   /// Run the Scenario described by `options` and return its run report.
   Future<ScenarioRunReport> run(
     TestCommandOptions options, {
+    void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
     void Function(StepProgressEvent event)? onProgress,
   });
 }
@@ -671,6 +693,7 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
   @override
   Future<ScenarioRunReport> run(
     TestCommandOptions options, {
+    void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
     void Function(StepProgressEvent event)? onProgress,
   }) async {
     final bool recordingRequired = options.scenario.recording?.enabled == true;
@@ -696,12 +719,22 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
     }
 
     TargetAppLaunch launch;
+    final DateTime launchStartedAt = DateTime.now();
+    onLaunchProgress?.call(
+      TargetAppLaunchStartedEvent(startedAt: launchStartedAt),
+    );
     try {
       launch = await launcher.launch(
         TargetAppLaunchCommand(
           deviceId: targetDevice?.id,
           flavor: options.flavor,
           target: options.target,
+        ),
+      );
+      onLaunchProgress?.call(
+        TargetAppLaunchSucceededEvent(
+          startedAt: launchStartedAt,
+          finishedAt: DateTime.now(),
         ),
       );
     } on TargetAppLaunchException catch (error) {
