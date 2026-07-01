@@ -665,6 +665,11 @@ class TestCommandOutput {
 /// Executes a validated `test` command.
 abstract interface class TestCommandExecutor {
   /// Run the Scenario described by `options` and return its run report.
+  ///
+  /// `onLaunchProgress`, when provided, receives Target App Launch Progress
+  /// events before Scenario execution starts. `launchHeartbeatEnabled` controls
+  /// whether long pending launches emit heartbeat events. `onProgress`, when
+  /// provided, receives Scenario Step progress events during execution.
   Future<ScenarioRunReport> run(
     TestCommandOptions options, {
     void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
@@ -676,6 +681,9 @@ abstract interface class TestCommandExecutor {
 /// Default `test` command executor for launching and running one Scenario.
 class DefaultTestCommandExecutor implements TestCommandExecutor {
   /// Creates an executor with injectable launch and discovery boundaries.
+  ///
+  /// `launchHeartbeatTicks` and `launchClock` make Target App Launch Progress
+  /// deterministic in tests without waiting on real time.
   const DefaultTestCommandExecutor({
     this.deviceDiscovery = const DefaultTestDeviceDiscovery(),
     this.launcher = const TargetAppLauncher(),
@@ -916,7 +924,7 @@ abstract interface class TestScenarioRunnerFactory {
 
 /// Narrow Scenario runner interface used by the `test` command executor.
 abstract interface class TestScenarioRunner {
-  /// Run `scenario` with optional stop and diagnostic controls.
+  /// Run `scenario` with optional stop, diagnostic, and Step progress controls.
   Future<ScenarioRunReport> run(
     Scenario scenario, {
     RunStopPoint? stopPoint,
@@ -996,5 +1004,8 @@ class TestCommandException implements Exception {
   final int exitCode;
 
   /// Whether `message` was already written by command-specific output.
+  ///
+  /// The `test` command uses this for launch failures rendered by Target App
+  /// Launch Progress so the same message is not printed twice.
   final bool alreadyRendered;
 }

@@ -124,6 +124,9 @@ Future<void> main() async {
 Run `flutter_pilot test` from the Flutter app package. Flutter Pilot launches
 the app with `flutter run --machine`, reads the Runtime Target URI from Flutter,
 runs the Scenario, and stops the launched app during cleanup.
+Human-readable runs show Target App Launch Progress and Step progress on stderr;
+the final `Run report:` and `HTML report:` paths stay on stdout for scripts.
+`test --json` suppresses progress output.
 
 Check app-side Flutter Pilot setup from the Flutter app package:
 
@@ -257,6 +260,8 @@ consistent.
   implementation decisions.
 - [docs/cli-step-progress-prd.md](docs/cli-step-progress-prd.md): CLI Step
   progress feature requirements and implementation decisions.
+- [docs/target-app-launch-progress-prd.md](docs/target-app-launch-progress-prd.md):
+  Target App Launch Progress requirements and implementation decisions.
 - [docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md](docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md):
   architecture decision for the Dart CLI and YAML Scenario DSL.
 

@@ -23,10 +23,10 @@ preparing app launch through waiting for the Runtime Target URI. It is a
 separate CLI presentation surface from Step progress because no Scenario Step
 can execute until the Target App Package is running.
 
-Interactive terminals should show a compact loading panel with an indeterminate
-spinner, elapsed time, and high-level launch stage. Non-interactive output should
-degrade to deterministic plain text with periodic heartbeat lines. `test --json`
-should suppress Target App Launch Progress, matching Step progress behavior.
+Interactive terminals show a compact loading panel with elapsed time and the
+reliable launch stage. Non-interactive output degrades to deterministic plain
+text with periodic heartbeat lines. `test --json` suppresses Target App Launch
+Progress, matching Step progress behavior.
 
 Default output should stay quiet and high signal. Flutter Pilot should show
 launch choices such as Target Device, selection reason, flavor, and entrypoint,
@@ -90,7 +90,7 @@ buffered Flutter stderr lines.
 - Human-readable Target App Launch Progress should be written to stderr.
 - Existing stdout lines for `Run report:` and `HTML report:` remain unchanged.
 - `test --json` suppresses Target App Launch Progress.
-- Interactive terminals should render an indeterminate loading panel with spinner, current stage, and elapsed time.
+- Interactive terminals should render a compact in-place panel with current stage and elapsed time.
 - Non-interactive output should render deterministic plain-text launch status.
 - Non-interactive output should print periodic heartbeat status while launch is still waiting.
 - A ten-second heartbeat interval is the initial default for non-interactive output.
@@ -119,7 +119,7 @@ buffered Flutter stderr lines.
 - The first implementation can fall back to `Waiting for Runtime Target` when finer stage detection is not available.
 - Target Device resolution remains responsible for determining explicit and Scenario Recording auto-selected Target Devices.
 - Target App launch orchestration remains responsible for starting Flutter, buffering stderr, reading machine stdout, extracting the Runtime Target URI, and cleaning up the launched process.
-- A deep launch progress renderer module should own terminal wording, interactive refresh, spinner frames, elapsed-time formatting, success summary, failure summary, and non-interactive heartbeat wording.
+- A deep launch progress renderer module should own terminal wording, interactive refresh, elapsed-time formatting, success summary, failure summary, and non-interactive heartbeat wording.
 - A small launch progress event or callback interface should connect command orchestration to the renderer without making the launcher write directly to stdout or stderr.
 - The launch progress renderer should be injectable or otherwise testable with fake clocks and fake sinks.
 - The launch progress renderer should share terminal styling primitives with Step progress where practical, but it should own its own launch wording and layout.
@@ -131,7 +131,7 @@ buffered Flutter stderr lines.
 ## Testing Decisions
 
 - Tests should verify public behavior and stable presentation contracts, not private implementation details.
-- Launch progress renderer tests should cover interactive output with spinner-compatible refresh behavior.
+- Launch progress renderer tests should cover interactive output with refresh behavior.
 - Launch progress renderer tests should cover non-interactive plain-text output without ANSI codes or emoji.
 - Launch progress renderer tests should cover elapsed-time formatting.
 - Launch progress renderer tests should cover Target Device display for explicit `--device` selection.

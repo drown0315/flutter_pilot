@@ -116,6 +116,9 @@ Future<void> main() async {
 在 Flutter app package 中运行 `flutter_pilot test`。Flutter Pilot 会用
 `flutter run --machine` 启动应用，从 Flutter 输出中读取 Runtime Target URI，
 执行 Scenario，并在清理阶段停止已启动的应用。
+人类可读运行会把 Target App Launch Progress 和 Step progress 写到 stderr；
+最终的 `Run report:` 和 `HTML report:` 路径保持在 stdout，方便脚本读取。
+`test --json` 会抑制这些进度输出。
 
 在 Flutter 应用 package 中检查 Flutter Pilot 应用侧配置：
 
@@ -235,6 +238,8 @@ dart test
 - [docs/flutter-pilot-prd.md](docs/flutter-pilot-prd.md)：产品范围和实现决策。
 - [docs/cli-step-progress-prd.md](docs/cli-step-progress-prd.md)：CLI Step
   进度功能需求和实现决策。
+- [docs/target-app-launch-progress-prd.md](docs/target-app-launch-progress-prd.md)：
+  Target App Launch Progress 功能需求和实现决策。
 - [docs/run-diff.md](docs/run-diff.md)：Run Diff 命令、输出、回归规则和验收
   测试用例。
 - [docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md](docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md)：

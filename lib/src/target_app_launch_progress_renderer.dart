@@ -1,8 +1,9 @@
 /// Renders Target App Launch Progress before Scenario Step progress begins.
 ///
-/// The renderer is intentionally plain for the first launch-progress slice:
-/// it writes deterministic stderr lines that explain Flutter Pilot is launching
-/// the Target App Package and waiting for a Runtime Target.
+/// It writes deterministic plain text for redirected output and redraws a
+/// compact in-place panel for interactive terminals. Both modes explain that
+/// Flutter Pilot is launching the Target App Package and waiting for a Runtime
+/// Target.
 library;
 
 import 'dart:async';
@@ -218,7 +219,11 @@ class TargetAppLaunchProgressRenderer {
   bool _headerWritten = false;
   int _lastInteractiveLineCount = 0;
 
-  /// Render one launch progress event as deterministic plain text.
+  /// Render one launch progress event.
+  ///
+  /// Non-interactive rendering writes deterministic plain text. Interactive
+  /// rendering redraws a compact in-place panel until launch succeeds or fails,
+  /// then leaves a final summary line.
   void render(TargetAppLaunchProgressEvent event) {
     if (interactive) {
       _renderInteractive(event);

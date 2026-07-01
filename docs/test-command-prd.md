@@ -20,6 +20,11 @@ Scenario. The command launches the current Flutter app with
 `flutter run --machine`, extracts `app.debugPort.wsUri`, creates the internal
 Runtime Target, and then runs the Scenario through the existing runner.
 
+Human-readable `test` runs show Target App Launch Progress while launch is
+pending, then Step progress after the Runtime Target is available. Progress is
+written to stderr so final `Run report:` and `HTML report:` paths remain stable
+on stdout. `test --json` suppresses progress output.
+
 The command supports common Flutter app launch options:
 
 - `--device` / `-d` selects the Target Device by Flutter Device id, name, or
@@ -65,8 +70,8 @@ launch flow, not a user-provided command option.
 23. As a Flutter developer, I want `scenario.recording.enabled: false` to behave like no recording, so that templates can disable recording without triggering device discovery.
 24. As a Flutter developer, I want recording-disabled Scenarios to run on macOS or Chrome when Flutter supports them, so that ordinary Scenario execution is not limited by screen recording.
 25. As a Flutter developer, I want recording-enabled Scenarios to reject macOS and Chrome Target Devices, so that unsupported recording platforms fail clearly.
-26. As a Flutter developer, I want Flutter Pilot to print the resolved Target Device when one is selected, so that I know what app launch and recording will use.
-27. As a Flutter developer, I want Flutter Pilot to print the connected Runtime Target URI, so that I can see that app launch produced a runtime connection.
+26. As a Flutter developer, I want Flutter Pilot to show the resolved Target Device when one is selected, so that I know what app launch and recording will use.
+27. As a Flutter developer, I want Flutter Pilot to leave a launch success summary, so that I can see the app produced a Runtime Target before Step execution begins.
 28. As a Flutter developer, I want `test` to stop the launched Flutter app when the Scenario finishes, so that repeated runs do not leave stray app processes.
 29. As a Flutter developer, I want Ctrl-C cleanup to stop recording before stopping the Flutter app, so that interrupted recordings can still finalize when possible.
 30. As a Flutter developer, I want `flutter run` startup failure to show useful stderr context, so that I can diagnose build or launch failures.
@@ -147,11 +152,25 @@ launch flow, not a user-provided command option.
 - If the recording-required device id intersection has zero or multiple devices, `test` fails with exit code `64` before launching Flutter.
 - Device resolution failures do not create run directories.
 - Scenario Recording startup failure after a Runtime Target URI is available is a Scenario Run failure and creates a run report.
-- `test` prints the resolved Target Device when one is selected.
-- `test` prints the connected Runtime Target URI after extracting it from `flutter run --machine`.
+- `test` shows the resolved Target Device in Target App Launch Progress when
+  one is selected.
+- When no Target Device is resolved because Flutter will choose its default
+  device, Target App Launch Progress shows `Target Device: Flutter default`.
+- Target App Launch Progress shows whether a resolved Target Device came from
+  an explicit `--device` selector or Scenario Recording auto-selection.
+- Target App Launch Progress shows `--flavor` and `--target` choices when
+  provided.
+- `test` does not print the connected Runtime Target URI after extracting it
+  from `flutter run --machine`; successful launch leaves a concise elapsed-time
+  summary before Step progress begins.
 - `test` does not directly print raw `flutter run --machine` stdout during normal startup.
+- `test` writes Target App Launch Progress to stderr and keeps final artifact
+  path lines on stdout.
+- `test --json` suppresses Target App Launch Progress and Step progress.
 - `test` reads stdout to find `app.debugPort.wsUri`.
 - `test` stores the last 40 stderr lines from `flutter run` for startup failure and unexpected process-exit diagnostics.
+- If launch progress is enabled, startup failure output is rendered by Target
+  App Launch Progress with elapsed time and the buffered stderr tail.
 - `test` does not expose a launch timeout option and does not impose its own startup timeout.
 - If `flutter run` exits before producing a VM service URI, `test` fails without starting recording or creating a run directory.
 - If `flutter run` exits unexpectedly while the Scenario is still running, `test` reports the unexpected process exit and includes the last 40 stderr lines.
