@@ -753,12 +753,16 @@ class ProjectRunCommandOptions {
 class ProjectRunCommandReport {
   const ProjectRunCommandReport({
     required this.passed,
+    required this.status,
     required this.projectRunReportPath,
     required this.scenarioReports,
   });
 
   /// Whether the selected Project Scenarios all passed.
   final bool passed;
+
+  /// Overall Project Run status.
+  final ProjectRunStatus status;
 
   /// Path to the batch-level `project_run_report.json`.
   final String projectRunReportPath;
@@ -771,12 +775,16 @@ class ProjectRunCommandReport {
 class ProjectRunScenarioOutputReport {
   const ProjectRunScenarioOutputReport({
     required this.scenarioPath,
+    required this.status,
     required this.runReportPath,
     required this.htmlReportPath,
   });
 
   /// Project Scenario path relative to the discovery root.
   final String scenarioPath;
+
+  /// Scenario status in the Project Run summary.
+  final ProjectScenarioRunStatus status;
 
   /// Path to the child Scenario Run report.
   final String runReportPath;
@@ -963,6 +971,7 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
     projectRunWriter.writeProjectRunReport(projectReport.toJson());
     return ProjectRunCommandReport(
       passed: projectStatus == ProjectRunStatus.passed,
+      status: projectStatus,
       projectRunReportPath: p.join(
         projectRunWriter.runDirectory.path,
         'project_run_report.json',
@@ -971,6 +980,7 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
         for (final ProjectScenarioRunReport scenarioReport in scenarioResults)
           ProjectRunScenarioOutputReport(
             scenarioPath: scenarioReport.scenarioPath,
+            status: scenarioReport.status,
             runReportPath: p.join(
               projectRunWriter.runDirectory.path,
               scenarioReport.runReportPath,
@@ -1029,11 +1039,15 @@ class TestCommandOutput {
   /// Scenario's existing report paths in execution order.
   static String renderProjectRunSummary(ProjectRunCommandReport report) {
     final StringBuffer buffer = StringBuffer()
+      ..writeln('Project Run: ${report.status.name}')
       ..writeln('Project Run report: ${report.projectRunReportPath}');
     for (final ProjectRunScenarioOutputReport scenarioReport
         in report.scenarioReports) {
       buffer
-        ..writeln('Scenario: ${scenarioReport.scenarioPath}')
+        ..writeln(
+          'Scenario: ${scenarioReport.scenarioPath} '
+          '(${scenarioReport.status.name})',
+        )
         ..writeln('Run report: ${scenarioReport.runReportPath}')
         ..writeln('HTML report: ${scenarioReport.htmlReportPath}');
     }

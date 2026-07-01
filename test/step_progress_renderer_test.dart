@@ -210,7 +210,9 @@ void main() {
       expect(rendered, contains('Scenario: login (1 steps)'));
       expect(rendered, contains('Scenario: checkout (1 steps)'));
       expect(
-        rendered.split('\n').where((String line) => line.startsWith('Scenario:')),
+        rendered
+            .split('\n')
+            .where((String line) => line.startsWith('Scenario:')),
         hasLength(2),
       );
     });

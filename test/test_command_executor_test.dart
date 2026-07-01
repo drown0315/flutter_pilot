@@ -70,14 +70,16 @@ steps:
     },
   );
 
-  test('Project Run output renders batch and Scenario report paths', () {
+  test('Project Run output renders deterministic all-passed summary', () {
     const ProjectRunCommandReport report = ProjectRunCommandReport(
       passed: true,
+      status: ProjectRunStatus.passed,
       projectRunReportPath:
           '.runs/2026-07-01_09-30_project-run/project_run_report.json',
       scenarioReports: <ProjectRunScenarioOutputReport>[
         ProjectRunScenarioOutputReport(
           scenarioPath: 'checkout.yaml',
+          status: ProjectScenarioRunStatus.passed,
           runReportPath:
               '.runs/2026-07-01_09-30_project-run/'
               '2026-07-01_09-30_checkout/run_report.json',
@@ -87,6 +89,7 @@ steps:
         ),
         ProjectRunScenarioOutputReport(
           scenarioPath: 'login.yaml',
+          status: ProjectScenarioRunStatus.passed,
           runReportPath:
               '.runs/2026-07-01_09-30_project-run/'
               '2026-07-01_09-30_login/run_report.json',
@@ -99,29 +102,60 @@ steps:
 
     final String rendered = TestCommandOutput.renderProjectRunSummary(report);
 
-    expect(
-      rendered,
-      contains(
-        'Project Run report: '
-        '.runs/2026-07-01_09-30_project-run/project_run_report.json',
-      ),
+    expect(rendered, '''
+Project Run: passed
+Project Run report: .runs/2026-07-01_09-30_project-run/project_run_report.json
+Scenario: checkout.yaml (passed)
+Run report: .runs/2026-07-01_09-30_project-run/2026-07-01_09-30_checkout/run_report.json
+HTML report: .runs/2026-07-01_09-30_project-run/2026-07-01_09-30_checkout/timeline.html
+Scenario: login.yaml (passed)
+Run report: .runs/2026-07-01_09-30_project-run/2026-07-01_09-30_login/run_report.json
+HTML report: .runs/2026-07-01_09-30_project-run/2026-07-01_09-30_login/timeline.html
+''');
+  });
+
+  test('Project Run output renders partially failed summary', () {
+    const ProjectRunCommandReport report = ProjectRunCommandReport(
+      passed: false,
+      status: ProjectRunStatus.failed,
+      projectRunReportPath: '.runs/project-run/project_run_report.json',
+      scenarioReports: <ProjectRunScenarioOutputReport>[
+        ProjectRunScenarioOutputReport(
+          scenarioPath: 'login.yaml',
+          status: ProjectScenarioRunStatus.failed,
+          runReportPath: '.runs/project-run/login/run_report.json',
+          htmlReportPath: '.runs/project-run/login/timeline.html',
+        ),
+        ProjectRunScenarioOutputReport(
+          scenarioPath: 'checkout.yaml',
+          status: ProjectScenarioRunStatus.passed,
+          runReportPath: '.runs/project-run/checkout/run_report.json',
+          htmlReportPath: '.runs/project-run/checkout/timeline.html',
+        ),
+      ],
     );
-    expect(rendered, contains('Scenario: checkout.yaml'));
-    expect(
-      rendered,
-      contains(
-        'Run report: .runs/2026-07-01_09-30_project-run/'
-        '2026-07-01_09-30_checkout/run_report.json',
-      ),
+
+    final String rendered = TestCommandOutput.renderProjectRunSummary(report);
+
+    expect(rendered, contains('Project Run: failed'));
+    expect(rendered, contains('Scenario: login.yaml (failed)'));
+    expect(rendered, contains('Scenario: checkout.yaml (passed)'));
+  });
+
+  test('Project Run output renders environment-level failure summary', () {
+    const ProjectRunCommandReport report = ProjectRunCommandReport(
+      passed: false,
+      status: ProjectRunStatus.environmentFailed,
+      projectRunReportPath: '.runs/project-run/project_run_report.json',
+      scenarioReports: <ProjectRunScenarioOutputReport>[],
     );
-    expect(
-      rendered,
-      contains(
-        'HTML report: .runs/2026-07-01_09-30_project-run/'
-        '2026-07-01_09-30_checkout/timeline.html',
-      ),
-    );
-    expect(rendered, contains('Scenario: login.yaml'));
+
+    final String rendered = TestCommandOutput.renderProjectRunSummary(report);
+
+    expect(rendered, '''
+Project Run: environmentFailed
+Project Run report: .runs/project-run/project_run_report.json
+''');
   });
 
   test('test command keeps file input in single Entry Scenario mode', () async {
@@ -387,6 +421,32 @@ steps:
         expect(exitCode, 0);
         expect(projectExecutor.onLaunchProgress, isNotNull);
         expect(projectExecutor.launchHeartbeatEnabled, isTrue);
+      });
+    },
+  );
+
+  test(
+    'test command keeps Project Run --json scoped to progress suppression',
+    () async {
+      await FileTestkit.runZoned(() async {
+        Directory('pilot').createSync();
+        File('pilot/login.yaml').writeAsStringSync('''
+scenario:
+  name: project_json
+steps:
+  - capture: {}
+''');
+        final FakeProjectRunCommandExecutor projectExecutor =
+            FakeProjectRunCommandExecutor(report: _passedProjectReport());
+
+        final int exitCode = await FlutterPilotCli(
+          projectRunCommandExecutor: projectExecutor,
+        ).run(<String>['test', '--json']);
+
+        expect(exitCode, 0);
+        expect(projectExecutor.options.jsonOutput, isTrue);
+        expect(projectExecutor.onProgress, isNull);
+        expect(projectExecutor.onLaunchProgress, isNull);
       });
     },
   );
@@ -1853,6 +1913,7 @@ class FakeProjectRunCommandExecutor implements ProjectRunCommandExecutor {
 ProjectRunCommandReport _passedProjectReport() {
   return const ProjectRunCommandReport(
     passed: true,
+    status: ProjectRunStatus.passed,
     projectRunReportPath: '.runs/project-run/project_run_report.json',
     scenarioReports: <ProjectRunScenarioOutputReport>[],
   );
