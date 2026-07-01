@@ -11,13 +11,14 @@ diffs.
 
 The first implementation slice is a Dart CLI package with:
 
-- `validate` and `run` command shells
+- `validate` and `test` command shells
 - strict Scenario YAML parsing
 - typed Scenario, Step, Finder, and action models
 - structured validation exceptions
 - parser tests and CLI subprocess tests
 
-UI execution through `mcp_flutter` is not implemented yet.
+`flutter_pilot test` launches the Target App Package with `flutter run --machine`,
+runs the Scenario through `mcp_flutter`, and cleans up the launched app process.
 
 ## Read First
 
@@ -129,7 +130,6 @@ and record the publishing status.
 
 Do not implement these unless the task explicitly asks for them:
 
-- video recording
 - natural language Scenario generation
 - interactive recording of manual usage into YAML
 - source-code patching automation

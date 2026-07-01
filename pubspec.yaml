@@ -1,6 +1,7 @@
 name: flutter_pilot
 description: A CLI for replaying Flutter UI scenarios and collecting debugging artifacts.
 version: 0.1.0
+publish_to: none
 
 environment:
   sdk: ^3.9.0
@@ -11,6 +12,8 @@ dependencies:
   args: ^2.7.0
   crypto: ^3.0.7
   path: ^1.9.1
+  screen_recorder:
+    path: packages/screen_recorder
   yaml: ^3.1.3
 dev_dependencies:
   file_testkit: ^1.0.0

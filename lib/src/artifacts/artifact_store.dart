@@ -321,6 +321,31 @@ class RunArtifactWriter {
     );
   }
 
+  /// Store the finalized Device Video Recording as a run-level artifact.
+  ///
+  /// Args:
+  /// `sourcePath` is the backend-native video file returned after stopping the
+  /// Recording Session. Its extension is preserved so callers can keep the
+  /// backend-native format.
+  ///
+  /// Returns:
+  /// An artifact record with `type: deviceVideoRecording` and a path relative
+  /// to the run directory.
+  ArtifactReport writeDeviceVideoRecording({required String sourcePath}) {
+    final String extension = p.extension(sourcePath);
+    final String relativePath = p.join(
+      'artifacts',
+      'device-video-recording$extension',
+    );
+    final File destinationFile = File(p.join(runDirectory.path, relativePath));
+    destinationFile.parent.createSync(recursive: true);
+    File(sourcePath).copySync(destinationFile.path);
+    return ArtifactReport(
+      type: ArtifactType.deviceVideoRecording,
+      path: relativePath,
+    );
+  }
+
   /// Return the file name for one captured Step artifact.
   ///
   /// Args:
@@ -354,10 +379,23 @@ class RunArtifactWriter {
     return <String, Object?>{
       'name': scenario.name,
       if (scenario.description != null) 'description': scenario.description,
+      if (scenario.recording != null)
+        'recording': _recordingToJson(scenario.recording!),
       'steps': <Object?>[
         for (final ScenarioStep step in scenario.steps) _stepToJson(step),
       ],
     };
+  }
+
+  /// Convert Scenario Recording metadata into the Scenario artifact shape.
+  ///
+  /// Args:
+  /// `recording` is the parsed Scenario-level recording configuration.
+  ///
+  /// Returns:
+  /// A JSON-compatible map that preserves the normalized `enabled` value.
+  Map<String, Object?> _recordingToJson(ScenarioRecording recording) {
+    return <String, Object?>{'enabled': recording.enabled};
   }
 
   /// Convert one Scenario Step into a JSON-compatible record.
@@ -485,6 +523,7 @@ enum ArtifactType {
   screenshot,
   snapshot,
   logs,
+  deviceVideoRecording,
 }
 
 /// Reason one artifact was written during a Scenario run.

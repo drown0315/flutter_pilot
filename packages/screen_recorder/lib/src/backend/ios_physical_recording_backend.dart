@@ -31,7 +31,23 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
       <String>['list'],
       ScreenRecorderErrorCode.permissionDenied,
     );
-    return _parseDevices(result.stdout);
+    final List<RecordingDevice> devices = _parseDevices(result.stdout);
+    try {
+      final ScreenRecorderCommandResult xctraceResult =
+          await _commandRunner.run('xcrun', <String>[
+        'xctrace',
+        'list',
+        'devices',
+      ]);
+      if (xctraceResult.exitCode == 0) {
+        _addMissingDevices(devices, _parseXctraceDevices(xctraceResult.stdout));
+      }
+    } on Object {
+      // The helper remains the source of recordable AVFoundation devices.
+      // xctrace discovery is best-effort metadata for physical devices that
+      // Xcode can run but AVFoundation does not expose as capture sources.
+    }
+    return devices;
   }
 
   @override
@@ -246,5 +262,51 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
       );
     }
     return devices;
+  }
+
+  static List<RecordingDevice> _parseXctraceDevices(String output) {
+    final List<RecordingDevice> devices = <RecordingDevice>[];
+    var inDevicesSection = false;
+    for (final String line in output.split('\n')) {
+      final String trimmedLine = line.trim();
+      if (trimmedLine == '== Devices ==') {
+        inDevicesSection = true;
+        continue;
+      }
+      if (trimmedLine.startsWith('== ') && trimmedLine.endsWith(' ==')) {
+        inDevicesSection = false;
+        continue;
+      }
+      if (!inDevicesSection || trimmedLine.isEmpty) {
+        continue;
+      }
+      final RegExpMatch? match = RegExp(
+        r'^(.*?)(?: \([^)]+\))? \(([0-9a-fA-F]{40})\)$',
+      ).firstMatch(trimmedLine);
+      if (match == null) {
+        continue;
+      }
+      devices.add(
+        RecordingDevice(
+          id: match.group(2)!,
+          name: match.group(1)!.trim(),
+          platform: RecordingDevicePlatform.iosPhysical,
+        ),
+      );
+    }
+    return devices;
+  }
+
+  static void _addMissingDevices(
+    List<RecordingDevice> target,
+    List<RecordingDevice> additions,
+  ) {
+    final Set<String> existingIds =
+        target.map((RecordingDevice device) => device.id).toSet();
+    for (final RecordingDevice device in additions) {
+      if (existingIds.add(device.id)) {
+        target.add(device);
+      }
+    }
   }
 }

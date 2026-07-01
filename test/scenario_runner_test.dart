@@ -236,6 +236,224 @@ void main() {
     });
   });
 
+  test('starts Scenario Recording before executing the first Step', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('recording_lifecycle_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        finderResults: <String, List<FinderMatch>>{
+          'Continue': const <FinderMatch>[FinderMatch(id: 'continue-button')],
+        },
+      );
+      final FakeRecordingController recordingController =
+          FakeRecordingController(runtimeEvents: adapter.events);
+      final Scenario scenario = Scenario(
+        name: 'recorded_run',
+        recording: const ScenarioRecording(enabled: true),
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: TapAction(finder: Finder(byText: 'Continue')),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        recordingController: recordingController,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      expect(report.status, ScenarioRunStatus.passed);
+      expect(
+        recordingController.events.map(
+          (FakeRecordingEvent event) => event.operation,
+        ),
+        <RecordingOperation>[RecordingOperation.start, RecordingOperation.stop],
+      );
+      expect(
+        adapter.events.map((FakeRuntimeEvent event) => event.operation),
+        <RuntimeOperation>[
+          RuntimeOperation.initialize,
+          RuntimeOperation.resolveFinder,
+          RuntimeOperation.performTap,
+          RuntimeOperation.dispose,
+        ],
+      );
+      expect(
+        recordingController.events
+            .firstWhere(
+              (FakeRecordingEvent event) =>
+                  event.operation == RecordingOperation.start,
+            )
+            .runtimeEventCountAtStart,
+        1,
+      );
+    });
+  });
+
+  test('does not start Scenario Recording when omitted or disabled', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('recording_disabled_output');
+      final Scenario omittedScenario = Scenario(
+        name: 'recording_omitted',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: CaptureAction(
+              screenshot: false,
+              snapshot: false,
+              widgetTree: false,
+              logs: false,
+            ),
+          ),
+        ],
+      );
+      final Scenario disabledScenario = Scenario(
+        name: 'recording_disabled',
+        recording: const ScenarioRecording(enabled: false),
+        steps: omittedScenario.steps,
+      );
+      final FakeRecordingController omittedRecordingController =
+          FakeRecordingController();
+      final FakeRecordingController disabledRecordingController =
+          FakeRecordingController();
+
+      final ScenarioRunReport omittedReport = await ScenarioRunner(
+        adapter: FakeRuntimeAdapter(),
+        recordingController: omittedRecordingController,
+        outputDirectory: outputDirectory,
+      ).run(omittedScenario);
+      final ScenarioRunReport disabledReport = await ScenarioRunner(
+        adapter: FakeRuntimeAdapter(),
+        recordingController: disabledRecordingController,
+        outputDirectory: outputDirectory,
+      ).run(disabledScenario);
+
+      expect(omittedReport.status, ScenarioRunStatus.passed);
+      expect(disabledReport.status, ScenarioRunStatus.passed);
+      expect(omittedRecordingController.events, isEmpty);
+      expect(disabledRecordingController.events, isEmpty);
+    });
+  });
+
+  test('stores Device Video Recording as a run-level artifact', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('recording_artifact_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        finderResults: <String, List<FinderMatch>>{
+          'Continue': const <FinderMatch>[FinderMatch(id: 'continue-button')],
+        },
+      );
+      final File backendRecording = File('backend_recordings/device-123.mp4')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(<int>[1, 2, 3, 4]);
+      final FakeRecordingController recordingController =
+          FakeRecordingController(
+            result: RecordingResult(
+              path: backendRecording.path,
+              mimeType: 'video/mp4',
+            ),
+          );
+      final Scenario scenario = Scenario(
+        name: 'recording_artifact',
+        recording: const ScenarioRecording(enabled: true),
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: TapAction(finder: Finder(byText: 'Continue')),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        recordingController: recordingController,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      final ArtifactReport recordingArtifact = report.artifacts.singleWhere(
+        (ArtifactReport artifact) =>
+            artifact.type == ArtifactType.deviceVideoRecording,
+      );
+      expect(report.status, ScenarioRunStatus.passed);
+      expect(recordingArtifact.path, 'artifacts/device-video-recording.mp4');
+      expect(
+        File(
+          '${report.runDirectoryPath}/${recordingArtifact.path}',
+        ).readAsBytesSync(),
+        <int>[1, 2, 3, 4],
+      );
+      expect(
+        report.steps.single.artifacts.map(
+          (ArtifactReport artifact) => artifact.type,
+        ),
+        isNot(contains(ArtifactType.deviceVideoRecording)),
+      );
+      expect(
+        recordingController.events.map(
+          (FakeRecordingEvent event) => event.operation,
+        ),
+        <RecordingOperation>[RecordingOperation.start, RecordingOperation.stop],
+      );
+      expect(
+        _runReportFile(report).readAsStringSync(),
+        contains('"type": "deviceVideoRecording"'),
+      );
+      expect(
+        _runReportFile(report).readAsStringSync(),
+        contains('"path": "artifacts/device-video-recording.mp4"'),
+      );
+    });
+  });
+
+  test(
+    'fails before executing Steps when Scenario Recording cannot start',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final Directory outputDirectory = Directory('recording_failure_output');
+        final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+          finderResults: <String, List<FinderMatch>>{
+            'Continue': const <FinderMatch>[FinderMatch(id: 'continue-button')],
+          },
+        );
+        final FakeRecordingController recordingController =
+            FakeRecordingController(
+              failure: const RecordingException(
+                operation: RecordingOperation.start,
+                message: 'Recording device is unavailable.',
+              ),
+            );
+        final Scenario scenario = Scenario(
+          name: 'recording_start_failure',
+          recording: const ScenarioRecording(enabled: true),
+          steps: const <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              action: TapAction(finder: Finder(byText: 'Continue')),
+            ),
+          ],
+        );
+
+        final ScenarioRunReport report = await ScenarioRunner(
+          adapter: adapter,
+          recordingController: recordingController,
+          outputDirectory: outputDirectory,
+        ).run(scenario);
+
+        expect(report.status, ScenarioRunStatus.failed);
+        expect(report.failureReason, 'Recording device is unavailable.');
+        expect(report.steps, isEmpty);
+        expect(
+          adapter.events.map((FakeRuntimeEvent event) => event.operation),
+          <RuntimeOperation>[
+            RuntimeOperation.initialize,
+            RuntimeOperation.dispose,
+          ],
+        );
+        expect(recordingController.events, isEmpty);
+      });
+    },
+  );
   test('creates a stable run directory with scenario metadata', () async {
     await FileTestkit.runZoned(() async {
       final Directory outputDirectory = Directory('artifact_output');
@@ -356,7 +574,6 @@ steps:
       expect(scenarioSteps.toString(), isNot(contains('include:')));
       expect(scenarioSteps.toString(), contains('included_capture'));
       expect(scenarioSteps.toString(), contains('source'));
-
       final Map<String, Object?> reportJson =
           jsonDecode(_runReportFile(report).readAsStringSync())
               as Map<String, Object?>;
@@ -368,6 +585,40 @@ steps:
         ),
         <int>[1, 2],
       );
+    });
+  });
+
+  test('records Target Device metadata when provided', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('target_device_output');
+      final Scenario scenario = Scenario(
+        name: 'target_device_report',
+        steps: const <ScenarioStep>[],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: FakeRuntimeAdapter(),
+        outputDirectory: outputDirectory,
+        targetDevice: const TargetDevice(
+          id: 'pixel-8',
+          name: 'Pixel 8',
+          targetPlatform: 'android-arm64',
+          emulator: true,
+          sdk: 'Android 35',
+        ),
+      ).run(scenario);
+
+      final Map<String, Object?> reportJson =
+          jsonDecode(_runReportFile(report).readAsStringSync())
+              as Map<String, Object?>;
+      expect(reportJson['targetDevice'], <String, Object?>{
+        'id': 'pixel-8',
+        'name': 'Pixel 8',
+        'targetPlatform': 'android-arm64',
+        'emulator': true,
+        'sdk': 'Android 35',
+      });
+      expect(reportJson.toString(), isNot(contains('isSupported')));
     });
   });
 

@@ -40,6 +40,7 @@ class ScenarioValidationException implements Exception {
 /// It accepts the Scenario schema:
 /// - top-level `scenario` metadata and required `steps`
 /// - Step Includes that reference Step Library files
+/// - optional `scenario.recording` metadata
 /// - one action per step
 /// - Finder fields `byText` and `byType`
 ///
@@ -195,6 +196,7 @@ class ScenarioParser {
 
     String scenarioName = fallbackName.isEmpty ? 'scenario' : fallbackName;
     String? description;
+    ScenarioRecording? recording;
     final Object? scenarioYaml = yaml['scenario'];
     final String scenarioPath = _joinPath(documentPath, 'scenario');
     if (!library && scenarioYaml != null) {
@@ -204,6 +206,7 @@ class ScenarioParser {
         _rejectUnknownKeys(scenarioPath, scenarioYaml, {
           'name',
           'description',
+          'recording',
         }, errors);
         final Object? name = scenarioYaml['name'];
         if (name != null) {
@@ -231,6 +234,13 @@ class ScenarioParser {
               ),
             );
           }
+        }
+        if (scenarioYaml.containsKey('recording')) {
+          recording = _parseRecording(
+            scenarioYaml['recording'],
+            'scenario.recording',
+            errors,
+          );
         }
       }
     }
@@ -264,6 +274,7 @@ class ScenarioParser {
     return Scenario(
       name: scenarioName,
       description: description,
+      recording: recording,
       steps: _reindexSteps(steps),
     );
   }
@@ -418,6 +429,33 @@ class ScenarioParser {
   /// Append a YAML field name to an existing validation path.
   static String _joinPath(String path, String field) {
     return path == r'$' ? field : '$path.$field';
+  }
+
+  /// Parse Scenario Recording metadata and apply default enablement.
+  ///
+  /// Args:
+  /// `yaml` is the raw value under `scenario.recording`.
+  /// `path` is the validation path used for recording schema errors.
+  /// `errors` receives invalid recording field errors.
+  ///
+  /// Returns:
+  /// `ScenarioRecording(enabled: true)` for `{}` or explicit `enabled: true`,
+  /// `ScenarioRecording(enabled: false)` for explicit disablement, and `null`
+  /// when the recording value is structurally invalid.
+  static ScenarioRecording? _parseRecording(
+    Object? yaml,
+    String path,
+    List<ScenarioValidationError> errors,
+  ) {
+    if (yaml is! YamlMap) {
+      errors.add(ScenarioValidationError(path, 'Expected a map.'));
+      return null;
+    }
+
+    _rejectUnknownKeys(path, yaml, {'enabled'}, errors);
+    final bool enabled =
+        _optionalBool(yaml, 'enabled', '$path.enabled', errors) ?? true;
+    return ScenarioRecording(enabled: enabled);
   }
 
   /// Parse one step and enforce the "label plus exactly one action" rule.

@@ -20,6 +20,10 @@ _Avoid_: Target configuration, environment block
 The Flutter app package in the current working directory that is expected to expose the runtime capabilities Flutter Pilot needs before it can be used as a Runtime Target.
 _Avoid_: Scenario workspace, CLI workspace, project root
 
+**Target Device**:
+The device selected for a high-level Flutter Pilot test run. The Target App Package runs on this device, and any Scenario Recording for that run must record the same device.
+_Avoid_: Runtime Target, Recording Device
+
 **Runtime Adapter**:
 The narrow interface between the Flutter Pilot runner and a concrete Flutter runtime bridge. It maps Scenario Finders, actions, and capture requests to executable runtime operations, then converts runtime results back into Flutter Pilot types.
 _Avoid_: Runtime Target, driver, bridge
@@ -91,6 +95,10 @@ _Avoid_: Snapshot
 **Capture Action**:
 An action that records diagnostic artifacts at a specific Step in a Scenario. Its default bundle includes Screenshot, Snapshot, and Logs, but not Widget Tree. Runtime errors are collected as part of Logs rather than as a separate first-version artifact.
 _Avoid_: Screenshot step, dump step
+
+**Scenario Recording**:
+A Scenario-level option that controls whether a Scenario Run creates a device screen Recording Session for the full run duration. It is part of Scenario metadata rather than a Step or Capture Action.
+_Avoid_: Video step, capture video
 
 **Device Video Recording**:
 A device-level visual artifact recorded from a selected device screen during a Recording Session. It is separate from Scenario actions and Runtime Adapter operations because it records the device display rather than Flutter UI semantics. A saved session returns the final video file path only after recording stops.

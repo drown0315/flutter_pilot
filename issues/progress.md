@@ -1,6 +1,6 @@
 # Flutter Pilot Issue Progress
 
-Last reviewed: 2026-06-20
+Last reviewed: 2026-06-30
 
 This file tracks implementation progress against the local issue breakdown and
 the GitHub issue list. Use code reality as the source of truth when GitHub issue
@@ -67,3 +67,16 @@ Source: `issues/0.0.7-support-scenario-yaml-step-includes.md`
 | 2. Scenario Step Library CLI Validation | `#78` | Complete | `validate` and `run --until` work with include-backed Scenarios. JSON validation output includes include-related paths. |
 | 3. Expanded Scenario Artifacts | `#78` | Complete | Run artifacts contain the expanded flat Step list with Step Source metadata. Runner reports preserve flat Step outcome shape. |
 | 4. Include Chain Ready For Progress | `#78` | Complete | Step Source and Include Chain model added. Progress renderer shows include source display paths for expanded Steps. |
+
+## Test Command 0.0.8 Progress
+
+Source: `issues/0.0.8-test-command.md`
+
+| Local issue | GitHub issue | Status | Notes |
+| --- | --- | --- | --- |
+| 1. Store Device Video Recording Under Run Artifacts | `#82` | Complete | Scenario Recording now copies the stopped Device Video Recording into the Scenario Run directory at `artifacts/device-video-recording.<backend-extension>`, records that run-directory-relative path in `run_report.json`, and keeps the artifact at run level rather than attaching it to a Step. Verified with `dart format .`, `dart analyze`, and `dart test`. |
+| 2. Add Target Device Resolution | `#83` | Complete | Added an isolated Target Device parser and resolver for `flutter devices --machine` records. It resolves supported Flutter Devices by id, exact name, or unique id/name prefix; rejects empty, missing, ambiguous, and unsupported selectors through `TargetDeviceResolutionException`; and enforces Recording Device id alignment plus single-device recording auto-selection. CLI discovery and launch wiring remain in later `test` command slices. Verified with `dart analyze` and `dart test test/target_device_resolver_test.dart`. |
+| 3. Launch Target App Package From Test Command Infrastructure | `#84` | Complete | Added an isolated Target App launcher that builds `flutter run --machine` commands with optional Target Device id, flavor, and target entrypoint; extracts absolute `app.debugPort.wsUri` Runtime Target URIs from object-shaped machine events; consumes raw machine stdout without forwarding it; buffers the last 40 stderr lines for launch failure diagnostics; and cleans up by sending Flutter's quit command before falling back to process termination. Command wiring remains in the `test` command slice. Verified with `dart analyze` and `dart test test/target_app_launcher_test.dart`. |
+| 4. Replace Run With Test Command | `#85` | Complete | The public CLI shell registers `test` instead of `run`, exposes `--device` / `-d`, `--flavor`, `--target` / `-t`, `--until`, repeated `--print`, and `--json`, and keeps Scenario validation plus `--until` / `--print` errors before app launch. The default executor discovers Target Devices when needed, launches the Target App Package, creates the Runtime Target from `app.debugPort.wsUri`, runs `ScenarioRunner`, wires Scenario Recording to the resolved Target Device id, preserves printed diagnostics output, and cleans up the launched Flutter process after success, failure, or interruption. Verified with `dart format .`, `dart analyze`, and `dart test`. |
+| 5. Record Target Device Metadata In Run Reports | `#86` | Complete | Run reports can now include Target Device id, name, Flutter target platform, emulator flag, and sdk string without exposing Flutter `isSupported` or Recording Device backend objects. The `test` executor passes the resolved Target Device into `ScenarioRunner`, run directory names remain unchanged, and `test` output has a dedicated resolved Target Device line when metadata is present. Report tests cover metadata presence and absence. Verified with `dart analyze` and targeted runner/executor tests. |
+| 6. Update Test Command Documentation | `#87` | Complete | README, README_zh, Scenario YAML docs, the main PRD, the test command PRD, and ADR 0003 now describe `flutter_pilot test <scenario.yaml>` as the Scenario execution command, document `--device`, `--flavor`, and entrypoint `--target`, state that `run` and user-supplied VM service URI execution are removed, explain same-id Target Device and Recording Device alignment for Scenario Recording, and note Device Video Recording plus Target Device report metadata. Verified with `dart format .`, `dart analyze`, and `dart test`. |

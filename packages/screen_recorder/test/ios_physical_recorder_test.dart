@@ -41,6 +41,63 @@ ios-device-2\tOffice iPhone\tiOS Device\tApple Inc.
       ]);
     });
 
+    test('lists physical iOS devices from xctrace output', () async {
+      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+        ..addSwiftBuild()
+        ..addHelperList(
+          const ScreenRecorderCommandResult(
+            exitCode: 0,
+            stdout: 'id\tname\tmodel\tmanufacturer\n',
+            stderr: '',
+          ),
+        )
+        ..addXctraceList(
+          const ScreenRecorderCommandResult(
+            exitCode: 0,
+            stdout: '''
+== Devices ==
+drown的MacBook Pro (413457E0-CF99-52D4-A082-30349AC884F5)
+钟惠彬的 iPhone (15.8.8) (269bfd1ccaa634d5f2250efe6a22016b18fd16da)
+
+== Devices Offline ==
+Unknown (6FC56E18-825D-5F44-909F-43C55FBB2A12)
+
+== Simulators ==
+iPhone 17 Simulator (26.4) (58CC29EF-4758-4E4E-A79A-398E4A26C91F)
+''',
+            stderr: '',
+          ),
+        );
+      final ScreenRecorder recorder = ScreenRecorder.iosPhysical(
+        commandRunner: commandRunner,
+      );
+
+      final List<RecordingDevice> devices = await recorder.listDevices();
+
+      expect(
+        devices,
+        contains(
+          const RecordingDevice(
+            id: '269bfd1ccaa634d5f2250efe6a22016b18fd16da',
+            name: '钟惠彬的 iPhone',
+            platform: RecordingDevicePlatform.iosPhysical,
+          ),
+        ),
+      );
+      expect(
+        devices,
+        isNot(
+          contains(
+            const RecordingDevice(
+              id: '58CC29EF-4758-4E4E-A79A-398E4A26C91F',
+              name: 'iPhone 17 Simulator',
+              platform: RecordingDevicePlatform.iosPhysical,
+            ),
+          ),
+        ),
+      );
+    });
+
     test(
       'resolves physical iOS devices by id, name, and name prefix',
       () async {
@@ -261,6 +318,10 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
     _runResults['helper:list'] = result;
   }
 
+  void addXctraceList(ScreenRecorderCommandResult result) {
+    _runResults['xctrace:list'] = result;
+  }
+
   void addPhysicalDeviceList(Map<String, String> devicesById) {
     final StringBuffer buffer = StringBuffer('id\tname\tmodel\tmanufacturer\n');
     for (final MapEntry<String, String> entry in devicesById.entries) {
@@ -288,6 +349,14 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
     if (arguments.length == 1 && arguments.first == 'list') {
       return _runResults['helper:list'] ??
           (throw StateError('Unexpected helper list command'));
+    }
+    if (executable == 'xcrun' &&
+        arguments.length == 3 &&
+        arguments[0] == 'xctrace' &&
+        arguments[1] == 'list' &&
+        arguments[2] == 'devices') {
+      return _runResults['xctrace:list'] ??
+          (throw StateError('Unexpected xctrace list command'));
     }
     throw StateError(
       'Unexpected command: ${<String>[executable, ...arguments]}',

@@ -206,7 +206,7 @@ the final extension.
 
 ## Out of Scope
 
-- Integrating `screen_recorder` into `flutter_pilot run`.
+- Integrating `screen_recorder` into `flutter_pilot test`.
 - Adding video recording to Scenario YAML.
 - Treating Device Video Recording as a Runtime Adapter operation.
 - Discovering or connecting to Flutter VM service URIs.

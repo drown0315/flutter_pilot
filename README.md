@@ -22,6 +22,11 @@ Flutter Pilot treats a UI journey as a portable Scenario. A Scenario says which
 widgets to tap, where to type, what to wait for, when to scroll, and where to
 capture diagnostic artifacts.
 
+Scenario metadata can also request full-run device video recording with
+`scenario.recording`. Recording is run-level context: it starts before the first
+Step, stops during run shutdown, and is reported as a Device Video Recording
+artifact rather than a Step artifact.
+
 Runtime connection details are not stored in YAML. The same Scenario can be
 validated, shared, committed, and replayed against different Runtime Targets by
 passing target details through the CLI.
@@ -51,6 +56,7 @@ runtime context so a person or agent can answer sharper questions:
 scenario:
   name: login_error
   description: Reproduce the invalid login message.
+  recording: {}
 
 steps:
   - label: enter_email
@@ -72,8 +78,13 @@ steps:
     capture: {}
 ```
 
-This Scenario describes the UI journey only. The Runtime Target, such as a
-Flutter VM service URI, is provided when the Scenario is run.
+This Scenario describes the UI journey only. Flutter Pilot launches the Target
+App Package through the `test` command and derives the Runtime Target from
+Flutter's machine output.
+
+`recording: {}` enables default Scenario Recording. Omit `recording` for no
+recording, or use `recording.enabled: false` to disable it explicitly.
+Boolean shorthand such as `recording: true` is invalid.
 
 The HTML timeline report turns the same journey into a visual review surface:
 
@@ -87,9 +98,9 @@ Install the Flutter Pilot CLI in the workspace that owns your Scenarios:
 dart pub add --dev flutter_pilot
 ```
 
-Flutter Pilot drives a running Flutter app through `mcp_flutter`. The target
-app must expose the MCP Toolkit runtime extension before `flutter_pilot run`
-can interact with it.
+Flutter Pilot drives a Flutter app through `mcp_flutter`. The target app must
+expose the MCP Toolkit runtime extension before `flutter_pilot test` can
+interact with it.
 
 In the Flutter app package, add the runtime dependency:
 
@@ -110,8 +121,9 @@ Future<void> main() async {
 }
 ```
 
-Run the Flutter app in debug mode and pass its VM service URI to
-`flutter_pilot run` as the Runtime Target.
+Run `flutter_pilot test` from the Flutter app package. Flutter Pilot launches
+the app with `flutter run --machine`, reads the Runtime Target URI from Flutter,
+runs the Scenario, and stops the launched app during cleanup.
 
 Check app-side Flutter Pilot setup from the Flutter app package:
 
@@ -135,17 +147,25 @@ Validate a Scenario without connecting to a Flutter app:
 dart run flutter_pilot validate examples/smoke_scenario.yaml
 ```
 
-Run a Scenario against a Runtime Target:
+Run a Scenario by launching the current Target App Package:
 
 ```bash
-dart run flutter_pilot run examples/smoke_scenario.yaml --target <vm-service-uri>
+dart run flutter_pilot test examples/smoke_scenario.yaml
+```
+
+Select the Target Device, Flutter flavor, or app entrypoint when needed:
+
+```bash
+dart run flutter_pilot test examples/smoke_scenario.yaml \
+  --device <device-id-or-name> \
+  --flavor staging \
+  --target lib/main_staging.dart
 ```
 
 Stop after a specific Step and print captured diagnostic context:
 
 ```bash
-dart run flutter_pilot run examples/smoke_scenario.yaml \
-  --target <vm-service-uri> \
+dart run flutter_pilot test examples/smoke_scenario.yaml \
   --until wait_for_error \
   --print snapshot
 ```
@@ -179,9 +199,11 @@ flutter_pilot validate <scenario.yaml>
 flutter_pilot validate <scenario.yaml> --json
 flutter_pilot doctor
 flutter_pilot init
-flutter_pilot run <scenario.yaml> --target <runtime-target>
-flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label>
-flutter_pilot run <scenario.yaml> --target <runtime-target> --until <step-or-label> --print <snapshot|widget-tree|errors>
+flutter_pilot test <scenario.yaml>
+flutter_pilot test <scenario.yaml> --device <device-id-or-name>
+flutter_pilot test <scenario.yaml> --flavor <flavor> --target <entrypoint.dart>
+flutter_pilot test <scenario.yaml> --until <step-or-label>
+flutter_pilot test <scenario.yaml> --until <step-or-label> --print <snapshot|widget-tree|errors>
 flutter_pilot report <run-directory>
 flutter_pilot diff <before-run> <after-run>
 flutter_pilot diff <before-run> <after-run> --json
@@ -190,12 +212,14 @@ flutter_pilot diff <before-run> <after-run> --json
 `--print` may be repeated. When several diagnostics are requested, Flutter Pilot
 prints them in a stable order: Snapshot, Widget Tree, then errors.
 
-Human-readable `run` executions show live Step progress with Step numbers,
-actions, labels, statuses, durations, and concise failure reasons. Interactive
-terminals may use color, emoji, and in-place status updates; CI and redirected
-output use deterministic plain text. Progress is status output on stderr, while
-final artifact paths such as `Run report:` and `HTML report:` stay on stdout.
-`run --json` suppresses progress output.
+`run` is no longer a Flutter Pilot command. `test --target` follows Flutter CLI
+vocabulary and selects the app entrypoint file; it does not accept a VM service
+URI.
+
+When `scenario.recording` is enabled, Flutter Pilot records the resolved Target
+Device. The Target Device must also be available as a Recording Device with the
+same device id. If `--device` is omitted, Flutter Pilot auto-selects only when
+exactly one supported Flutter Device id is also recordable.
 
 ## Artifacts
 
@@ -206,6 +230,9 @@ designed for both human review and machine consumption.
 - Snapshot: structured UI state for tools and AI agents.
 - Widget Tree: deeper Flutter hierarchy data when requested.
 - Logs: runtime and diagnostic output.
+- Device Video Recording: optional run-level video saved when
+  `scenario.recording` is enabled, stored as
+  `artifacts/device-video-recording.<ext>`.
 - `run_report.json`: machine-readable execution summary.
 - `timeline.html`: visual timeline generated from run artifacts.
 

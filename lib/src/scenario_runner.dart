@@ -3,8 +3,10 @@ import 'dart:io';
 import 'artifacts/artifact_store.dart';
 import 'diagnostic_reducer.dart';
 import 'html_timeline_report.dart';
+import 'recording/recording_contract.dart';
 import 'runtime/runtime_contract.dart';
 import 'scenario.dart';
+import 'target_device.dart';
 
 /// Runner for replaying one Scenario through a Runtime Adapter.
 ///
@@ -22,11 +24,18 @@ import 'scenario.dart';
 /// `ScenarioRunner(adapter: adapter, outputDirectory: Directory('build'))`
 /// writes under `build/.runs/<timestamp>_<scenario>/`.
 class ScenarioRunner {
-  const ScenarioRunner({required this.adapter, required this.outputDirectory});
+  const ScenarioRunner({
+    required this.adapter,
+    this.recordingController,
+    this.targetDevice,
+    required this.outputDirectory,
+  });
 
   static const Duration _waitForPollInterval = Duration(milliseconds: 50);
 
   final RuntimeAdapter adapter;
+  final RecordingController? recordingController;
+  final TargetDevice? targetDevice;
   final Directory outputDirectory;
 
   /// Execute Scenario Steps and write a run report.
@@ -68,8 +77,30 @@ class ScenarioRunner {
         stopPointDescription: null,
         printedDiagnostics: const <PrintedDiagnostic>[],
         diagnosticSummary: null,
+        recordingResult: null,
       );
     }
+
+    final String? recordingStartupFailure = await _tryStartRecording(scenario);
+    if (recordingStartupFailure != null) {
+      await _tryDisposeAdapter();
+      stopwatch.stop();
+      return _finishRun(
+        scenario: scenario,
+        runArtifactWriter: runArtifactWriter,
+        startedAt: startedAt,
+        durationMs: stopwatch.elapsedMilliseconds,
+        steps: steps,
+        failed: true,
+        failureReason: recordingStartupFailure,
+        stopPointDescription: null,
+        printedDiagnostics: const <PrintedDiagnostic>[],
+        diagnosticSummary: null,
+        recordingResult: null,
+      );
+    }
+    final bool recordingStarted =
+        scenario.recording?.enabled == true && recordingController != null;
 
     bool failed = false;
     String? failureReason = await _executeSteps(
@@ -105,6 +136,19 @@ class ScenarioRunner {
       }
     }
 
+    RecordingResult? recordingResult;
+    final String? recordingStopFailure = recordingStarted
+        ? await _tryStopRecording(
+            onResult: (RecordingResult result) {
+              recordingResult = result;
+            },
+          )
+        : null;
+    if (!failed && recordingStopFailure != null) {
+      failed = true;
+      failureReason = recordingStopFailure;
+    }
+
     final String? disposeFailure = await _tryDisposeAdapter();
     if (!failed && disposeFailure != null) {
       failed = true;
@@ -123,6 +167,7 @@ class ScenarioRunner {
       stopPointDescription: stopPointDescription,
       printedDiagnostics: printedDiagnostics,
       diagnosticSummary: diagnosticSummary,
+      recordingResult: recordingResult,
     );
   }
 
@@ -199,6 +244,48 @@ class ScenarioRunner {
       await adapter.initialize();
       return null;
     } on RuntimeOperationException catch (error) {
+      return error.message;
+    }
+  }
+
+  /// Start Scenario Recording when metadata explicitly enables it.
+  ///
+  /// Returns:
+  /// `null` when recording is omitted, disabled, or starts successfully.
+  /// Otherwise, the recording failure message that should stop the run before
+  /// any Step executes.
+  Future<String?> _tryStartRecording(Scenario scenario) async {
+    if (scenario.recording?.enabled != true) {
+      return null;
+    }
+    final RecordingController? controller = recordingController;
+    if (controller == null) {
+      return 'Scenario recording requested but no recording controller available.';
+    }
+    try {
+      await controller.start(scenario);
+      return null;
+    } on RecordingException catch (error) {
+      return error.message;
+    }
+  }
+
+  /// Stop Scenario Recording and expose the final video metadata.
+  ///
+  /// Args:
+  /// `onResult` receives the finalized Device Video Recording path when stop
+  /// succeeds.
+  ///
+  /// Returns:
+  /// `null` when stop succeeds. Otherwise, the recording failure message that
+  /// should become the run-level failure reason when no earlier failure exists.
+  Future<String?> _tryStopRecording({
+    required void Function(RecordingResult result) onResult,
+  }) async {
+    try {
+      onResult(await recordingController!.stop());
+      return null;
+    } on RecordingException catch (error) {
       return error.message;
     }
   }
@@ -323,10 +410,18 @@ class ScenarioRunner {
     required String? stopPointDescription,
     required List<PrintedDiagnostic> printedDiagnostics,
     DiagnosticSummary? diagnosticSummary,
+    RecordingResult? recordingResult,
   }) {
     final List<ArtifactReport> artifacts = <ArtifactReport>[
       const ArtifactReport(type: ArtifactType.scenario, path: 'scenario.json'),
     ];
+    if (recordingResult != null) {
+      artifacts.add(
+        runArtifactWriter.writeDeviceVideoRecording(
+          sourcePath: recordingResult.path,
+        ),
+      );
+    }
     _addStepCaptureArtifacts(steps, artifacts);
     _writeStepMetadataArtifacts(runArtifactWriter, steps, artifacts);
     final ScenarioRunReport report = ScenarioRunReport(
@@ -339,6 +434,7 @@ class ScenarioRunner {
       steps: steps,
       runDirectoryPath: runArtifactWriter.runDirectory.path,
       artifacts: artifacts,
+      targetDevice: targetDevice,
       failureReason: failureReason,
       stopPointDescription: stopPointDescription,
       printedDiagnostics: printedDiagnostics,
@@ -871,6 +967,7 @@ class ScenarioRunReport {
     required this.steps,
     required this.runDirectoryPath,
     required this.artifacts,
+    this.targetDevice,
     this.printedDiagnostics = const <PrintedDiagnostic>[],
     this.diagnosticSummary,
     this.failureReason,
@@ -893,6 +990,9 @@ class ScenarioRunReport {
 
   /// File artifacts written relative to `runDirectoryPath`.
   final List<ArtifactReport> artifacts;
+
+  /// Target Device metadata for runs launched through `test`.
+  final TargetDevice? targetDevice;
 
   /// Human-readable run-level failure reason.
   final String? failureReason;
@@ -922,6 +1022,14 @@ class ScenarioRunReport {
       'startedAt': startedAt.toIso8601String(),
       'durationMs': durationMs,
       'runDirectory': runDirectoryPath,
+      if (targetDevice != null)
+        'targetDevice': <String, Object?>{
+          'id': targetDevice!.id,
+          'name': targetDevice!.name,
+          'targetPlatform': targetDevice!.targetPlatform,
+          'emulator': targetDevice!.emulator,
+          'sdk': targetDevice!.sdk,
+        },
       if (failureReason != null) 'failureReason': failureReason,
       if (stopPointDescription != null)
         'stopPointDescription': stopPointDescription,
