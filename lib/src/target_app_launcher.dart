@@ -47,12 +47,14 @@ class TargetAppLaunch {
   const TargetAppLaunch({
     required this.runtimeTargetUri,
     required TargetAppProcess process,
+    required this.stdoutLines,
   }) : _process = process;
 
   /// Runtime Target URI extracted from Flutter machine output.
   final Uri runtimeTargetUri;
 
   final TargetAppProcess _process;
+  final Stream<String> stdoutLines;
 
   /// Request a hot restart from the launched Flutter process.
   ///
@@ -60,12 +62,44 @@ class TargetAppLaunch {
   /// not execute Scenario semantics. Write failures are reported as launch
   /// failures because the Target App process can no longer be controlled.
   Future<void> hotRestart() async {
+    final Completer<void> restartCompleted = Completer<void>();
+    final StreamSubscription<String> stdoutSub = stdoutLines.listen((
+      String line,
+    ) {
+      if (line.startsWith('Restarted application in ')) {
+        if (!restartCompleted.isCompleted) {
+          restartCompleted.complete();
+        }
+        return;
+      }
+      if (line.startsWith('Hot restart failed to complete') ||
+          line.startsWith('Failed to hot restart')) {
+        if (!restartCompleted.isCompleted) {
+          restartCompleted.completeError(
+            TargetAppLaunchException(message: line),
+          );
+        }
+      }
+    });
+    final Future<void> exitFuture = _process.exitCode.then((int exitCode) {
+      if (!restartCompleted.isCompleted) {
+        restartCompleted.completeError(
+          TargetAppLaunchException(
+            message:
+                'Flutter exited before hot restart completed. Exit code: $exitCode.',
+          ),
+        );
+      }
+    });
     try {
       _process.writeStdin('R\n');
+      await Future.any(<Future<void>>[restartCompleted.future, exitFuture]);
     } catch (error) {
       throw TargetAppLaunchException(
         message: 'Failed to hot restart Target App: $error',
       );
+    } finally {
+      await stdoutSub.cancel();
     }
   }
 
@@ -169,6 +203,8 @@ class TargetAppLauncher {
       command.arguments,
     );
     final Completer<TargetAppLaunch> completer = Completer<TargetAppLaunch>();
+    final StreamController<String> stdoutLinesController =
+        StreamController<String>.broadcast();
     final _LastLinesBuffer stderrBuffer = _LastLinesBuffer(limit: 40);
     final StreamSubscription<String> stderrSub = process.stderr
         .transform(utf8.decoder)
@@ -186,21 +222,21 @@ class TargetAppLauncher {
         .transform(const LineSplitter())
         .listen(
           (String line) {
+            stdoutLinesController.add(line);
             final Uri? runtimeTargetUri = _runtimeTargetUriFromMachineLine(
               line,
             );
             if (runtimeTargetUri != null && !completer.isCompleted) {
-              stdoutSub?.cancel();
               completer.complete(
                 TargetAppLaunch(
                   runtimeTargetUri: runtimeTargetUri,
                   process: process,
+                  stdoutLines: stdoutLinesController.stream,
                 ),
               );
             }
           },
           onError: (Object error) {
-            stdoutSub?.cancel();
             if (!completer.isCompleted) {
               completer.completeError(
                 TargetAppLaunchException(
@@ -212,6 +248,8 @@ class TargetAppLauncher {
         );
     process.exitCode.then((int exitCode) async {
       await stderrDone;
+      await stdoutSub?.cancel();
+      await stdoutLinesController.close();
       if (!completer.isCompleted) {
         completer.completeError(
           TargetAppLaunchException(

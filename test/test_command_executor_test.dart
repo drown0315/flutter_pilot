@@ -1662,6 +1662,11 @@ steps:
             },
           }),
         );
+        while (process.stdinWrites.isEmpty) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        expect(secondRunner.onProgress, isNull);
+        process.emitStdout('Restarted application in 42ms.');
 
         final ProjectRunCommandReport report = await reportFuture;
 
@@ -1751,6 +1756,10 @@ steps:
             },
           }),
         );
+        while (process.stdinWrites.isEmpty) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        process.emitStdout('Restarted application in 42ms.');
 
         final ProjectRunCommandReport report = await reportFuture;
 
@@ -1939,7 +1948,7 @@ steps:
           ),
         ];
 
-        final Future<ProjectRunCommandReport> reportFuture = executor.run(
+        final ProjectRunCommandReport report = await executor.run(
           ProjectRunCommandOptions(
             discoveryRootPath: 'pilot',
             scenarios: scenarios,
@@ -1950,18 +1959,73 @@ steps:
           ),
         );
 
-        await expectLater(
-          reportFuture,
-          throwsA(
-            isA<TestCommandException>().having(
-              (TestCommandException error) => error.exitCode,
-              'exitCode',
-              64,
-            ),
-          ),
-        );
+        expect(report.status, ProjectRunStatus.environmentFailed);
+        final File projectRunReport = File(report.projectRunReportPath);
+        final Map<String, Object?> reportJson =
+            jsonDecode(projectRunReport.readAsStringSync())
+                as Map<String, Object?>;
+        expect(reportJson['environmentFailure'], <String, Object?>{
+          'phase': 'targetDeviceResolution',
+          'message':
+              'Multiple recordable Target Devices are available. Pass --device with one of: pixel-8 (Pixel 8), iphone-15 (iPhone 15).',
+        });
         expect(deviceDiscovery.flutterDeviceListCount, 1);
         expect(deviceDiscovery.recordingDeviceListCount, 1);
+        expect(starter.startedArguments, isEmpty);
+      });
+    },
+  );
+
+  test(
+    'default Project Run executor reports device discovery failure',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTargetAppProcess process = FakeTargetAppProcess();
+        final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+          process,
+        );
+        final FakeDeviceDiscovery deviceDiscovery = FakeDeviceDiscovery(
+          flutterDeviceListException: const DeviceDiscoveryException(
+            'flutter devices failed',
+          ),
+        );
+        final DefaultProjectRunCommandExecutor executor =
+            DefaultProjectRunCommandExecutor(
+              deviceDiscovery: deviceDiscovery,
+              launcher: TargetAppLauncher(starter: starter),
+              runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+                FakeScenarioRunner(_passedReportFor('login')),
+              ]),
+              outputDirectory: Directory.current,
+              clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+            );
+
+        final ProjectRunCommandReport report = await executor.run(
+          ProjectRunCommandOptions(
+            discoveryRootPath: 'pilot',
+            scenarios: <ProjectScenarioFile>[
+              ProjectScenarioFile(
+                path: 'pilot/login.yaml',
+                relativePath: 'login.yaml',
+                scenario: _scenario('login'),
+              ),
+            ],
+            device: 'pixel',
+            flavor: null,
+            target: null,
+            jsonOutput: false,
+          ),
+        );
+
+        expect(report.status, ProjectRunStatus.environmentFailed);
+        final File projectRunReport = File(report.projectRunReportPath);
+        final Map<String, Object?> reportJson =
+            jsonDecode(projectRunReport.readAsStringSync())
+                as Map<String, Object?>;
+        expect(reportJson['environmentFailure'], <String, Object?>{
+          'phase': 'targetDeviceResolution',
+          'message': 'flutter devices failed',
+        });
         expect(starter.startedArguments, isEmpty);
       });
     },
@@ -2155,6 +2219,10 @@ steps:
             },
           }),
         );
+        while (process.stdinWrites.isEmpty) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        process.emitStdout('Restarted application in 42ms.');
 
         final ProjectRunCommandReport report = await reportFuture;
 
@@ -2380,22 +2448,34 @@ class FakeDeviceDiscovery implements TestDeviceDiscovery {
   FakeDeviceDiscovery({
     this.flutterDevices = const <FlutterDevice>[],
     this.recordingDevices = const <RecordingDeviceIdentity>[],
+    this.flutterDeviceListException,
+    this.recordingDeviceListException,
   });
 
   final List<FlutterDevice> flutterDevices;
   final List<RecordingDeviceIdentity> recordingDevices;
+  final DeviceDiscoveryException? flutterDeviceListException;
+  final DeviceDiscoveryException? recordingDeviceListException;
   int flutterDeviceListCount = 0;
   int recordingDeviceListCount = 0;
 
   @override
   Future<List<FlutterDevice>> listFlutterDevices() async {
     flutterDeviceListCount++;
+    final DeviceDiscoveryException? exception = flutterDeviceListException;
+    if (exception != null) {
+      throw exception;
+    }
     return flutterDevices;
   }
 
   @override
   Future<List<RecordingDeviceIdentity>> listRecordingDevices() async {
     recordingDeviceListCount++;
+    final DeviceDiscoveryException? exception = recordingDeviceListException;
+    if (exception != null) {
+      throw exception;
+    }
     return recordingDevices;
   }
 }

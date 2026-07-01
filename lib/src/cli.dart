@@ -874,10 +874,42 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
           recordingDevices: recordingDevices,
         );
       } on TargetDeviceResolutionException catch (error) {
-        throw TestCommandException(message: error.message, exitCode: 64);
+        environmentFailure = ProjectRunEnvironmentFailure(
+          phase: ProjectRunEnvironmentFailurePhase.targetDeviceResolution,
+          message: error.message,
+        );
       } on DeviceDiscoveryException catch (error) {
-        throw TestCommandException(message: error.message, exitCode: 1);
+        environmentFailure = ProjectRunEnvironmentFailure(
+          phase: ProjectRunEnvironmentFailurePhase.targetDeviceResolution,
+          message: error.message,
+        );
       }
+    }
+    if (environmentFailure != null) {
+      stopwatch.stop();
+      final ProjectRunReport projectReport =
+          ProjectRunReport.environmentFailure(
+            discoveryRootPath: options.discoveryRootPath,
+            startedAt: startedAt,
+            durationMs: stopwatch.elapsedMilliseconds,
+            commandInputs: ProjectRunCommandInputs(
+              device: options.device,
+              flavor: options.flavor,
+              target: options.target,
+            ),
+            failure: environmentFailure,
+            scenarioResults: scenarioResults,
+          );
+      projectRunWriter.writeProjectRunReport(projectReport.toJson());
+      return ProjectRunCommandReport(
+        passed: false,
+        status: ProjectRunStatus.environmentFailed,
+        projectRunReportPath: p.join(
+          projectRunWriter.runDirectory.path,
+          'project_run_report.json',
+        ),
+        scenarioReports: const <ProjectRunScenarioOutputReport>[],
+      );
     }
     final TargetAppLaunchChoices launchChoices = TargetAppLaunchChoices(
       targetDevice: targetDevice,

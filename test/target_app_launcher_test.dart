@@ -126,32 +126,69 @@ void main() {
       expect(process.killCount, 1);
     });
 
-    test(
-      'hot restart sends Flutter restart command to the launched app',
-      () async {
-        final FakeTargetAppProcess process = FakeTargetAppProcess();
-        final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
-          process,
-        );
-        final TargetAppLauncher launcher = TargetAppLauncher(starter: starter);
-        final Future<TargetAppLaunch> launchFuture = launcher.launch(
-          const TargetAppLaunchCommand(),
-        );
-        process.emitStdout(
-          jsonEncode(<String, Object?>{
-            'event': 'app.debugPort',
-            'params': <String, Object?>{
-              'wsUri': 'ws://127.0.0.1:1234/token=/ws',
-            },
-          }),
-        );
-        final TargetAppLaunch launch = await launchFuture;
+    test('hot restart waits for Flutter restart completion output', () async {
+      final FakeTargetAppProcess process = FakeTargetAppProcess();
+      final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+        process,
+      );
+      final TargetAppLauncher launcher = TargetAppLauncher(starter: starter);
+      final Future<TargetAppLaunch> launchFuture = launcher.launch(
+        const TargetAppLaunchCommand(),
+      );
+      process.emitStdout(
+        jsonEncode(<String, Object?>{
+          'event': 'app.debugPort',
+          'params': <String, Object?>{'wsUri': 'ws://127.0.0.1:1234/token=/ws'},
+        }),
+      );
+      final TargetAppLaunch launch = await launchFuture;
 
-        await launch.hotRestart();
+      final Future<void> restartFuture = launch.hotRestart();
+      var restartCompleted = false;
+      restartFuture.then((void _) {
+        restartCompleted = true;
+      });
+      await Future<void>.delayed(Duration.zero);
 
-        expect(process.stdinWrites, <String>['R\n']);
-      },
-    );
+      expect(restartCompleted, isFalse);
+      expect(process.stdinWrites, <String>['R\n']);
+
+      process.emitStdout('Restarted application in 42ms.');
+      await restartFuture;
+    });
+
+    test('hot restart reports Flutter failure output', () async {
+      final FakeTargetAppProcess process = FakeTargetAppProcess();
+      final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+        process,
+      );
+      final TargetAppLauncher launcher = TargetAppLauncher(starter: starter);
+      final Future<TargetAppLaunch> launchFuture = launcher.launch(
+        const TargetAppLaunchCommand(),
+      );
+      process.emitStdout(
+        jsonEncode(<String, Object?>{
+          'event': 'app.debugPort',
+          'params': <String, Object?>{'wsUri': 'ws://127.0.0.1:1234/token=/ws'},
+        }),
+      );
+      final TargetAppLaunch launch = await launchFuture;
+
+      final Future<void> restartFuture = launch.hotRestart();
+      await Future<void>.delayed(Duration.zero);
+      process.emitStdout('Hot restart failed to complete: restart rejected');
+
+      await expectLater(
+        restartFuture,
+        throwsA(
+          isA<TargetAppLaunchException>().having(
+            (TargetAppLaunchException error) => error.message,
+            'message',
+            contains('Hot restart failed to complete'),
+          ),
+        ),
+      );
+    });
 
     test('hot restart reports process control failures', () async {
       final FakeTargetAppProcess process = FakeTargetAppProcess()
@@ -200,7 +237,10 @@ void main() {
       );
       final TargetAppLaunch launch = await launchFuture;
 
-      await launch.hotRestart();
+      final Future<void> restartFuture = launch.hotRestart();
+      await Future<void>.delayed(Duration.zero);
+      process.emitStdout('Restarted application in 42ms.');
+      await restartFuture;
       await launch.cleanup(gracePeriod: Duration.zero);
 
       expect(process.stdinWrites, <String>['R\n', 'q\n']);
