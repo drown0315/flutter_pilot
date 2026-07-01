@@ -822,7 +822,7 @@ abstract interface class ProjectRunCommandExecutor {
   });
 }
 
-/// Placeholder Project Run executor until orchestration lands in later slices.
+/// Default Project Run executor for launch reuse and batch Scenario execution.
 class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
   const DefaultProjectRunCommandExecutor({
     this.deviceDiscovery = const DefaultTestDeviceDiscovery(),
@@ -834,12 +834,25 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
     this.launchHeartbeatTicks,
   });
 
+  /// Discovers Flutter and Recording Devices before app launch when needed.
   final TestDeviceDiscovery deviceDiscovery;
+
+  /// Starts the Target App Package and exposes hot restart.
   final TargetAppLauncher launcher;
+
+  /// Creates Scenario runners for each selected Project Scenario.
   final TestScenarioRunnerFactory runnerFactory;
+
+  /// Optional interrupt stream used by tests and Ctrl-C handling.
   final Stream<void>? interruptSignals;
+
+  /// Directory where Project Run artifacts are written.
   final Directory? outputDirectory;
+
+  /// Clock used for report timestamps, durations, and tests.
   final TargetAppLaunchClock clock;
+
+  /// Optional heartbeat stream used by launch progress tests.
   final Stream<void>? launchHeartbeatTicks;
 
   @override

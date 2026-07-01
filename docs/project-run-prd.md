@@ -31,16 +31,18 @@ A Project Run launches the Target App Package once with the existing
 `flutter run --machine` flow. The first Scenario runs after launch. Before each
 later Scenario, Flutter Pilot hot restarts the launched app, then runs the next
 Scenario. Scenario execution failures produce that Scenario's artifacts and do
-not block later Scenarios. Environment-level failures such as launch failure,
-Target Device resolution failure, validation failure, discovery failure, or hot
-restart failure stop the Project Run.
+not block later Scenarios. Discovery and Scenario validation failures stop
+before app launch and before Project Run artifact creation. Environment-level
+failures after execution begins, such as launch failure, Target Device
+resolution failure, or hot restart failure, stop the Project Run and are
+recorded in the batch report.
 
-Project Run artifacts are grouped under one batch-level run directory beneath
-`.runs/`. The batch directory contains `project_run_report.json` plus one child
-run directory per Scenario Run. Each child run directory keeps the familiar
-single-Scenario artifacts, including `run_report.json`, `timeline.html`,
-`step.json`, and `artifacts/`. The first version does not generate a
-batch-level HTML report.
+After discovery and validation succeed, Project Run artifacts are grouped under
+one batch-level run directory beneath `.runs/`. The batch directory contains
+`project_run_report.json` plus one child run directory per Scenario Run. Each
+child run directory keeps the familiar single-Scenario artifacts, including
+`run_report.json`, `timeline.html`, `step.json`, and `artifacts/`. The first
+version does not generate a batch-level HTML report.
 
 ## User Stories
 
@@ -54,8 +56,7 @@ batch-level HTML report.
 1. As a Flutter developer, I want single-file `test` to keep allowing omitted Scenario metadata, so that existing Entry Scenario files stay valid.
 1. As a Flutter developer, I want discovered Project Scenarios to run in stable path order, so that local and CI runs are predictable.
 1. As a Flutter developer, I want to control Project Scenario order with file names, so that I do not need a separate ordering configuration.
-1. As a Flutter developer, I want an empty discovery directory to fail before app launch, so that a misconfigured Project Run does not create misleading artifacts.
-1. As a Flutter developer, I want all selected Entry Scenario files validated before app launch, so that schema errors do not leave a partially executed Project Run.
+1. As a Flutter developer, I want discovery and validation failures to stop before app launch, so that a misconfigured Project Run does not create misleading artifacts.
 1. As a Flutter developer, I want validation failures to prevent launch, so that invalid Project Scenarios fail quickly and clearly.
 1. As a Flutter developer, I want one Target App Package launch per Project Run, so that running all Project Scenarios is faster than cold-launching for every Scenario.
 1. As a Flutter developer, I want the first Project Scenario to run immediately after launch, so that no unnecessary hot restart happens before work begins.
@@ -111,7 +112,7 @@ batch-level HTML report.
 - Discovery order is lexicographic by POSIX-style path relative to the discovery directory.
 - Empty discovery exits `64` before launch.
 - All discovered Entry Scenario files are parsed and validated before launch.
-- A Scenario validation failure prevents app launch and returns a non-zero exit.
+- A Scenario validation failure prevents app launch, returns a non-zero exit, and does not create Project Run artifacts.
 - Single-file `test` continues to support `--until`, repeated `--print`, and `--json`.
 - Project Run mode rejects `--until` and `--print` as usage errors.
 - `--device`, `--flavor`, and `--target` remain valid for Project Run mode and apply to the single launched Target App Package.
@@ -125,7 +126,7 @@ batch-level HTML report.
 - Hot restart is an operation on the launched Target App process, owned by the Target App Launcher boundary.
 - Hot restart failure is an environment-level failure and stops the Project Run.
 - Scenario execution failure records that Scenario's artifacts and does not stop later Scenarios.
-- Launch failure, Target Device resolution failure, Project Scenario validation failure, discovery failure, and hot restart failure stop the Project Run.
+- Launch failure, Target Device resolution failure, hot restart failure, and other executor-level environment failures stop the Project Run and are recorded in `project_run_report.json`. Discovery and Scenario validation failures stop before launch and do not create Project Run artifacts.
 - Project Run status is passed only when every selected Scenario passes.
 - Project Run status is failed when one or more Scenario Runs fail.
 - Project Run exits `0` when passed and `1` when one or more Scenario Runs fail.
@@ -156,7 +157,7 @@ batch-level HTML report.
 - Project Run executor tests should verify launch reuse, no hot restart before the first Scenario, hot restart before later Scenarios, hot restart after failed Scenarios, continuation after Scenario failure, stop on hot restart failure, and final Project Run status.
 - Target App Launcher tests should use fake process streams to verify the hot restart command path and failure reporting.
 - Artifact Store tests should verify Project Run directory creation, child Scenario Run directory creation, relative report paths, and stable `project_run_report.json` references.
-- Project Run report tests should verify the JSON shape for all-passed, partially failed, validation failure, empty discovery, and hot restart failure outcomes.
+- Project Run report tests should verify the JSON shape for all-passed, partially failed, and environment-failed outcomes. Discovery and Scenario validation failures are covered by discovery and CLI tests because they happen before Project Run artifact creation.
 - CLI output tests should verify deterministic non-interactive output for Project Run summary lines and per-Scenario report path lines.
 - Existing ScenarioRunner tests remain the primary coverage for Step execution, captures, failure artifacts, `--until`, `--print`, and Scenario Recording lifecycle.
 - Existing Target Device resolver tests remain the primary coverage for explicit and recording-required device selection.

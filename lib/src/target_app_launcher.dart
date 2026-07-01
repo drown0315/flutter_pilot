@@ -57,6 +57,8 @@ class TargetAppLaunch {
 
   final _TargetAppLaunchState _state;
   final TargetAppProcess _process;
+
+  /// Broadcast stream of Flutter machine stdout lines after launch succeeds.
   final Stream<String> stdoutLines;
   int _nextRequestId = 0;
 

@@ -125,7 +125,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - `test` prints Target App Launch Progress before Step progress for human-readable executions. Launch progress includes launch choices when known, elapsed launch time, heartbeat output for non-interactive runs, a final launch success summary, and a concise failure summary with the buffered Flutter stderr tail when launch fails.
 - `test` prints concise Step progress after the Runtime Target is available for human-readable executions. Progress includes Scenario name, Step count, optional `--until` target, Step number, action, Step label or `-` when unlabeled, status, duration, concise failure reason when a Step fails, and include source file path (e.g. `[flows/login.yaml]`) for Steps expanded from Step Libraries.
 - Target App Launch Progress and Step progress are presentation behavior owned by the CLI, not Scenario semantics, artifact format, or Runtime Adapter contract. The launcher and runner should expose progress events or callbacks so CLI rendering stays separate from execution.
-- Human-readable Target App Launch Progress and Step progress are written to stderr. Final artifact locations such as `Run report:` and `HTML report:` stay on stdout so scripts can continue to consume result paths.
+- Human-readable Target App Launch Progress and Step progress are written to stderr. Final artifact locations such as `Run report:`, `HTML report:`, and `Project Run report:` stay on stdout so scripts can continue to consume result paths.
 - `test --json` suppresses Target App Launch Progress and Step progress because JSON output is intended for machine consumption.
 - Interactive terminals may render Step progress with color, emoji, bold text, and in-place line refresh from `running` to the final status. Non-interactive output must degrade to deterministic plain text lines suitable for CI logs and CLI subprocess tests.
 - Step progress displays elapsed Step duration on completion, such as `ok 118ms` or `failed after 3004ms`.
@@ -136,7 +136,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - ANSI styling and emoji capability should start as an internal Flutter Pilot CLI presentation module rather than a separate package. Keep it isolated and Flutter Pilot agnostic where practical, so it can later be extracted if another package such as `screen_recorder` needs the same terminal styling primitives.
 - Flutter Pilot's Step progress renderer owns the progress event wording, Step layout, artifact summary lines, and JSON suppression rules.
 - Flutter Pilot's Target App Launch Progress renderer owns launch wording, launch choices, heartbeat wording, elapsed-time display, interactive refresh, success summaries, failure summaries, and JSON suppression rules.
-- Human-readable stderr summary should state `Run passed.`, `Run failed at ...`, or `Stopped after ... due to --until.` as appropriate. Stdout keeps the stable existing `Run report:` and `HTML report:` lines for scripts and smoke verification.
+- Human-readable stderr summary should state `Run passed.`, `Run failed at ...`, or `Stopped after ... due to --until.` as appropriate. Stdout keeps stable report path lines, including `Run report:`, `HTML report:`, and Project Run summaries, for scripts and smoke verification.
 - CLI subprocess tests may select an in-process fake Runtime Adapter through a test-only environment variable such as `FLUTTER_PILOT_TEST_RUNTIME`. This hook must not appear in `--help` output or become part of the public CLI contract.
 - `byKey` is not part of the current Scenario DSL because the calibrated `mcp_flutter` semantic Snapshot path does not expose Flutter key values reliably. Key-based Finders may be added later if the Runtime Adapter can obtain stable key data.
 - `byType` accepts the `mcp_flutter` semantic Snapshot node type, such as `textField`, `button`, `text`, `scrollable`, or `header`. It does not accept Dart widget class names such as `TextField`, `FilledButton`, or app-defined wrapper widget classes.
@@ -157,10 +157,11 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - `test` generates `run_report.json` and `timeline.html` by default. There is no separate `--html` flag.
 - Step metadata is written as one aggregated `step.json` file containing all Step report records, rather than one JSON file per Step. The same Step results remain embedded in `run_report.json`.
 - The first runner slice writes artifacts under stable `.runs/<timestamp>_<scenario>/` directories and records artifact paths relative to the run directory.
-- A Project Run writes one batch-level run directory under `.runs/`, places each
-  Scenario Run directory inside it, and writes `project_run_report.json` with
-  per-Scenario status and report paths. The first Project Run version does not
-  generate a batch-level HTML report.
+- After discovery and validation succeed, a Project Run writes one batch-level
+  run directory under `.runs/`, places each Scenario Run directory inside it,
+  and writes `project_run_report.json` with per-Scenario status and report
+  paths. The first Project Run version does not generate a batch-level HTML
+  report.
 - The HTML timeline report is generated from the run report and artifacts, not by rerunning the scenario. `flutter_pilot report <run-directory>` regenerates `timeline.html` from an existing run directory.
 - The diff command compares two run directories. It reports changes in step status, screenshots, visible text, semantic snapshots, widget summaries, and logs.
 - A Screenshot is a visual image artifact for human review. A Snapshot is a structured UI state artifact for programmatic and agent consumption. A Widget Tree is a raw or near-raw Flutter hierarchy artifact for deeper debugging.

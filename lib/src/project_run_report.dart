@@ -25,12 +25,25 @@ class ProjectRunReport {
   }) : status = ProjectRunStatus.environmentFailed,
        environmentFailure = failure;
 
+  /// Directory path that was used for Project Scenario discovery.
   final String discoveryRootPath;
+
+  /// Per-Scenario results recorded in execution order.
   final List<ProjectScenarioRunReport> scenarioResults;
+
+  /// Final batch status for the Project Run.
   final ProjectRunStatus status;
+
+  /// UTC time when the Project Run started.
   final DateTime startedAt;
+
+  /// Total Project Run duration in milliseconds.
   final int durationMs;
+
+  /// CLI options that affected launch and report output.
   final ProjectRunCommandInputs commandInputs;
+
+  /// Environment-level failure that stopped the batch, when present.
   final ProjectRunEnvironmentFailure? environmentFailure;
 
   /// Convert this report to the JSON stored in `project_run_report.json`.
@@ -66,11 +79,19 @@ class ProjectScenarioRunReport {
     required this.htmlReportPath,
   });
 
+  /// Project Scenario path relative to the discovery root.
   final String scenarioPath;
+
+  /// Final status for this Scenario inside the Project Run.
   final ProjectScenarioRunStatus status;
+
+  /// Project Run root-relative path to this Scenario's `run_report.json`.
   final String runReportPath;
+
+  /// Project Run root-relative path to this Scenario's `timeline.html`.
   final String htmlReportPath;
 
+  /// Convert this Scenario result to the Project Run report JSON shape.
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'path': scenarioPath,
@@ -85,10 +106,16 @@ class ProjectScenarioRunReport {
 class ProjectRunCommandInputs {
   const ProjectRunCommandInputs({this.device, this.flavor, this.target});
 
+  /// Target Device selector passed through `--device`, when provided.
   final String? device;
+
+  /// Flutter flavor passed through `--flavor`, when provided.
   final String? flavor;
+
+  /// Flutter app entrypoint passed through `--target`, when provided.
   final String? target;
 
+  /// Convert provided command inputs to the Project Run report JSON shape.
   Map<String, Object?> toJson() {
     return <String, Object?>{
       if (device != null) 'device': device,
@@ -105,9 +132,13 @@ class ProjectRunEnvironmentFailure {
     required this.message,
   });
 
+  /// Project Run phase where the environment-level failure happened.
   final ProjectRunEnvironmentFailurePhase phase;
+
+  /// User-facing failure message for the stopped Project Run.
   final String message;
 
+  /// Convert this failure to the Project Run report JSON shape.
   Map<String, Object?> toJson() {
     return <String, Object?>{'phase': phase.name, 'message': message};
   }

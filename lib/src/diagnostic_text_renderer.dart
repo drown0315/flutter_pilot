@@ -3,7 +3,7 @@ import 'scenario_runner.dart';
 
 /// Renders printed diagnostics as terminal-friendly text.
 ///
-/// The renderer is used when `run --print` is called without `--json`. It keeps
+/// The renderer is used when `test --print` is called without `--json`. It keeps
 /// raw diagnostic payloads in `run_report.json`, but shows a compact view in the
 /// terminal:
 /// - Snapshot prints visible text and interactive widgets from the reducer

@@ -1,7 +1,7 @@
 import 'package:flutter_pilot/flutter_pilot.dart';
 import 'package:test/test.dart';
 
-/// Verifies terminal rendering for diagnostics printed by `run --print`.
+/// Verifies terminal rendering for diagnostics printed by `test --print`.
 void main() {
   test(
     'renders Widget Tree as a filtered summary tree without truncating children',

@@ -25,8 +25,8 @@ Scenarios from that directory instead of the default Pilot Directory.
 
 Human-readable `test` runs show Target App Launch Progress while launch is
 pending, then Step progress after the Runtime Target is available. Progress is
-written to stderr so final `Run report:` and `HTML report:` paths remain stable
-on stdout. `test --json` suppresses progress output.
+written to stderr so final `Run report:`, `HTML report:`, and Project Run
+report paths remain stable on stdout. `test --json` suppresses progress output.
 
 The command supports common Flutter app launch options:
 
@@ -108,7 +108,7 @@ launch flow, not a user-provided command option.
 1. As a CI user, I want `test` to fail non-interactively when Target Device selection is ambiguous, so that pipelines do not hang waiting for input.
 1. As a CI user, I want to pass an explicit Target Device id, so that the same device is used for Flutter launch and recording.
 1. As an AI coding agent, I want `test` to be the deterministic reproduction command, so that I can run one command to launch the app and collect artifacts.
-1. As an AI coding agent, I want Target Device resolution errors before app launch, so that I can fix command inputs without producing partial run directories.
+1. As an AI coding agent, I want Target Device resolution errors before app launch, so that I can fix command inputs before Scenario execution begins.
 1. As a maintainer, I want the existing ScenarioRunner reused by `test`, so that `test` and prior Scenario execution behavior do not diverge.
 1. As a maintainer, I want app launch orchestration isolated behind a deep module, so that `flutter run --machine` parsing and cleanup can be tested independently.
 1. As a maintainer, I want Target Device resolution isolated behind a deep module, so that device matching rules can be tested independently.
@@ -141,12 +141,13 @@ launch flow, not a user-provided command option.
 - Project Scenarios run in deterministic lexicographic order by POSIX-style path relative to the discovery directory.
 - If Project Scenario discovery finds no Entry Scenarios, `test` exits `64` before launching Flutter.
 - `test` reads and validates all selected Entry Scenario files before launching Flutter.
-- Scenario validation failures prevent Flutter app launch.
+- Scenario validation failures prevent Flutter app launch and do not create Project Run artifacts.
 - `test` launches the Target App Package from the current working directory.
 - `test` does not search upward for a Flutter package root.
 - `test` allows the Scenario file to be outside the Target App Package directory.
 - `test` writes run artifacts under the current working directory's `.runs/` directory.
-- A Project Run writes one batch-level run directory under `.runs/`.
+- Discovery and Scenario validation failures happen before app launch and before Project Run artifact creation.
+- A Project Run writes one batch-level run directory under `.runs/` after discovery and validation succeed.
 - Each Scenario Run inside a Project Run writes its own run directory under the Project Run directory.
 - The Project Run writes `project_run_report.json` summarizing discovered Scenarios, per-Scenario statuses, per-Scenario report paths, and final Project Run status.
 - The first Project Run version does not generate a batch-level HTML report.
@@ -179,7 +180,7 @@ launch flow, not a user-provided command option.
 - If the user does not pass `--device` and Scenario Recording is enabled, `test` builds the id intersection of supported Flutter Devices and Recording Devices.
 - If the recording-required device id intersection has exactly one device, `test` auto-selects that Target Device.
 - If the recording-required device id intersection has zero or multiple devices, `test` fails with exit code `64` before launching Flutter.
-- Device resolution failures do not create run directories.
+- Single-file Target Device resolution failures do not create Scenario Run directories. Project Run Target Device resolution failures create the batch directory and `project_run_report.json` with an environment-level failure.
 - Scenario Recording startup failure after a Runtime Target URI is available is a Scenario Run failure and creates a run report.
 - `test` shows the resolved Target Device in Target App Launch Progress when
   one is selected.
@@ -212,7 +213,7 @@ launch flow, not a user-provided command option.
 - In a Project Run, the first Scenario runs after launch without an extra hot restart.
 - In a Project Run, Flutter Pilot performs a hot restart before every later Scenario, including after a previous Scenario failure.
 - A Scenario execution failure inside a Project Run records that Scenario's artifacts and does not stop later Scenarios.
-- A launch, Target Device resolution, Project Scenario validation, hot restart, or other environment-level failure stops the Project Run.
+- A launch, Target Device resolution, hot restart, or other executor-level environment failure stops the Project Run and is recorded in `project_run_report.json`.
 - A Project Run exits `0` only when every selected Scenario passes; it exits `1` when one or more Scenario Runs fail.
 - App cleanup first attempts the normal Flutter CLI quit path by sending `q` to `flutter run`; if that fails, cleanup may kill the process.
 - `test` does not provide `--keep-running` in the first version.

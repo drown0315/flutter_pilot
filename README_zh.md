@@ -115,9 +115,10 @@ Future<void> main() async {
 
 在 Flutter app package 中运行 `flutter_pilot test`。Flutter Pilot 会用
 `flutter run --machine` 启动应用，从 Flutter 输出中读取 Runtime Target URI，
-执行 Scenario，并在清理阶段停止已启动的应用。
+执行选中的 Scenario 或 Project Run，并在清理阶段停止已启动的应用。
 人类可读运行会把 Target App Launch Progress 和 Step progress 写到 stderr；
-最终的 `Run report:` 和 `HTML report:` 路径保持在 stdout，方便脚本读取。
+最终的 `Run report:`、`HTML report:` 和 Project Run report 路径保持在
+stdout，方便脚本读取。
 `test --json` 会抑制这些进度输出。
 
 在 Flutter 应用 package 中检查 Flutter Pilot 应用侧配置：
@@ -228,8 +229,9 @@ Step Library 候选，不会被直接运行。
 
 ## 产物
 
-Scenario 运行会在 `.runs/` 下写入一个运行目录。产物模型同时面向人工审查和机器
-消费。
+Scenario Run 会在 `.runs/` 下写入一个运行目录。Project Run 会在 `.runs/`
+下写入一个批量运行目录，并把子 Scenario Run 目录放在其中。产物模型同时面向
+人工审查和机器消费。
 
 - Screenshot：用户在屏幕上看到的画面。
 - Snapshot：供工具和 AI 代理消费的结构化 UI 状态。
@@ -257,6 +259,10 @@ dart test
 - [CONTEXT.md](CONTEXT.md)：项目词汇。
 - [docs/scenario-yaml.md](docs/scenario-yaml.md)：Scenario YAML 语法。
 - [docs/flutter-pilot-prd.md](docs/flutter-pilot-prd.md)：产品范围和实现决策。
+- [docs/test-command-prd.md](docs/test-command-prd.md)：`test` 命令的启动、
+  设备、录制和 Project Run 行为。
+- [docs/project-run-prd.md](docs/project-run-prd.md)：Project Scenario
+  发现、Project Run 执行和批量产物需求。
 - [docs/cli-step-progress-prd.md](docs/cli-step-progress-prd.md)：CLI Step
   进度功能需求和实现决策。
 - [docs/target-app-launch-progress-prd.md](docs/target-app-launch-progress-prd.md)：
@@ -265,6 +271,8 @@ dart test
   测试用例。
 - [docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md](docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md)：
   Dart CLI 和 YAML Scenario DSL 的架构决策。
+- [docs/adr/0004-run-project-scenarios-through-test.md](docs/adr/0004-run-project-scenarios-through-test.md)：
+  通过 `test` 执行 Project Run 模式的架构决策。
 
 ## 范围
 

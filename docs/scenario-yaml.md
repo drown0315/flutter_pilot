@@ -12,7 +12,10 @@ steps:
       byText: Continue
 ```
 
-`steps` is required. `scenario` metadata is optional.
+`steps` is required. `scenario` metadata is optional for direct single-file
+validation and execution. Directory discovery for Project Runs only executes
+YAML files that include top-level `scenario:` metadata; metadata-free YAML files
+are treated as Step Library candidates.
 
 ## Complete Example
 
@@ -69,6 +72,11 @@ and may contain letters, digits, `_`, or `-`.
 
 `scenario.description` is optional and must be a string. Multiline YAML strings
 are supported.
+
+Project Run directory discovery uses the presence of top-level `scenario:`
+metadata to distinguish runnable Project Scenarios from Step Libraries. Direct
+single-file `validate` and `test` invocations continue to allow omitted
+Scenario metadata.
 
 ### Scenario Recording
 
