@@ -17,6 +17,8 @@ import 'run_diff.dart';
 import 'scenario.dart';
 import 'scenario_parser.dart';
 import 'scenario_runner.dart';
+import 'step_progress_renderer.dart';
+import 'target_app_launch_progress_renderer.dart';
 import 'target_app_launcher.dart';
 import 'target_device.dart';
 
@@ -475,12 +477,24 @@ class _TestCommand extends Command<int> {
       jsonOutput: argResults!.flag('json'),
     );
     try {
-      final ScenarioRunReport report = await _executor.run(options);
-      if (report.targetDevice != null) {
-        stdout.writeln(
-          TestCommandOutput.targetDeviceLine(report.targetDevice!),
-        );
-      }
+      final StepProgressRenderer? progressRenderer =
+          TestCommandOutput.stepProgressRenderer(
+            sink: stderr,
+            jsonOutput: options.jsonOutput,
+            stderrHasTerminal: stderr.hasTerminal,
+          );
+      final TargetAppLaunchProgressRenderer? launchProgressRenderer =
+          TestCommandOutput.targetAppLaunchProgressRenderer(
+            sink: stderr,
+            jsonOutput: options.jsonOutput,
+            stderrHasTerminal: stderr.hasTerminal,
+          );
+      final ScenarioRunReport report = await _executor.run(
+        options,
+        onLaunchProgress: launchProgressRenderer?.render,
+        launchHeartbeatEnabled: launchProgressRenderer != null,
+        onProgress: progressRenderer?.render,
+      );
       if (report.printedDiagnostics.isNotEmpty) {
         if (options.jsonOutput) {
           stdout.writeln(
@@ -496,7 +510,9 @@ class _TestCommand extends Command<int> {
       stdout.writeln('HTML report: ${report.runDirectoryPath}/timeline.html');
       return report.status == ScenarioRunStatus.passed ? 0 : 1;
     } on TestCommandException catch (error) {
-      stderr.writeln(error.message);
+      if (!error.alreadyRendered) {
+        stderr.writeln(error.message);
+      }
       return error.exitCode;
     }
   }
@@ -611,36 +627,86 @@ class TestCommandOptions {
 class TestCommandOutput {
   TestCommandOutput._();
 
-  /// Return the user-facing selected Target Device line.
-  static String targetDeviceLine(TargetDevice targetDevice) {
-    return 'Target Device: ${targetDevice.id} '
-        '(${targetDevice.name}, ${targetDevice.targetPlatform}, ${targetDevice.sdk})';
+  /// Return the Step progress renderer for human-readable `test` output.
+  ///
+  /// JSON output is machine-oriented and suppresses Step progress. Interactive
+  /// rendering is used only when stderr is a terminal; redirected stderr gets
+  /// deterministic plain-text progress lines for CI logs.
+  static StepProgressRenderer? stepProgressRenderer({
+    required IOSink sink,
+    required bool jsonOutput,
+    required bool stderrHasTerminal,
+  }) {
+    if (jsonOutput) {
+      return null;
+    }
+    return StepProgressRenderer(sink: sink, interactive: stderrHasTerminal);
+  }
+
+  /// Return the Target App Launch Progress renderer for human-readable output.
+  ///
+  /// Launch progress is stderr-only status. JSON output suppresses it so stdout
+  /// remains machine-oriented.
+  static TargetAppLaunchProgressRenderer? targetAppLaunchProgressRenderer({
+    required IOSink sink,
+    required bool jsonOutput,
+    required bool stderrHasTerminal,
+  }) {
+    if (jsonOutput) {
+      return null;
+    }
+    return TargetAppLaunchProgressRenderer(
+      sink: sink,
+      interactive: stderrHasTerminal,
+    );
   }
 }
 
 /// Executes a validated `test` command.
 abstract interface class TestCommandExecutor {
   /// Run the Scenario described by `options` and return its run report.
-  Future<ScenarioRunReport> run(TestCommandOptions options);
+  ///
+  /// `onLaunchProgress`, when provided, receives Target App Launch Progress
+  /// events before Scenario execution starts. `launchHeartbeatEnabled` controls
+  /// whether long pending launches emit heartbeat events. `onProgress`, when
+  /// provided, receives Scenario Step progress events during execution.
+  Future<ScenarioRunReport> run(
+    TestCommandOptions options, {
+    void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
+    bool launchHeartbeatEnabled = false,
+    void Function(StepProgressEvent event)? onProgress,
+  });
 }
 
 /// Default `test` command executor for launching and running one Scenario.
 class DefaultTestCommandExecutor implements TestCommandExecutor {
   /// Creates an executor with injectable launch and discovery boundaries.
+  ///
+  /// `launchHeartbeatTicks` and `launchClock` make Target App Launch Progress
+  /// deterministic in tests without waiting on real time.
   const DefaultTestCommandExecutor({
     this.deviceDiscovery = const DefaultTestDeviceDiscovery(),
     this.launcher = const TargetAppLauncher(),
     this.runnerFactory = const DefaultTestScenarioRunnerFactory(),
     this.interruptSignals,
+    this.launchHeartbeatTicks,
+    this.launchClock = DateTime.now,
   });
 
   final TestDeviceDiscovery deviceDiscovery;
   final TargetAppLauncher launcher;
   final TestScenarioRunnerFactory runnerFactory;
   final Stream<void>? interruptSignals;
+  final Stream<void>? launchHeartbeatTicks;
+  final TargetAppLaunchClock launchClock;
 
   @override
-  Future<ScenarioRunReport> run(TestCommandOptions options) async {
+  Future<ScenarioRunReport> run(
+    TestCommandOptions options, {
+    void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
+    bool launchHeartbeatEnabled = false,
+    void Function(StepProgressEvent event)? onProgress,
+  }) async {
     final bool recordingRequired = options.scenario.recording?.enabled == true;
     TargetDevice? targetDevice;
     if (options.device != null || recordingRequired) {
@@ -664,6 +730,38 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
     }
 
     TargetAppLaunch launch;
+    final DateTime launchStartedAt = launchClock();
+    final TargetAppLaunchChoices launchChoices = TargetAppLaunchChoices(
+      targetDevice: targetDevice,
+      selectionReason: _targetDeviceSelectionReason(
+        deviceSelector: options.device,
+        recordingRequired: recordingRequired,
+      ),
+      flavor: options.flavor,
+      target: options.target,
+    );
+    onLaunchProgress?.call(
+      TargetAppLaunchStartedEvent(
+        startedAt: launchStartedAt,
+        choices: launchChoices,
+      ),
+    );
+    TargetAppLaunchHeartbeat? launchHeartbeat;
+    if (onLaunchProgress != null && launchHeartbeatEnabled) {
+      launchHeartbeat = TargetAppLaunchHeartbeat(
+        ticks:
+            launchHeartbeatTicks ??
+            Stream<void>.periodic(const Duration(seconds: 10)),
+        onProgress: onLaunchProgress,
+        clock: launchClock,
+      );
+      launchHeartbeat.start(
+        TargetAppLaunchStartedEvent(
+          startedAt: launchStartedAt,
+          choices: launchChoices,
+        ),
+      );
+    }
     try {
       launch = await launcher.launch(
         TargetAppLaunchCommand(
@@ -672,13 +770,33 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
           target: options.target,
         ),
       );
+      onLaunchProgress?.call(
+        TargetAppLaunchSucceededEvent(
+          startedAt: launchStartedAt,
+          finishedAt: launchClock(),
+          choices: launchChoices,
+        ),
+      );
+      await launchHeartbeat?.stop();
     } on TargetAppLaunchException catch (error) {
-      final String stderrContext = error.stderrLines.isEmpty
-          ? ''
-          : '\n${error.stderrLines.join('\n')}';
+      onLaunchProgress?.call(
+        TargetAppLaunchFailedEvent(
+          startedAt: launchStartedAt,
+          failedAt: launchClock(),
+          message: error.message,
+          stderrLines: error.stderrLines,
+          choices: launchChoices,
+        ),
+      );
+      await launchHeartbeat?.stop();
+      final String stderrContext =
+          onLaunchProgress == null && error.stderrLines.isNotEmpty
+          ? '\n${error.stderrLines.join('\n')}'
+          : '';
       throw TestCommandException(
         message: '${error.message}$stderrContext',
         exitCode: 1,
+        alreadyRendered: onLaunchProgress != null,
       );
     }
 
@@ -698,6 +816,7 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
         options.scenario,
         stopPoint: options.stopPoint,
         printDiagnostics: options.printDiagnostics,
+        onProgress: onProgress,
       );
       StreamSubscription<void>? interruptSub;
       try {
@@ -731,6 +850,20 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
     } finally {
       await launch.cleanup();
     }
+  }
+
+  /// Return the user-facing reason for the selected Target Device.
+  TargetDeviceSelectionReason? _targetDeviceSelectionReason({
+    required String? deviceSelector,
+    required bool recordingRequired,
+  }) {
+    if (deviceSelector != null) {
+      return TargetDeviceSelectionReason.explicit(selector: deviceSelector);
+    }
+    if (recordingRequired) {
+      return const TargetDeviceSelectionReason.autoSelectedForRecording();
+    }
+    return null;
   }
 }
 
@@ -791,11 +924,12 @@ abstract interface class TestScenarioRunnerFactory {
 
 /// Narrow Scenario runner interface used by the `test` command executor.
 abstract interface class TestScenarioRunner {
-  /// Run `scenario` with optional stop and diagnostic controls.
+  /// Run `scenario` with optional stop, diagnostic, and Step progress controls.
   Future<ScenarioRunReport> run(
     Scenario scenario, {
     RunStopPoint? stopPoint,
     Set<PrintDiagnostic> printDiagnostics,
+    void Function(StepProgressEvent event)? onProgress,
   });
 }
 
@@ -831,11 +965,13 @@ class _ScenarioRunnerAdapter implements TestScenarioRunner {
     Scenario scenario, {
     RunStopPoint? stopPoint,
     Set<PrintDiagnostic> printDiagnostics = const <PrintDiagnostic>{},
+    void Function(StepProgressEvent event)? onProgress,
   }) {
     return _runner.run(
       scenario,
       stopPoint: stopPoint,
       printDiagnostics: printDiagnostics,
+      onProgress: onProgress,
     );
   }
 }
@@ -855,11 +991,21 @@ class DeviceDiscoveryException implements Exception {
 /// Failure from the `test` command executor.
 class TestCommandException implements Exception {
   /// Creates a command execution failure.
-  const TestCommandException({required this.message, required this.exitCode});
+  const TestCommandException({
+    required this.message,
+    required this.exitCode,
+    this.alreadyRendered = false,
+  });
 
   /// Human-readable error message.
   final String message;
 
   /// CLI exit code.
   final int exitCode;
+
+  /// Whether `message` was already written by command-specific output.
+  ///
+  /// The `test` command uses this for launch failures rendered by Target App
+  /// Launch Progress so the same message is not printed twice.
+  final bool alreadyRendered;
 }
