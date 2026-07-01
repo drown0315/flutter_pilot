@@ -591,6 +591,12 @@ class _TestCommand extends Command<int> {
       jsonOutput: argResults!.flag('json'),
     );
     try {
+      final StepProgressRenderer? progressRenderer =
+          TestCommandOutput.stepProgressRenderer(
+            sink: stderr,
+            jsonOutput: options.jsonOutput,
+            stderrHasTerminal: stderr.hasTerminal,
+          );
       final TargetAppLaunchProgressRenderer? launchProgressRenderer =
           TestCommandOutput.targetAppLaunchProgressRenderer(
             sink: stderr,
@@ -601,6 +607,7 @@ class _TestCommand extends Command<int> {
         options,
         onLaunchProgress: launchProgressRenderer?.render,
         launchHeartbeatEnabled: launchProgressRenderer != null,
+        onProgress: progressRenderer?.render,
       );
       stdout.write(TestCommandOutput.renderProjectRunSummary(report));
       return report.passed ? 0 : 1;
@@ -788,6 +795,7 @@ abstract interface class ProjectRunCommandExecutor {
     ProjectRunCommandOptions options, {
     void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
     bool launchHeartbeatEnabled = false,
+    void Function(StepProgressEvent event)? onProgress,
   });
 }
 
@@ -810,6 +818,7 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
     ProjectRunCommandOptions options, {
     void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
     bool launchHeartbeatEnabled = false,
+    void Function(StepProgressEvent event)? onProgress,
   }) async {
     final DateTime startedAt = clock().toUtc();
     final ProjectRunArtifactWriter projectRunWriter = RunArtifactStore(
@@ -867,6 +876,11 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
         final ScenarioRunReport scenarioReport = await runner.run(
           scenarioFile.scenario,
           runArtifactWriter: childRun,
+          onProgress: onProgress == null
+              ? null
+              : (StepProgressEvent event) {
+                  onProgress(event);
+                },
         );
         final ProjectScenarioRunStatus scenarioStatus =
             scenarioReport.status == ScenarioRunStatus.passed

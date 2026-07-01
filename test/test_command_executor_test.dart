@@ -319,6 +319,27 @@ steps:
     },
   );
 
+  test('test command enables Step progress for Project Run output', () async {
+    await FileTestkit.runZoned(() async {
+      Directory('pilot').createSync();
+      File('pilot/login.yaml').writeAsStringSync('''
+scenario:
+  name: project_step_progress
+steps:
+  - capture: {}
+''');
+      final FakeProjectRunCommandExecutor projectExecutor =
+          FakeProjectRunCommandExecutor(report: _passedProjectReport());
+
+      final int exitCode = await FlutterPilotCli(
+        projectRunCommandExecutor: projectExecutor,
+      ).run(<String>['test']);
+
+      expect(exitCode, 0);
+      expect(projectExecutor.onProgress, isNotNull);
+    });
+  });
+
   test(
     'test command enables Target App Launch Progress for human-readable output',
     () async {
@@ -1811,17 +1832,20 @@ class FakeProjectRunCommandExecutor implements ProjectRunCommandExecutor {
   bool ran = false;
   void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress;
   bool? launchHeartbeatEnabled;
+  void Function(StepProgressEvent event)? onProgress;
 
   @override
   Future<ProjectRunCommandReport> run(
     ProjectRunCommandOptions options, {
     void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
     bool launchHeartbeatEnabled = false,
+    void Function(StepProgressEvent event)? onProgress,
   }) async {
     this.options = options;
     ran = true;
     this.onLaunchProgress = onLaunchProgress;
     this.launchHeartbeatEnabled = launchHeartbeatEnabled;
+    this.onProgress = onProgress;
     return report;
   }
 }

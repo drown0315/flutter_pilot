@@ -15,6 +15,7 @@ class StepProgressRenderer {
   final IOSink sink;
   final bool interactive;
   bool _wroteScenarioHeader = false;
+  String? _lastScenarioName;
   int _lastInteractiveLineCount = 0;
   String? _scenarioName;
   int? _totalSteps;
@@ -34,6 +35,7 @@ class StepProgressRenderer {
       _renderInteractive(event);
       return;
     }
+    _resetHeaderForNewScenario(event.scenarioName);
     _writeScenarioHeader(event);
     switch (event) {
       case StepStartedEvent():
@@ -162,6 +164,16 @@ class StepProgressRenderer {
     }
     sink.writeln('Scenario: ${event.scenarioName} (${event.totalSteps} steps)');
     _wroteScenarioHeader = true;
+    _lastScenarioName = event.scenarioName;
+  }
+
+  /// Reset header state when the renderer receives a new Scenario name.
+  void _resetHeaderForNewScenario(String scenarioName) {
+    if (_lastScenarioName == null || _lastScenarioName == scenarioName) {
+      return;
+    }
+    _wroteScenarioHeader = false;
+    _stepSourceDisplayPaths.clear();
   }
 
   /// Render a deterministic `running` line for a Step.
