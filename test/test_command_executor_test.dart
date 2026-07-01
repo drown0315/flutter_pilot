@@ -70,6 +70,60 @@ steps:
     },
   );
 
+  test('Project Run output renders batch and Scenario report paths', () {
+    const ProjectRunCommandReport report = ProjectRunCommandReport(
+      passed: true,
+      projectRunReportPath:
+          '.runs/2026-07-01_09-30_project-run/project_run_report.json',
+      scenarioReports: <ProjectRunScenarioOutputReport>[
+        ProjectRunScenarioOutputReport(
+          scenarioPath: 'checkout.yaml',
+          runReportPath:
+              '.runs/2026-07-01_09-30_project-run/'
+              '2026-07-01_09-30_checkout/run_report.json',
+          htmlReportPath:
+              '.runs/2026-07-01_09-30_project-run/'
+              '2026-07-01_09-30_checkout/timeline.html',
+        ),
+        ProjectRunScenarioOutputReport(
+          scenarioPath: 'login.yaml',
+          runReportPath:
+              '.runs/2026-07-01_09-30_project-run/'
+              '2026-07-01_09-30_login/run_report.json',
+          htmlReportPath:
+              '.runs/2026-07-01_09-30_project-run/'
+              '2026-07-01_09-30_login/timeline.html',
+        ),
+      ],
+    );
+
+    final String rendered = TestCommandOutput.renderProjectRunSummary(report);
+
+    expect(
+      rendered,
+      contains(
+        'Project Run report: '
+        '.runs/2026-07-01_09-30_project-run/project_run_report.json',
+      ),
+    );
+    expect(rendered, contains('Scenario: checkout.yaml'));
+    expect(
+      rendered,
+      contains(
+        'Run report: .runs/2026-07-01_09-30_project-run/'
+        '2026-07-01_09-30_checkout/run_report.json',
+      ),
+    );
+    expect(
+      rendered,
+      contains(
+        'HTML report: .runs/2026-07-01_09-30_project-run/'
+        '2026-07-01_09-30_checkout/timeline.html',
+      ),
+    );
+    expect(rendered, contains('Scenario: login.yaml'));
+  });
+
   test('test command keeps file input in single Entry Scenario mode', () async {
     await FileTestkit.runZoned(() async {
       final File scenarioFile = File('scenario.yaml')
@@ -1680,7 +1734,11 @@ class FakeProjectRunCommandExecutor implements ProjectRunCommandExecutor {
 }
 
 ProjectRunCommandReport _passedProjectReport() {
-  return const ProjectRunCommandReport(passed: true);
+  return const ProjectRunCommandReport(
+    passed: true,
+    projectRunReportPath: '.runs/project-run/project_run_report.json',
+    scenarioReports: <ProjectRunScenarioOutputReport>[],
+  );
 }
 
 ScenarioRunReport _passedReport({TargetDevice? targetDevice}) {

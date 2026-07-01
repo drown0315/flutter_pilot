@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:path/path.dart' as p;
 import 'package:screen_recorder/screen_recorder.dart' as screen_recorder;
 import 'package:yaml/yaml.dart';
 
@@ -593,6 +594,7 @@ class _TestCommand extends Command<int> {
       final ProjectRunCommandReport report = await _projectRunExecutor.run(
         options,
       );
+      stdout.write(TestCommandOutput.renderProjectRunSummary(report));
       return report.passed ? 0 : 1;
     } on TestCommandException catch (error) {
       if (!error.alreadyRendered) {
@@ -732,12 +734,40 @@ class ProjectRunCommandOptions {
   final bool jsonOutput;
 }
 
-/// Minimal Project Run command result used by mode selection.
+/// Project Run command result used by mode selection and stdout rendering.
 class ProjectRunCommandReport {
-  const ProjectRunCommandReport({required this.passed});
+  const ProjectRunCommandReport({
+    required this.passed,
+    required this.projectRunReportPath,
+    required this.scenarioReports,
+  });
 
   /// Whether the selected Project Scenarios all passed.
   final bool passed;
+
+  /// Path to the batch-level `project_run_report.json`.
+  final String projectRunReportPath;
+
+  /// Per-Scenario report paths to print after the Project Run finishes.
+  final List<ProjectRunScenarioOutputReport> scenarioReports;
+}
+
+/// Report paths for one Scenario inside Project Run stdout.
+class ProjectRunScenarioOutputReport {
+  const ProjectRunScenarioOutputReport({
+    required this.scenarioPath,
+    required this.runReportPath,
+    required this.htmlReportPath,
+  });
+
+  /// Project Scenario path relative to the discovery root.
+  final String scenarioPath;
+
+  /// Path to the child Scenario Run report.
+  final String runReportPath;
+
+  /// Path to the child Scenario HTML timeline report.
+  final String htmlReportPath;
 }
 
 /// Executes a validated Project Run selected by `test`.
@@ -877,6 +907,24 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
     projectRunWriter.writeProjectRunReport(projectReport.toJson());
     return ProjectRunCommandReport(
       passed: projectStatus == ProjectRunStatus.passed,
+      projectRunReportPath: p.join(
+        projectRunWriter.runDirectory.path,
+        'project_run_report.json',
+      ),
+      scenarioReports: <ProjectRunScenarioOutputReport>[
+        for (final ProjectScenarioRunReport scenarioReport in scenarioResults)
+          ProjectRunScenarioOutputReport(
+            scenarioPath: scenarioReport.scenarioPath,
+            runReportPath: p.join(
+              projectRunWriter.runDirectory.path,
+              scenarioReport.runReportPath,
+            ),
+            htmlReportPath: p.join(
+              projectRunWriter.runDirectory.path,
+              scenarioReport.htmlReportPath,
+            ),
+          ),
+      ],
     );
   }
 }
@@ -917,6 +965,23 @@ class TestCommandOutput {
       sink: sink,
       interactive: stderrHasTerminal,
     );
+  }
+
+  /// Return deterministic stdout summary lines for a completed Project Run.
+  ///
+  /// The summary keeps the batch-level report path first, then prints each
+  /// Scenario's existing report paths in execution order.
+  static String renderProjectRunSummary(ProjectRunCommandReport report) {
+    final StringBuffer buffer = StringBuffer()
+      ..writeln('Project Run report: ${report.projectRunReportPath}');
+    for (final ProjectRunScenarioOutputReport scenarioReport
+        in report.scenarioReports) {
+      buffer
+        ..writeln('Scenario: ${scenarioReport.scenarioPath}')
+        ..writeln('Run report: ${scenarioReport.runReportPath}')
+        ..writeln('HTML report: ${scenarioReport.htmlReportPath}');
+    }
+    return buffer.toString();
   }
 }
 
