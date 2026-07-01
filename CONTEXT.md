@@ -20,8 +20,12 @@ _Avoid_: Target configuration, environment block
 The Flutter app package in the current working directory that is expected to expose the runtime capabilities Flutter Pilot needs before it can be used as a Runtime Target.
 _Avoid_: Scenario workspace, CLI workspace, project root
 
+**Target App Launch Progress**:
+User-facing feedback shown while Flutter Pilot prepares the Target App Package for a Scenario Run and waits until a Runtime Target is available. It happens before Step progress because no Scenario Step can execute until the app is running.
+_Avoid_: Step progress, Scenario progress, Flutter build progress
+
 **Target Device**:
-The device selected for a high-level Flutter Pilot test run. The Target App Package runs on this device, and any Scenario Recording for that run must record the same device.
+The device selected for a high-level Flutter Pilot test run. It may be selected explicitly by the user or automatically when Scenario Recording requires one recordable device. The Target App Package runs on this device, and any Scenario Recording for that run must record the same device.
 _Avoid_: Runtime Target, Recording Device
 
 **Runtime Adapter**:
