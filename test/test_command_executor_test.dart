@@ -865,6 +865,54 @@ steps:
   });
 
   test(
+    'non-interactive launch heartbeat prints every ten seconds until stopped',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final File output = File('launch_heartbeat.log');
+        final IOSink sink = output.openWrite();
+        DateTime now = DateTime.utc(2026, 6, 30, 12);
+        final TargetAppLaunchProgressRenderer renderer =
+            TargetAppLaunchProgressRenderer(sink: sink, clock: () => now);
+        final StreamController<void> ticks = StreamController<void>();
+        final TargetAppLaunchHeartbeat heartbeat = TargetAppLaunchHeartbeat(
+          ticks: ticks.stream,
+          onProgress: renderer.render,
+          clock: () => now,
+        );
+        final TargetAppLaunchStartedEvent started = TargetAppLaunchStartedEvent(
+          startedAt: DateTime.utc(2026, 6, 30, 12),
+        );
+
+        heartbeat.start(started);
+        now = DateTime.utc(2026, 6, 30, 12, 0, 9);
+        ticks.add(null);
+        await Future<void>.delayed(Duration.zero);
+        now = DateTime.utc(2026, 6, 30, 12, 0, 10);
+        ticks.add(null);
+        await Future<void>.delayed(Duration.zero);
+        await heartbeat.stop();
+        now = DateTime.utc(2026, 6, 30, 12, 0, 20);
+        ticks.add(null);
+        await Future<void>.delayed(Duration.zero);
+        await ticks.close();
+        await sink.close();
+
+        final String rendered = output.readAsStringSync();
+        expect(
+          rendered
+              .split('\n')
+              .where(
+                (String line) =>
+                    line.contains('Launching Target App Package... elapsed'),
+              )
+              .toList(),
+          <String>['Launching Target App Package... elapsed 10s'],
+        );
+      });
+    },
+  );
+
+  test(
     'default executor reports flavor and entrypoint launch choices',
     () async {
       await FileTestkit.runZoned(() async {
@@ -983,6 +1031,84 @@ steps:
     },
   );
 
+  test(
+    'default executor emits non-interactive launch heartbeat until success',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTargetAppProcess process = FakeTargetAppProcess();
+        final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+          process,
+        );
+        final StreamController<void> ticks = StreamController<void>();
+        DateTime now = DateTime.utc(2026, 6, 30, 12);
+        final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
+          deviceDiscovery: const FakeDeviceDiscovery(),
+          launcher: TargetAppLauncher(starter: starter),
+          runnerFactory: FakeScenarioRunnerFactory(
+            FakeScenarioRunner(_passedReport()),
+          ),
+          launchHeartbeatTicks: ticks.stream,
+          launchClock: () => now,
+        );
+        final Scenario scenario = Scenario(
+          name: 'launch_heartbeat',
+          steps: const <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              action: TapAction(finder: Finder(byText: 'Continue')),
+            ),
+          ],
+        );
+        final List<TargetAppLaunchProgressEvent> launchEvents =
+            <TargetAppLaunchProgressEvent>[];
+
+        final Future<ScenarioRunReport> reportFuture = executor.run(
+          TestCommandOptions(
+            scenario: scenario,
+            device: null,
+            flavor: null,
+            target: null,
+            stopPoint: null,
+            printDiagnostics: const <PrintDiagnostic>{},
+            jsonOutput: false,
+          ),
+          onLaunchProgress: launchEvents.add,
+          launchHeartbeatEnabled: true,
+        );
+        while (starter.startedArguments.isEmpty) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        now = DateTime.utc(2026, 6, 30, 12, 0, 10);
+        ticks.add(null);
+        await Future<void>.delayed(Duration.zero);
+        process.emitStdout(
+          jsonEncode(<String, Object?>{
+            'event': 'app.debugPort',
+            'params': <String, Object?>{
+              'wsUri': 'ws://127.0.0.1:1234/token=/ws',
+            },
+          }),
+        );
+        await Future<void>.delayed(Duration.zero);
+        process.exit(0);
+        await reportFuture;
+        now = DateTime.utc(2026, 6, 30, 12, 0, 20);
+        ticks.add(null);
+        await Future<void>.delayed(Duration.zero);
+        await ticks.close();
+
+        expect(
+          launchEvents.whereType<TargetAppLaunchHeartbeatEvent>(),
+          hasLength(1),
+        );
+        expect(
+          launchEvents.whereType<TargetAppLaunchSucceededEvent>(),
+          hasLength(1),
+        );
+      });
+    },
+  );
+
   test('renders resolved Target Device output', () {
     expect(
       TestCommandOutput.targetDeviceLine(
@@ -1066,16 +1192,19 @@ class FakeTestCommandExecutor implements TestCommandExecutor {
   final TestCommandException? exception;
   late TestCommandOptions options;
   void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress;
+  bool? launchHeartbeatEnabled;
   void Function(StepProgressEvent event)? onProgress;
 
   @override
   Future<ScenarioRunReport> run(
     TestCommandOptions options, {
     void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
+    bool launchHeartbeatEnabled = false,
     void Function(StepProgressEvent event)? onProgress,
   }) async {
     this.options = options;
     this.onLaunchProgress = onLaunchProgress;
+    this.launchHeartbeatEnabled = launchHeartbeatEnabled;
     this.onProgress = onProgress;
     final TestCommandException? exception = this.exception;
     if (exception != null) {

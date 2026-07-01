@@ -492,6 +492,7 @@ class _TestCommand extends Command<int> {
       final ScenarioRunReport report = await _executor.run(
         options,
         onLaunchProgress: launchProgressRenderer?.render,
+        launchHeartbeatEnabled: launchProgressRenderer?.interactive == false,
         onProgress: progressRenderer?.render,
       );
       if (report.targetDevice != null) {
@@ -676,6 +677,7 @@ abstract interface class TestCommandExecutor {
   Future<ScenarioRunReport> run(
     TestCommandOptions options, {
     void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
+    bool launchHeartbeatEnabled = false,
     void Function(StepProgressEvent event)? onProgress,
   });
 }
@@ -688,17 +690,22 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
     this.launcher = const TargetAppLauncher(),
     this.runnerFactory = const DefaultTestScenarioRunnerFactory(),
     this.interruptSignals,
+    this.launchHeartbeatTicks,
+    this.launchClock = DateTime.now,
   });
 
   final TestDeviceDiscovery deviceDiscovery;
   final TargetAppLauncher launcher;
   final TestScenarioRunnerFactory runnerFactory;
   final Stream<void>? interruptSignals;
+  final Stream<void>? launchHeartbeatTicks;
+  final TargetAppLaunchClock launchClock;
 
   @override
   Future<ScenarioRunReport> run(
     TestCommandOptions options, {
     void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
+    bool launchHeartbeatEnabled = false,
     void Function(StepProgressEvent event)? onProgress,
   }) async {
     final bool recordingRequired = options.scenario.recording?.enabled == true;
@@ -724,7 +731,7 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
     }
 
     TargetAppLaunch launch;
-    final DateTime launchStartedAt = DateTime.now();
+    final DateTime launchStartedAt = launchClock();
     final TargetAppLaunchChoices launchChoices = TargetAppLaunchChoices(
       targetDevice: targetDevice,
       selectionReason: _targetDeviceSelectionReason(
@@ -740,6 +747,22 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
         choices: launchChoices,
       ),
     );
+    TargetAppLaunchHeartbeat? launchHeartbeat;
+    if (onLaunchProgress != null && launchHeartbeatEnabled) {
+      launchHeartbeat = TargetAppLaunchHeartbeat(
+        ticks:
+            launchHeartbeatTicks ??
+            Stream<void>.periodic(const Duration(seconds: 10)),
+        onProgress: onLaunchProgress,
+        clock: launchClock,
+      );
+      launchHeartbeat.start(
+        TargetAppLaunchStartedEvent(
+          startedAt: launchStartedAt,
+          choices: launchChoices,
+        ),
+      );
+    }
     try {
       launch = await launcher.launch(
         TargetAppLaunchCommand(
@@ -751,20 +774,22 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
       onLaunchProgress?.call(
         TargetAppLaunchSucceededEvent(
           startedAt: launchStartedAt,
-          finishedAt: DateTime.now(),
+          finishedAt: launchClock(),
           choices: launchChoices,
         ),
       );
+      await launchHeartbeat?.stop();
     } on TargetAppLaunchException catch (error) {
       onLaunchProgress?.call(
         TargetAppLaunchFailedEvent(
           startedAt: launchStartedAt,
-          failedAt: DateTime.now(),
+          failedAt: launchClock(),
           message: error.message,
           stderrLines: error.stderrLines,
           choices: launchChoices,
         ),
       );
+      await launchHeartbeat?.stop();
       final String stderrContext = error.stderrLines.isEmpty
           ? ''
           : '\n${error.stderrLines.join('\n')}';

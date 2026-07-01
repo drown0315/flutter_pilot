@@ -5,6 +5,7 @@
 /// the Target App Package and waiting for a Runtime Target.
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'target_device.dart';
@@ -90,6 +91,19 @@ class TargetAppLaunchStartedEvent extends TargetAppLaunchProgressEvent {
   const TargetAppLaunchStartedEvent({required super.startedAt, super.choices});
 }
 
+/// Event emitted for non-interactive heartbeat output while launch is pending.
+class TargetAppLaunchHeartbeatEvent extends TargetAppLaunchProgressEvent {
+  /// Creates a launch heartbeat event.
+  const TargetAppLaunchHeartbeatEvent({
+    required super.startedAt,
+    required this.heartbeatAt,
+    super.choices,
+  });
+
+  /// Time represented by this heartbeat line.
+  final DateTime heartbeatAt;
+}
+
 /// Event emitted after Flutter Pilot has discovered the Runtime Target.
 class TargetAppLaunchSucceededEvent extends TargetAppLaunchProgressEvent {
   /// Creates a launch-succeeded event.
@@ -122,6 +136,64 @@ class TargetAppLaunchFailedEvent extends TargetAppLaunchProgressEvent {
 
   /// Buffered Flutter stderr tail from the launcher.
   final List<String> stderrLines;
+}
+
+/// Emits non-interactive launch heartbeat progress at a fixed cadence.
+class TargetAppLaunchHeartbeat {
+  /// Creates a heartbeat driver controlled by `ticks`.
+  ///
+  /// `ticks` is injectable so tests can verify cadence without real waiting.
+  TargetAppLaunchHeartbeat({
+    required Stream<void> ticks,
+    required void Function(TargetAppLaunchProgressEvent event) onProgress,
+    TargetAppLaunchClock? clock,
+    this.cadence = const Duration(seconds: 10),
+  }) : _ticks = ticks,
+       _onProgress = onProgress,
+       _clock = clock ?? DateTime.now;
+
+  final Stream<void> _ticks;
+  final void Function(TargetAppLaunchProgressEvent event) _onProgress;
+  final TargetAppLaunchClock _clock;
+
+  /// Minimum elapsed time between heartbeat lines.
+  final Duration cadence;
+
+  StreamSubscription<void>? _subscription;
+  TargetAppLaunchStartedEvent? _startedEvent;
+  DateTime? _lastHeartbeatAt;
+
+  /// Start heartbeat output for one Target App launch.
+  void start(TargetAppLaunchStartedEvent event) {
+    _startedEvent = event;
+    _lastHeartbeatAt = event.startedAt;
+    _subscription = _ticks.listen((_) {
+      final TargetAppLaunchStartedEvent? startedEvent = _startedEvent;
+      final DateTime? lastHeartbeatAt = _lastHeartbeatAt;
+      if (startedEvent == null || lastHeartbeatAt == null) {
+        return;
+      }
+      final DateTime now = _clock();
+      if (now.difference(lastHeartbeatAt) < cadence) {
+        return;
+      }
+      _lastHeartbeatAt = now;
+      _onProgress(
+        TargetAppLaunchHeartbeatEvent(
+          startedAt: startedEvent.startedAt,
+          heartbeatAt: now,
+          choices: startedEvent.choices,
+        ),
+      );
+    });
+  }
+
+  /// Stop heartbeat output after launch succeeds or fails.
+  Future<void> stop() async {
+    _startedEvent = null;
+    await _subscription?.cancel();
+    _subscription = null;
+  }
 }
 
 /// Target App Launch Progress renderer for plain and interactive terminals.
@@ -160,6 +232,11 @@ class TargetAppLaunchProgressRenderer {
           'Launching Target App Package... elapsed '
           '${_formatElapsed(_clock().difference(event.startedAt))}',
         );
+      case TargetAppLaunchHeartbeatEvent(:final DateTime heartbeatAt):
+        sink.writeln(
+          'Launching Target App Package... elapsed '
+          '${_formatElapsed(heartbeatAt.difference(event.startedAt))}',
+        );
       case TargetAppLaunchSucceededEvent(:final DateTime finishedAt):
         sink.writeln(
           'Target App launched in '
@@ -193,6 +270,8 @@ class TargetAppLaunchProgressRenderer {
           '⏳ Waiting for Runtime Target... elapsed '
               '${_formatElapsed(_clock().difference(event.startedAt))}',
         ]);
+      case TargetAppLaunchHeartbeatEvent():
+        break;
       case TargetAppLaunchSucceededEvent(:final DateTime finishedAt):
         _clearInteractiveBlock();
         _writeHeader();
