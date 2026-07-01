@@ -510,7 +510,9 @@ class _TestCommand extends Command<int> {
       stdout.writeln('HTML report: ${report.runDirectoryPath}/timeline.html');
       return report.status == ScenarioRunStatus.passed ? 0 : 1;
     } on TestCommandException catch (error) {
-      stderr.writeln(error.message);
+      if (!error.alreadyRendered) {
+        stderr.writeln(error.message);
+      }
       return error.exitCode;
     }
   }
@@ -786,6 +788,7 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
       throw TestCommandException(
         message: '${error.message}$stderrContext',
         exitCode: 1,
+        alreadyRendered: onLaunchProgress != null,
       );
     }
 
@@ -980,11 +983,18 @@ class DeviceDiscoveryException implements Exception {
 /// Failure from the `test` command executor.
 class TestCommandException implements Exception {
   /// Creates a command execution failure.
-  const TestCommandException({required this.message, required this.exitCode});
+  const TestCommandException({
+    required this.message,
+    required this.exitCode,
+    this.alreadyRendered = false,
+  });
 
   /// Human-readable error message.
   final String message;
 
   /// CLI exit code.
   final int exitCode;
+
+  /// Whether `message` was already written by command-specific output.
+  final bool alreadyRendered;
 }

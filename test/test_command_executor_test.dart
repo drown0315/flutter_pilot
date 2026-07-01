@@ -166,6 +166,41 @@ steps:
     },
   );
 
+  test('test command does not duplicate rendered launch failure', () async {
+    await FileTestkit.runZoned(() async {
+      final File output = File('launch_failure.log');
+      final IOSink sink = output.openWrite();
+      final File scenarioFile = File('scenario.yaml')
+        ..writeAsStringSync('''
+scenario:
+  name: launch_failure
+steps:
+  - tap:
+      byText: Continue
+''');
+      final FakeTestCommandExecutor executor = FakeTestCommandExecutor(
+        report: _passedReport(),
+        exception: const TestCommandException(
+          message: 'Flutter exited before Runtime Target URI was available.',
+          exitCode: 1,
+          alreadyRendered: true,
+        ),
+      );
+
+      final int exitCode = await runZoned(
+        () => FlutterPilotCli(
+          testCommandExecutor: executor,
+        ).run(<String>['test', scenarioFile.path]),
+        zoneValues: <Object?, Object?>{#stderr: sink},
+      );
+      await sink.close();
+
+      final String rendered = output.readAsStringSync();
+      expect(exitCode, 1);
+      expect(rendered, isNot(contains('Runtime Target URI')));
+    });
+  });
+
   test('plain launch progress renders before Step progress', () async {
     await FileTestkit.runZoned(() async {
       final File output = File('progress.log');
