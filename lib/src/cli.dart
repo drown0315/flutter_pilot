@@ -17,6 +17,7 @@ import 'run_diff.dart';
 import 'scenario.dart';
 import 'scenario_parser.dart';
 import 'scenario_runner.dart';
+import 'step_progress_renderer.dart';
 import 'target_app_launcher.dart';
 import 'target_device.dart';
 
@@ -475,7 +476,16 @@ class _TestCommand extends Command<int> {
       jsonOutput: argResults!.flag('json'),
     );
     try {
-      final ScenarioRunReport report = await _executor.run(options);
+      final StepProgressRenderer? progressRenderer =
+          TestCommandOutput.stepProgressRenderer(
+            sink: stderr,
+            jsonOutput: options.jsonOutput,
+            stderrHasTerminal: stderr.hasTerminal,
+          );
+      final ScenarioRunReport report = await _executor.run(
+        options,
+        onProgress: progressRenderer?.render,
+      );
       if (report.targetDevice != null) {
         stdout.writeln(
           TestCommandOutput.targetDeviceLine(report.targetDevice!),
@@ -616,12 +626,31 @@ class TestCommandOutput {
     return 'Target Device: ${targetDevice.id} '
         '(${targetDevice.name}, ${targetDevice.targetPlatform}, ${targetDevice.sdk})';
   }
+
+  /// Return the Step progress renderer for human-readable `test` output.
+  ///
+  /// JSON output is machine-oriented and suppresses Step progress. Interactive
+  /// rendering is used only when stderr is a terminal; redirected stderr gets
+  /// deterministic plain-text progress lines for CI logs.
+  static StepProgressRenderer? stepProgressRenderer({
+    required IOSink sink,
+    required bool jsonOutput,
+    required bool stderrHasTerminal,
+  }) {
+    if (jsonOutput) {
+      return null;
+    }
+    return StepProgressRenderer(sink: sink, interactive: stderrHasTerminal);
+  }
 }
 
 /// Executes a validated `test` command.
 abstract interface class TestCommandExecutor {
   /// Run the Scenario described by `options` and return its run report.
-  Future<ScenarioRunReport> run(TestCommandOptions options);
+  Future<ScenarioRunReport> run(
+    TestCommandOptions options, {
+    void Function(StepProgressEvent event)? onProgress,
+  });
 }
 
 /// Default `test` command executor for launching and running one Scenario.
@@ -640,7 +669,10 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
   final Stream<void>? interruptSignals;
 
   @override
-  Future<ScenarioRunReport> run(TestCommandOptions options) async {
+  Future<ScenarioRunReport> run(
+    TestCommandOptions options, {
+    void Function(StepProgressEvent event)? onProgress,
+  }) async {
     final bool recordingRequired = options.scenario.recording?.enabled == true;
     TargetDevice? targetDevice;
     if (options.device != null || recordingRequired) {
@@ -698,6 +730,7 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
         options.scenario,
         stopPoint: options.stopPoint,
         printDiagnostics: options.printDiagnostics,
+        onProgress: onProgress,
       );
       StreamSubscription<void>? interruptSub;
       try {
@@ -796,6 +829,7 @@ abstract interface class TestScenarioRunner {
     Scenario scenario, {
     RunStopPoint? stopPoint,
     Set<PrintDiagnostic> printDiagnostics,
+    void Function(StepProgressEvent event)? onProgress,
   });
 }
 
@@ -831,11 +865,13 @@ class _ScenarioRunnerAdapter implements TestScenarioRunner {
     Scenario scenario, {
     RunStopPoint? stopPoint,
     Set<PrintDiagnostic> printDiagnostics = const <PrintDiagnostic>{},
+    void Function(StepProgressEvent event)? onProgress,
   }) {
     return _runner.run(
       scenario,
       stopPoint: stopPoint,
       printDiagnostics: printDiagnostics,
+      onProgress: onProgress,
     );
   }
 }

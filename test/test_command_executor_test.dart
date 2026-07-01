@@ -54,8 +54,70 @@ steps:
         PrintDiagnostic.snapshot,
       });
       expect(executor.options.jsonOutput, isTrue);
+      expect(executor.onProgress, isNull);
     });
   });
+
+  test(
+    'test command enables Step progress for human-readable output',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final File scenarioFile = File('scenario.yaml')
+          ..writeAsStringSync('''
+scenario:
+  name: progress
+steps:
+  - tap:
+      byText: Continue
+''');
+        final FakeTestCommandExecutor executor = FakeTestCommandExecutor(
+          report: _passedReport(),
+        );
+
+        final int exitCode = await FlutterPilotCli(
+          testCommandExecutor: executor,
+        ).run(<String>['test', scenarioFile.path]);
+
+        expect(exitCode, 0);
+        expect(executor.onProgress, isNotNull);
+      });
+    },
+  );
+
+  test(
+    'test command chooses interactive progress only for terminals',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final IOSink sink = File('progress.log').openWrite();
+        try {
+          final StepProgressRenderer? jsonRenderer =
+              TestCommandOutput.stepProgressRenderer(
+                sink: sink,
+                jsonOutput: true,
+                stderrHasTerminal: true,
+              );
+          final StepProgressRenderer? terminalRenderer =
+              TestCommandOutput.stepProgressRenderer(
+                sink: sink,
+                jsonOutput: false,
+                stderrHasTerminal: true,
+              );
+          final StepProgressRenderer? redirectedRenderer =
+              TestCommandOutput.stepProgressRenderer(
+                sink: sink,
+                jsonOutput: false,
+                stderrHasTerminal: false,
+              );
+
+          expect(jsonRenderer, isNull);
+          expect(terminalRenderer?.interactive, isTrue);
+          expect(redirectedRenderer?.interactive, isFalse);
+        } finally {
+          await sink.close();
+        }
+      });
+    },
+  );
 
   test('default executor launches app, runs scenario, and cleans up', () async {
     await FileTestkit.runZoned(() async {
@@ -117,6 +179,63 @@ steps:
       expect(process.stdinWrites, <String>['q\n']);
     });
   });
+
+  test(
+    'default executor forwards Step progress events to the runner',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTargetAppProcess process = FakeTargetAppProcess();
+        final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+          process,
+        );
+        final FakeScenarioRunner runner = FakeScenarioRunner(_passedReport());
+        final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
+          deviceDiscovery: const FakeDeviceDiscovery(),
+          launcher: TargetAppLauncher(starter: starter),
+          runnerFactory: FakeScenarioRunnerFactory(runner),
+        );
+        final Scenario scenario = Scenario(
+          name: 'forwarded_progress',
+          steps: const <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              action: TapAction(finder: Finder(byText: 'Continue')),
+            ),
+          ],
+        );
+        final List<StepProgressEvent> progressEvents = <StepProgressEvent>[];
+
+        final Future<ScenarioRunReport> reportFuture = executor.run(
+          TestCommandOptions(
+            scenario: scenario,
+            device: null,
+            flavor: null,
+            target: null,
+            stopPoint: null,
+            printDiagnostics: const <PrintDiagnostic>{},
+            jsonOutput: false,
+          ),
+          onProgress: progressEvents.add,
+        );
+        process.emitStdout(
+          jsonEncode(<String, Object?>{
+            'event': 'app.debugPort',
+            'params': <String, Object?>{
+              'wsUri': 'ws://127.0.0.1:1234/token=/ws',
+            },
+          }),
+        );
+        await Future<void>.delayed(Duration.zero);
+        process.exit(0);
+        await reportFuture;
+
+        expect(runner.onProgress, isNotNull);
+        expect(progressEvents, hasLength(2));
+        expect(progressEvents.first, isA<StepStartedEvent>());
+        expect(progressEvents.last, isA<StepFinishedEvent>());
+      });
+    },
+  );
 
   test(
     'default executor resolves recordable Target Device before launch',
@@ -273,10 +392,15 @@ class FakeTestCommandExecutor implements TestCommandExecutor {
 
   final ScenarioRunReport report;
   late TestCommandOptions options;
+  void Function(StepProgressEvent event)? onProgress;
 
   @override
-  Future<ScenarioRunReport> run(TestCommandOptions options) async {
+  Future<ScenarioRunReport> run(
+    TestCommandOptions options, {
+    void Function(StepProgressEvent event)? onProgress,
+  }) async {
     this.options = options;
+    this.onProgress = onProgress;
     return report;
   }
 }
@@ -341,14 +465,38 @@ class FakeScenarioRunner implements TestScenarioRunner {
   TargetDevice? targetDevice;
   RecordingController? recordingController;
   late Scenario scenario;
+  void Function(StepProgressEvent event)? onProgress;
 
   @override
   Future<ScenarioRunReport> run(
     Scenario scenario, {
     RunStopPoint? stopPoint,
     Set<PrintDiagnostic> printDiagnostics = const <PrintDiagnostic>{},
+    void Function(StepProgressEvent event)? onProgress,
   }) async {
     this.scenario = scenario;
+    this.onProgress = onProgress;
+    onProgress?.call(
+      StepStartedEvent(
+        scenarioName: scenario.name,
+        totalSteps: scenario.steps.length,
+        step: scenario.steps.first,
+        action: 'tap',
+      ),
+    );
+    onProgress?.call(
+      StepFinishedEvent(
+        scenarioName: scenario.name,
+        totalSteps: scenario.steps.length,
+        report: StepRunReport(
+          index: scenario.steps.first.index,
+          label: scenario.steps.first.label,
+          action: 'tap',
+          status: StepStatus.passed,
+          durationMs: 1,
+        ),
+      ),
+    );
     return report;
   }
 }
@@ -364,8 +512,10 @@ class HangingScenarioRunner extends FakeScenarioRunner {
     Scenario scenario, {
     RunStopPoint? stopPoint,
     Set<PrintDiagnostic> printDiagnostics = const <PrintDiagnostic>{},
+    void Function(StepProgressEvent event)? onProgress,
   }) {
     this.scenario = scenario;
+    this.onProgress = onProgress;
     return _completer.future;
   }
 }
