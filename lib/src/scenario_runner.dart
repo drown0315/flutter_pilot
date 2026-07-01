@@ -55,11 +55,14 @@ class ScenarioRunner {
     RunStopPoint? stopPoint,
     Set<PrintDiagnostic> printDiagnostics = const <PrintDiagnostic>{},
     void Function(StepProgressEvent event)? onProgress,
+    RunArtifactWriter? runArtifactWriter,
   }) async {
     final DateTime startedAt = DateTime.now().toUtc();
-    final RunArtifactWriter runArtifactWriter = RunArtifactStore(
-      outputDirectory,
-    ).createRun(scenario: scenario, startedAt: startedAt);
+    final RunArtifactWriter effectiveRunArtifactWriter =
+        runArtifactWriter ??
+        RunArtifactStore(
+          outputDirectory,
+        ).createRun(scenario: scenario, startedAt: startedAt);
     final Stopwatch stopwatch = Stopwatch()..start();
     final List<StepRunReport> steps = <StepRunReport>[];
 
@@ -68,7 +71,7 @@ class ScenarioRunner {
       stopwatch.stop();
       return _finishRun(
         scenario: scenario,
-        runArtifactWriter: runArtifactWriter,
+        runArtifactWriter: effectiveRunArtifactWriter,
         startedAt: startedAt,
         durationMs: stopwatch.elapsedMilliseconds,
         steps: steps,
@@ -87,7 +90,7 @@ class ScenarioRunner {
       stopwatch.stop();
       return _finishRun(
         scenario: scenario,
-        runArtifactWriter: runArtifactWriter,
+        runArtifactWriter: effectiveRunArtifactWriter,
         startedAt: startedAt,
         durationMs: stopwatch.elapsedMilliseconds,
         steps: steps,
@@ -106,7 +109,7 @@ class ScenarioRunner {
     String? failureReason = await _executeSteps(
       _stepsToExecute(scenario, stopPoint),
       steps,
-      runArtifactWriter,
+      effectiveRunArtifactWriter,
       scenarioName: scenario.name,
       totalSteps: scenario.steps.length,
       onProgress: onProgress,
@@ -158,7 +161,7 @@ class ScenarioRunner {
     stopwatch.stop();
     return _finishRun(
       scenario: scenario,
-      runArtifactWriter: runArtifactWriter,
+      runArtifactWriter: effectiveRunArtifactWriter,
       startedAt: startedAt,
       durationMs: stopwatch.elapsedMilliseconds,
       steps: steps,

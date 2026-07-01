@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:file_testkit/file_testkit.dart';
 import 'package:flutter_pilot/flutter_pilot.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 /// Verifies `test` command orchestration through injectable dependencies.
@@ -1416,6 +1417,222 @@ steps:
       await interruptController.close();
     });
   });
+
+  test(
+    'default Project Run executor reuses one launch with hot restart',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTargetAppProcess process = FakeTargetAppProcess();
+        final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+          process,
+        );
+        final FakeScenarioRunner firstRunner = FakeScenarioRunner(
+          _passedReportFor('login'),
+        );
+        final FakeScenarioRunner secondRunner = FakeScenarioRunner(
+          _passedReportFor('checkout'),
+        );
+        final DefaultProjectRunCommandExecutor executor =
+            DefaultProjectRunCommandExecutor(
+              launcher: TargetAppLauncher(starter: starter),
+              runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+                firstRunner,
+                secondRunner,
+              ]),
+              outputDirectory: Directory.current,
+              clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+            );
+        final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
+          ProjectScenarioFile(
+            path: 'pilot/login.yaml',
+            relativePath: 'login.yaml',
+            scenario: _scenario('login'),
+          ),
+          ProjectScenarioFile(
+            path: 'pilot/checkout.yaml',
+            relativePath: 'checkout.yaml',
+            scenario: _scenario('checkout'),
+          ),
+        ];
+
+        final Future<ProjectRunCommandReport> reportFuture = executor.run(
+          ProjectRunCommandOptions(
+            discoveryRootPath: 'pilot',
+            scenarios: scenarios,
+            device: null,
+            flavor: null,
+            target: null,
+            jsonOutput: false,
+          ),
+        );
+        process.emitStdout(
+          jsonEncode(<String, Object?>{
+            'event': 'app.debugPort',
+            'params': <String, Object?>{
+              'wsUri': 'ws://127.0.0.1:1234/token=/ws',
+            },
+          }),
+        );
+
+        final ProjectRunCommandReport report = await reportFuture;
+
+        expect(report.passed, isTrue);
+        expect(starter.startCount, 1);
+        expect(process.stdinWrites, <String>['R\n', 'q\n']);
+        expect(firstRunner.scenario.name, 'login');
+        expect(secondRunner.scenario.name, 'checkout');
+        expect(
+          firstRunner.runArtifactWriter?.runDirectory.path,
+          p.join(
+            Directory.current.path,
+            '.runs',
+            '2026-07-01_09-30_project-run',
+            '2026-07-01_09-30_login',
+          ),
+        );
+        expect(
+          secondRunner.runArtifactWriter?.runDirectory.path,
+          p.join(
+            Directory.current.path,
+            '.runs',
+            '2026-07-01_09-30_project-run',
+            '2026-07-01_09-30_checkout',
+          ),
+        );
+      });
+    },
+  );
+
+  test(
+    'default Project Run executor continues after a failed Scenario',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTargetAppProcess process = FakeTargetAppProcess();
+        final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+          process,
+        );
+        final FakeScenarioRunner firstRunner = FailingScenarioRunner(
+          _failingReportFor('login'),
+        );
+        final FakeScenarioRunner secondRunner = FakeScenarioRunner(
+          _passedReportFor('checkout'),
+        );
+        final DefaultProjectRunCommandExecutor executor =
+            DefaultProjectRunCommandExecutor(
+              launcher: TargetAppLauncher(starter: starter),
+              runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+                firstRunner,
+                secondRunner,
+              ]),
+              outputDirectory: Directory.current,
+              clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+            );
+        final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
+          ProjectScenarioFile(
+            path: 'pilot/login.yaml',
+            relativePath: 'login.yaml',
+            scenario: _scenario('login'),
+          ),
+          ProjectScenarioFile(
+            path: 'pilot/checkout.yaml',
+            relativePath: 'checkout.yaml',
+            scenario: _scenario('checkout'),
+          ),
+        ];
+
+        final Future<ProjectRunCommandReport> reportFuture = executor.run(
+          ProjectRunCommandOptions(
+            discoveryRootPath: 'pilot',
+            scenarios: scenarios,
+            device: null,
+            flavor: null,
+            target: null,
+            jsonOutput: false,
+          ),
+        );
+        process.emitStdout(
+          jsonEncode(<String, Object?>{
+            'event': 'app.debugPort',
+            'params': <String, Object?>{
+              'wsUri': 'ws://127.0.0.1:1234/token=/ws',
+            },
+          }),
+        );
+
+        final ProjectRunCommandReport report = await reportFuture;
+
+        expect(report.passed, isFalse);
+        expect(starter.startCount, 1);
+        expect(process.stdinWrites, <String>['R\n', 'q\n']);
+        expect(firstRunner.scenario.name, 'login');
+        expect(secondRunner.scenario.name, 'checkout');
+      });
+    },
+  );
+
+  test('default Project Run executor stops on hot restart failure', () async {
+    await FileTestkit.runZoned(() async {
+      final FakeTargetAppProcess process = FakeTargetAppProcess()
+        ..stdinException = StateError('restart failed')
+        ..stdinExceptionOnce = true;
+      final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+        process,
+      );
+      final FakeScenarioRunner firstRunner = FailingScenarioRunner(
+        _failingReportFor('login'),
+      );
+      final FakeScenarioRunner secondRunner = FakeScenarioRunner(
+        _passedReportFor('checkout'),
+      );
+      final DefaultProjectRunCommandExecutor executor =
+          DefaultProjectRunCommandExecutor(
+            launcher: TargetAppLauncher(starter: starter),
+            runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+              firstRunner,
+              secondRunner,
+            ]),
+            outputDirectory: Directory.current,
+            clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          );
+      final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
+        ProjectScenarioFile(
+          path: 'pilot/login.yaml',
+          relativePath: 'login.yaml',
+          scenario: _scenario('login'),
+        ),
+        ProjectScenarioFile(
+          path: 'pilot/checkout.yaml',
+          relativePath: 'checkout.yaml',
+          scenario: _scenario('checkout'),
+        ),
+      ];
+
+      final Future<ProjectRunCommandReport> reportFuture = executor.run(
+        ProjectRunCommandOptions(
+          discoveryRootPath: 'pilot',
+          scenarios: scenarios,
+          device: null,
+          flavor: null,
+          target: null,
+          jsonOutput: false,
+        ),
+      );
+      process.emitStdout(
+        jsonEncode(<String, Object?>{
+          'event': 'app.debugPort',
+          'params': <String, Object?>{'wsUri': 'ws://127.0.0.1:1234/token=/ws'},
+        }),
+      );
+
+      final ProjectRunCommandReport report = await reportFuture;
+
+      expect(report.passed, isFalse);
+      expect(starter.startCount, 1);
+      expect(process.stdinWrites, <String>['q\n']);
+      expect(firstRunner.scenario.name, 'login');
+      expect(secondRunner.onProgress, isNull);
+    });
+  });
 }
 
 class FakeTestCommandExecutor implements TestCommandExecutor {
@@ -1481,6 +1698,71 @@ ScenarioRunReport _passedReport({TargetDevice? targetDevice}) {
   );
 }
 
+ScenarioRunReport _passedReportFor(String scenarioName) {
+  return ScenarioRunReport(
+    scenarioName: scenarioName,
+    scenarioDescription: null,
+    totalSteps: 1,
+    status: ScenarioRunStatus.passed,
+    startedAt: DateTime.utc(2026, 7, 1, 9, 30),
+    durationMs: 1,
+    steps: const <StepRunReport>[
+      StepRunReport(
+        index: 1,
+        label: null,
+        action: 'capture',
+        status: StepStatus.passed,
+        durationMs: 1,
+      ),
+    ],
+    runDirectoryPath: '.runs/child',
+    artifacts: const <ArtifactReport>[
+      ArtifactReport(type: ArtifactType.runReport, path: 'run_report.json'),
+      ArtifactReport(type: ArtifactType.htmlReport, path: 'timeline.html'),
+    ],
+  );
+}
+
+ScenarioRunReport _failingReportFor(String scenarioName) {
+  return ScenarioRunReport(
+    scenarioName: scenarioName,
+    scenarioDescription: null,
+    totalSteps: 1,
+    status: ScenarioRunStatus.failed,
+    startedAt: DateTime.utc(2026, 7, 1, 9, 30),
+    durationMs: 1,
+    steps: const <StepRunReport>[
+      StepRunReport(
+        index: 1,
+        label: null,
+        action: 'capture',
+        status: StepStatus.failed,
+        durationMs: 1,
+        failureReason: 'failed',
+      ),
+    ],
+    runDirectoryPath: '.runs/child',
+    artifacts: const <ArtifactReport>[],
+  );
+}
+
+Scenario _scenario(String name) {
+  return Scenario(
+    name: name,
+    steps: const <ScenarioStep>[
+      ScenarioStep(
+        index: 1,
+        action: CaptureAction(
+          screenshot: true,
+          snapshot: true,
+          widgetTree: false,
+          logs: true,
+        ),
+      ),
+    ],
+  );
+}
+
 class FakeDeviceDiscovery implements TestDeviceDiscovery {
   const FakeDeviceDiscovery({
     this.flutterDevices = const <FlutterDevice>[],
@@ -1519,6 +1801,26 @@ class FakeScenarioRunnerFactory implements TestScenarioRunnerFactory {
   }
 }
 
+class QueueScenarioRunnerFactory implements TestScenarioRunnerFactory {
+  QueueScenarioRunnerFactory(this.runners);
+
+  final List<FakeScenarioRunner> runners;
+  int _index = 0;
+
+  @override
+  TestScenarioRunner create({
+    required RuntimeTarget runtimeTarget,
+    required TargetDevice? targetDevice,
+    required RecordingController? recordingController,
+  }) {
+    final FakeScenarioRunner runner = runners[_index++];
+    runner.runtimeTarget = runtimeTarget;
+    runner.targetDevice = targetDevice;
+    runner.recordingController = recordingController;
+    return runner;
+  }
+}
+
 class FakeScenarioRunner implements TestScenarioRunner {
   FakeScenarioRunner(this.report);
 
@@ -1528,6 +1830,7 @@ class FakeScenarioRunner implements TestScenarioRunner {
   RecordingController? recordingController;
   late Scenario scenario;
   void Function(StepProgressEvent event)? onProgress;
+  RunArtifactWriter? runArtifactWriter;
 
   @override
   Future<ScenarioRunReport> run(
@@ -1535,9 +1838,11 @@ class FakeScenarioRunner implements TestScenarioRunner {
     RunStopPoint? stopPoint,
     Set<PrintDiagnostic> printDiagnostics = const <PrintDiagnostic>{},
     void Function(StepProgressEvent event)? onProgress,
+    RunArtifactWriter? runArtifactWriter,
   }) async {
     this.scenario = scenario;
     this.onProgress = onProgress;
+    this.runArtifactWriter = runArtifactWriter;
     onProgress?.call(
       StepStartedEvent(
         scenarioName: scenario.name,
@@ -1563,6 +1868,33 @@ class FakeScenarioRunner implements TestScenarioRunner {
   }
 }
 
+class FailingScenarioRunner extends FakeScenarioRunner {
+  FailingScenarioRunner(super.report);
+
+  @override
+  Future<ScenarioRunReport> run(
+    Scenario scenario, {
+    RunStopPoint? stopPoint,
+    Set<PrintDiagnostic> printDiagnostics = const <PrintDiagnostic>{},
+    void Function(StepProgressEvent event)? onProgress,
+    RunArtifactWriter? runArtifactWriter,
+  }) async {
+    this.scenario = scenario;
+    this.runArtifactWriter = runArtifactWriter;
+    return ScenarioRunReport(
+      scenarioName: scenario.name,
+      scenarioDescription: null,
+      totalSteps: scenario.steps.length,
+      status: ScenarioRunStatus.failed,
+      startedAt: DateTime.utc(2026, 7, 1, 9, 30),
+      durationMs: 1,
+      steps: const <StepRunReport>[],
+      runDirectoryPath: '.runs/child',
+      artifacts: const <ArtifactReport>[],
+    );
+  }
+}
+
 class HangingScenarioRunner extends FakeScenarioRunner {
   HangingScenarioRunner() : super(_passedReport());
 
@@ -1575,9 +1907,11 @@ class HangingScenarioRunner extends FakeScenarioRunner {
     RunStopPoint? stopPoint,
     Set<PrintDiagnostic> printDiagnostics = const <PrintDiagnostic>{},
     void Function(StepProgressEvent event)? onProgress,
+    RunArtifactWriter? runArtifactWriter,
   }) {
     this.scenario = scenario;
     this.onProgress = onProgress;
+    this.runArtifactWriter = runArtifactWriter;
     return _completer.future;
   }
 }
@@ -1587,12 +1921,14 @@ class FakeTargetAppProcessStarter implements TargetAppProcessStarter {
 
   final FakeTargetAppProcess process;
   List<String> startedArguments = const <String>[];
+  int startCount = 0;
 
   @override
   Future<TargetAppProcess> start(
     String executable,
     List<String> arguments,
   ) async {
+    startCount++;
     startedArguments = arguments;
     return process;
   }
@@ -1605,6 +1941,8 @@ class FakeTargetAppProcess implements TargetAppProcess {
       StreamController<List<int>>();
   final Completer<int> _exitCodeCompleter = Completer<int>();
   final List<String> stdinWrites = <String>[];
+  Object? stdinException;
+  bool stdinExceptionOnce = false;
 
   @override
   Stream<List<int>> get stdout => _stdoutController.stream;
@@ -1631,6 +1969,14 @@ class FakeTargetAppProcess implements TargetAppProcess {
 
   @override
   void writeStdin(String text) {
+    final Object? exception = stdinException;
+    if (exception != null) {
+      if (stdinExceptionOnce) {
+        stdinException = null;
+        stdinExceptionOnce = false;
+      }
+      throw exception;
+    }
     stdinWrites.add(text);
   }
 

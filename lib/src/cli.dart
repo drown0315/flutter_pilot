@@ -7,11 +7,13 @@ import 'package:screen_recorder/screen_recorder.dart' as screen_recorder;
 import 'package:yaml/yaml.dart';
 
 import 'app_setup.dart';
+import 'artifacts/artifact_store.dart';
 import 'diagnostic_text_renderer.dart';
 import 'html_timeline_report.dart';
 import 'recording/recording_contract.dart';
 import 'recording/screen_recorder_recording_controller.dart';
 import 'project_scenario_discovery.dart';
+import 'project_run_report.dart';
 import 'runtime/mcp_flutter_runtime_adapter.dart';
 import 'runtime/runtime_contract.dart';
 import 'run_diff.dart';
@@ -746,13 +748,135 @@ abstract interface class ProjectRunCommandExecutor {
 
 /// Placeholder Project Run executor until orchestration lands in later slices.
 class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
-  const DefaultProjectRunCommandExecutor();
+  const DefaultProjectRunCommandExecutor({
+    this.launcher = const TargetAppLauncher(),
+    this.runnerFactory = const DefaultTestScenarioRunnerFactory(),
+    this.outputDirectory,
+    this.clock = DateTime.now,
+  });
+
+  final TargetAppLauncher launcher;
+  final TestScenarioRunnerFactory runnerFactory;
+  final Directory? outputDirectory;
+  final TargetAppLaunchClock clock;
 
   @override
   Future<ProjectRunCommandReport> run(ProjectRunCommandOptions options) async {
-    throw const TestCommandException(
-      message: 'Project Run execution is not implemented yet.',
-      exitCode: 1,
+    final DateTime startedAt = clock().toUtc();
+    final ProjectRunArtifactWriter projectRunWriter = RunArtifactStore(
+      outputDirectory ?? Directory.current,
+    ).createProjectRun(startedAt: startedAt);
+    final Stopwatch stopwatch = Stopwatch()..start();
+    final List<ProjectScenarioRunReport> scenarioResults =
+        <ProjectScenarioRunReport>[];
+    ProjectRunEnvironmentFailure? environmentFailure;
+    TargetAppLaunch? launch;
+    try {
+      launch = await launcher.launch(
+        TargetAppLaunchCommand(
+          flavor: options.flavor,
+          target: options.target,
+          deviceId: options.device,
+        ),
+      );
+      for (int index = 0; index < options.scenarios.length; index++) {
+        final ProjectScenarioFile scenarioFile = options.scenarios[index];
+        if (index > 0) {
+          try {
+            await launch.hotRestart();
+          } on TargetAppLaunchException catch (error) {
+            environmentFailure = ProjectRunEnvironmentFailure(
+              phase: ProjectRunEnvironmentFailurePhase.hotRestart,
+              message: error.message,
+            );
+            break;
+          }
+        }
+        final RunArtifactWriter childRun = projectRunWriter.createScenarioRun(
+          scenario: scenarioFile.scenario,
+          startedAt: clock().toUtc(),
+        );
+        final TestScenarioRunner runner = runnerFactory.create(
+          runtimeTarget: RuntimeTarget(vmServiceUri: launch.runtimeTargetUri),
+          targetDevice: null,
+          recordingController: null,
+        );
+        final ScenarioRunReport scenarioReport = await runner.run(
+          scenarioFile.scenario,
+          runArtifactWriter: childRun,
+        );
+        final ProjectScenarioRunStatus scenarioStatus =
+            scenarioReport.status == ScenarioRunStatus.passed
+            ? ProjectScenarioRunStatus.passed
+            : ProjectScenarioRunStatus.failed;
+        scenarioResults.add(
+          ProjectScenarioRunReport(
+            scenarioPath: scenarioFile.relativePath,
+            status: scenarioStatus,
+            runReportPath: projectRunWriter.relativePathFor(
+              childRun,
+              'run_report.json',
+            ),
+            htmlReportPath: projectRunWriter.relativePathFor(
+              childRun,
+              'timeline.html',
+            ),
+          ),
+        );
+      }
+    } on TargetAppLaunchException catch (error) {
+      environmentFailure = ProjectRunEnvironmentFailure(
+        phase: ProjectRunEnvironmentFailurePhase.launch,
+        message: error.message,
+      );
+    } on TestCommandException catch (error) {
+      environmentFailure = ProjectRunEnvironmentFailure(
+        phase: ProjectRunEnvironmentFailurePhase.validation,
+        message: error.message,
+      );
+    } finally {
+      stopwatch.stop();
+      await launch?.cleanup();
+    }
+    final bool allPassed =
+        environmentFailure == null &&
+        scenarioResults.every(
+          (ProjectScenarioRunReport report) =>
+              report.status == ProjectScenarioRunStatus.passed,
+        );
+    final ProjectRunStatus projectStatus = environmentFailure != null
+        ? ProjectRunStatus.environmentFailed
+        : allPassed
+        ? ProjectRunStatus.passed
+        : ProjectRunStatus.failed;
+    final ProjectRunReport projectReport = environmentFailure == null
+        ? ProjectRunReport(
+            discoveryRootPath: options.discoveryRootPath,
+            scenarioResults: scenarioResults,
+            status: projectStatus,
+            startedAt: startedAt,
+            durationMs: stopwatch.elapsedMilliseconds,
+            commandInputs: ProjectRunCommandInputs(
+              device: options.device,
+              flavor: options.flavor,
+              target: options.target,
+            ),
+          )
+        : ProjectRunReport.environmentFailure(
+            discoveryRootPath: options.discoveryRootPath,
+            startedAt: startedAt,
+            durationMs: stopwatch.elapsedMilliseconds,
+            commandInputs: ProjectRunCommandInputs(
+              device: options.device,
+              flavor: options.flavor,
+              target: options.target,
+            ),
+            failure: environmentFailure,
+            scenarioResults: scenarioResults,
+          );
+    projectRunWriter.writeProjectRunReport(projectReport.toJson());
+    return ProjectRunCommandReport(
+      passed: projectStatus == ProjectRunStatus.passed,
     );
   }
 }
@@ -1064,6 +1188,7 @@ abstract interface class TestScenarioRunner {
     RunStopPoint? stopPoint,
     Set<PrintDiagnostic> printDiagnostics,
     void Function(StepProgressEvent event)? onProgress,
+    RunArtifactWriter? runArtifactWriter,
   });
 }
 
@@ -1100,12 +1225,14 @@ class _ScenarioRunnerAdapter implements TestScenarioRunner {
     RunStopPoint? stopPoint,
     Set<PrintDiagnostic> printDiagnostics = const <PrintDiagnostic>{},
     void Function(StepProgressEvent event)? onProgress,
+    RunArtifactWriter? runArtifactWriter,
   }) {
     return _runner.run(
       scenario,
       stopPoint: stopPoint,
       printDiagnostics: printDiagnostics,
       onProgress: onProgress,
+      runArtifactWriter: runArtifactWriter,
     );
   }
 }
