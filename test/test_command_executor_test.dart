@@ -809,6 +809,7 @@ steps:
           jsonEncode(<String, Object?>{
             'event': 'app.debugPort',
             'params': <String, Object?>{
+              'appId': 'app-1',
               'wsUri': 'ws://127.0.0.1:1234/token=/ws',
             },
           }),
@@ -938,6 +939,7 @@ steps:
           jsonEncode(<String, Object?>{
             'event': 'app.debugPort',
             'params': <String, Object?>{
+              'appId': 'app-1',
               'wsUri': 'ws://127.0.0.1:1234/token=/ws',
             },
           }),
@@ -1014,6 +1016,7 @@ steps:
           jsonEncode(<String, Object?>{
             'event': 'app.debugPort',
             'params': <String, Object?>{
+              'appId': 'app-1',
               'wsUri': 'ws://127.0.0.1:1234/token=/ws',
             },
           }),
@@ -1134,6 +1137,7 @@ steps:
           jsonEncode(<String, Object?>{
             'event': 'app.debugPort',
             'params': <String, Object?>{
+              'appId': 'app-1',
               'wsUri': 'ws://127.0.0.1:1234/token=/ws',
             },
           }),
@@ -1395,6 +1399,7 @@ steps:
           jsonEncode(<String, Object?>{
             'event': 'app.debugPort',
             'params': <String, Object?>{
+              'appId': 'app-1',
               'wsUri': 'ws://127.0.0.1:1234/token=/ws',
             },
           }),
@@ -1523,6 +1528,7 @@ steps:
           jsonEncode(<String, Object?>{
             'event': 'app.debugPort',
             'params': <String, Object?>{
+              'appId': 'app-1',
               'wsUri': 'ws://127.0.0.1:1234/token=/ws',
             },
           }),
@@ -1658,6 +1664,7 @@ steps:
           jsonEncode(<String, Object?>{
             'event': 'app.debugPort',
             'params': <String, Object?>{
+              'appId': 'app-1',
               'wsUri': 'ws://127.0.0.1:1234/token=/ws',
             },
           }),
@@ -1666,13 +1673,18 @@ steps:
           await Future<void>.delayed(Duration.zero);
         }
         expect(secondRunner.onProgress, isNull);
-        process.emitStdout('Restarted application in 42ms.');
+        process.emitStdout(
+          jsonEncode(<String, Object?>{'id': 0, 'result': true}),
+        );
 
         final ProjectRunCommandReport report = await reportFuture;
 
         expect(report.passed, isTrue);
         expect(starter.startCount, 1);
-        expect(process.stdinWrites, <String>['R\n', 'q\n']);
+        expect(process.stdinWrites, <String>[
+          '[{"id":0,"method":"app.restart","params":{"appId":"app-1","fullRestart":true}}]\n',
+          'q\n',
+        ]);
         expect(firstRunner.scenario.name, 'login');
         expect(secondRunner.scenario.name, 'checkout');
         expect(
@@ -1752,6 +1764,7 @@ steps:
           jsonEncode(<String, Object?>{
             'event': 'app.debugPort',
             'params': <String, Object?>{
+              'appId': 'app-1',
               'wsUri': 'ws://127.0.0.1:1234/token=/ws',
             },
           }),
@@ -1759,7 +1772,9 @@ steps:
         while (process.stdinWrites.isEmpty) {
           await Future<void>.delayed(Duration.zero);
         }
-        process.emitStdout('Restarted application in 42ms.');
+        process.emitStdout(
+          jsonEncode(<String, Object?>{'id': 0, 'result': true}),
+        );
 
         final ProjectRunCommandReport report = await reportFuture;
 
@@ -2091,6 +2106,75 @@ steps:
     });
   });
 
+  test('default Project Run executor cleans up when interrupted', () async {
+    await FileTestkit.runZoned(() async {
+      final FakeTargetAppProcess process = FakeTargetAppProcess();
+      final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+        process,
+      );
+      final HangingScenarioRunner runner = HangingScenarioRunner();
+      final StreamController<void> interruptController =
+          StreamController<void>();
+      final DefaultProjectRunCommandExecutor executor =
+          DefaultProjectRunCommandExecutor(
+            launcher: TargetAppLauncher(starter: starter),
+            runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+              runner,
+            ]),
+            interruptSignals: interruptController.stream,
+            outputDirectory: Directory.current,
+            clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          );
+
+      final Future<ProjectRunCommandReport> reportFuture = executor.run(
+        ProjectRunCommandOptions(
+          discoveryRootPath: 'pilot',
+          scenarios: <ProjectScenarioFile>[
+            ProjectScenarioFile(
+              path: 'pilot/login.yaml',
+              relativePath: 'login.yaml',
+              scenario: _scenario('login'),
+            ),
+          ],
+          device: null,
+          flavor: null,
+          target: null,
+          jsonOutput: false,
+        ),
+      );
+      process.emitStdout(
+        jsonEncode(<String, Object?>{
+          'event': 'app.debugPort',
+          'params': <String, Object?>{
+            'appId': 'app-1',
+            'wsUri': 'ws://127.0.0.1:1234/token=/ws',
+          },
+        }),
+      );
+      await Future<void>.delayed(Duration.zero);
+      interruptController.add(null);
+
+      await expectLater(
+        reportFuture,
+        throwsA(
+          isA<TestCommandException>()
+              .having(
+                (TestCommandException error) => error.message,
+                'message',
+                contains('interrupted'),
+              )
+              .having(
+                (TestCommandException error) => error.exitCode,
+                'exitCode',
+                130,
+              ),
+        ),
+      );
+      expect(process.stdinWrites, <String>['q\n']);
+      await interruptController.close();
+    });
+  });
+
   test(
     'default Project Run executor emits launch heartbeat until success',
     () async {
@@ -2215,6 +2299,7 @@ steps:
           jsonEncode(<String, Object?>{
             'event': 'app.debugPort',
             'params': <String, Object?>{
+              'appId': 'app-1',
               'wsUri': 'ws://127.0.0.1:1234/token=/ws',
             },
           }),
@@ -2222,13 +2307,18 @@ steps:
         while (process.stdinWrites.isEmpty) {
           await Future<void>.delayed(Duration.zero);
         }
-        process.emitStdout('Restarted application in 42ms.');
+        process.emitStdout(
+          jsonEncode(<String, Object?>{'id': 0, 'result': true}),
+        );
 
         final ProjectRunCommandReport report = await reportFuture;
 
         expect(report.passed, isFalse);
         expect(starter.startCount, 1);
-        expect(process.stdinWrites, <String>['R\n', 'q\n']);
+        expect(process.stdinWrites, <String>[
+          '[{"id":0,"method":"app.restart","params":{"appId":"app-1","fullRestart":true}}]\n',
+          'q\n',
+        ]);
         expect(firstRunner.scenario.name, 'login');
         expect(secondRunner.scenario.name, 'checkout');
       });
@@ -2285,7 +2375,10 @@ steps:
       process.emitStdout(
         jsonEncode(<String, Object?>{
           'event': 'app.debugPort',
-          'params': <String, Object?>{'wsUri': 'ws://127.0.0.1:1234/token=/ws'},
+          'params': <String, Object?>{
+            'appId': 'app-1',
+            'wsUri': 'ws://127.0.0.1:1234/token=/ws',
+          },
         }),
       );
 

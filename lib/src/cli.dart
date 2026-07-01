@@ -828,6 +828,7 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
     this.deviceDiscovery = const DefaultTestDeviceDiscovery(),
     this.launcher = const TargetAppLauncher(),
     this.runnerFactory = const DefaultTestScenarioRunnerFactory(),
+    this.interruptSignals,
     this.outputDirectory,
     this.clock = DateTime.now,
     this.launchHeartbeatTicks,
@@ -836,6 +837,7 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
   final TestDeviceDiscovery deviceDiscovery;
   final TargetAppLauncher launcher;
   final TestScenarioRunnerFactory runnerFactory;
+  final Stream<void>? interruptSignals;
   final Directory? outputDirectory;
   final TargetAppLaunchClock clock;
   final Stream<void>? launchHeartbeatTicks;
@@ -981,15 +983,13 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
                 )
               : null,
         );
-        final ScenarioRunReport scenarioReport = await runner.run(
+        final Future<ScenarioRunReport> runFuture = runner.run(
           scenarioFile.scenario,
           runArtifactWriter: childRun,
-          onProgress: onProgress == null
-              ? null
-              : (StepProgressEvent event) {
-                  onProgress(event);
-                },
+          onProgress: onProgress,
         );
+        final ScenarioRunReport scenarioReport =
+            await _runScenarioWithInterrupt(runFuture);
         final ProjectScenarioRunStatus scenarioStatus =
             scenarioReport.status == ScenarioRunStatus.passed
             ? ProjectScenarioRunStatus.passed
@@ -1025,6 +1025,9 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
       );
       await launchHeartbeat?.stop();
     } on TestCommandException catch (error) {
+      if (error.exitCode == 130) {
+        rethrow;
+      }
       environmentFailure = ProjectRunEnvironmentFailure(
         phase: ProjectRunEnvironmentFailurePhase.validation,
         message: error.message,
@@ -1094,6 +1097,36 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
           ),
       ],
     );
+  }
+
+  Future<ScenarioRunReport> _runScenarioWithInterrupt(
+    Future<ScenarioRunReport> runFuture,
+  ) async {
+    StreamSubscription<void>? interruptSub;
+    try {
+      final Completer<ScenarioRunReport> interruptCompleter =
+          Completer<ScenarioRunReport>();
+      interruptSub =
+          (interruptSignals ??
+                  ProcessSignal.sigint.watch().map<void>((ProcessSignal _) {}))
+              .listen((_) {
+                if (!interruptCompleter.isCompleted) {
+                  interruptCompleter.completeError(
+                    const TestCommandException(
+                      message: 'test command interrupted.',
+                      exitCode: 130,
+                    ),
+                  );
+                }
+              });
+      return await Future.any(<Future<ScenarioRunReport>>[
+        runFuture,
+        interruptCompleter.future,
+      ]);
+    } finally {
+      runFuture.ignore();
+      await interruptSub?.cancel();
+    }
   }
 }
 

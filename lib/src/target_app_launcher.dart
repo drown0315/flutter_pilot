@@ -44,41 +44,54 @@ class TargetAppLaunchCommand {
 /// Started Target App process that can be cleaned up after a Scenario run.
 class TargetAppLaunch {
   /// Creates a launched Target App handle.
-  const TargetAppLaunch({
+  TargetAppLaunch._({
     required this.runtimeTargetUri,
+    required _TargetAppLaunchState state,
     required TargetAppProcess process,
     required this.stdoutLines,
-  }) : _process = process;
+  }) : _state = state,
+       _process = process;
 
   /// Runtime Target URI extracted from Flutter machine output.
   final Uri runtimeTargetUri;
 
+  final _TargetAppLaunchState _state;
   final TargetAppProcess _process;
   final Stream<String> stdoutLines;
+  int _nextRequestId = 0;
 
   /// Request a hot restart from the launched Flutter process.
   ///
-  /// The request uses Flutter CLI's machine-run stdin control channel and does
-  /// not execute Scenario semantics. Write failures are reported as launch
-  /// failures because the Target App process can no longer be controlled.
+  /// The request uses Flutter CLI's daemon JSON protocol and waits for the
+  /// matching command response before returning. Write failures are reported as
+  /// launch failures because the Target App process can no longer be controlled.
   Future<void> hotRestart() async {
+    final String? appId = _state.appId;
+    if (appId == null) {
+      throw const TargetAppLaunchException(
+        message: 'Flutter did not report an app id for hot restart.',
+      );
+    }
+    final int requestId = _nextRequestId++;
     final Completer<void> restartCompleted = Completer<void>();
     final StreamSubscription<String> stdoutSub = stdoutLines.listen((
       String line,
     ) {
-      if (line.startsWith('Restarted application in ')) {
+      final _MachineCommandResponse? response =
+          TargetAppLauncher._machineCommandResponseFromLine(line, requestId);
+      if (response == null) {
+        return;
+      }
+      if (response.errorMessage == null) {
         if (!restartCompleted.isCompleted) {
           restartCompleted.complete();
         }
         return;
       }
-      if (line.startsWith('Hot restart failed to complete') ||
-          line.startsWith('Failed to hot restart')) {
-        if (!restartCompleted.isCompleted) {
-          restartCompleted.completeError(
-            TargetAppLaunchException(message: line),
-          );
-        }
+      if (!restartCompleted.isCompleted) {
+        restartCompleted.completeError(
+          TargetAppLaunchException(message: response.errorMessage!),
+        );
       }
     });
     final Future<void> exitFuture = _process.exitCode.then((int exitCode) {
@@ -92,7 +105,15 @@ class TargetAppLaunch {
       }
     });
     try {
-      _process.writeStdin('R\n');
+      _process.writeStdin(
+        '${jsonEncode(<Object?>[
+          <String, Object?>{
+            'id': requestId,
+            'method': 'app.restart',
+            'params': <String, Object?>{'appId': appId, 'fullRestart': true},
+          },
+        ])}\n',
+      );
       await Future.any(<Future<void>>[restartCompleted.future, exitFuture]);
     } catch (error) {
       throw TargetAppLaunchException(
@@ -206,6 +227,7 @@ class TargetAppLauncher {
     final StreamController<String> stdoutLinesController =
         StreamController<String>.broadcast();
     final _LastLinesBuffer stderrBuffer = _LastLinesBuffer(limit: 40);
+    final _TargetAppLaunchState state = _TargetAppLaunchState();
     final StreamSubscription<String> stderrSub = process.stderr
         .transform(utf8.decoder)
         .transform(const LineSplitter())
@@ -223,13 +245,15 @@ class TargetAppLauncher {
         .listen(
           (String line) {
             stdoutLinesController.add(line);
+            state.appId ??= _appIdFromMachineLine(line);
             final Uri? runtimeTargetUri = _runtimeTargetUriFromMachineLine(
               line,
             );
             if (runtimeTargetUri != null && !completer.isCompleted) {
               completer.complete(
-                TargetAppLaunch(
+                TargetAppLaunch._(
                   runtimeTargetUri: runtimeTargetUri,
+                  state: state,
                   process: process,
                   stdoutLines: stdoutLinesController.stream,
                 ),
@@ -289,6 +313,60 @@ class TargetAppLauncher {
     return null;
   }
 
+  /// Extract the daemon app id from one Flutter machine stdout line.
+  static String? _appIdFromMachineLine(String line) {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(line);
+    } on FormatException {
+      return null;
+    }
+    for (final Map<String, Object?> event in _machineEvents(decoded)) {
+      final Object? params = event['params'];
+      if (params is! Map<String, Object?>) {
+        continue;
+      }
+      final Object? appId = params['appId'];
+      if (appId is String && appId.isNotEmpty) {
+        return appId;
+      }
+    }
+    return null;
+  }
+
+  /// Extract a daemon command response for [requestId] from stdout.
+  static _MachineCommandResponse? _machineCommandResponseFromLine(
+    String line,
+    int requestId,
+  ) {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(line);
+    } on FormatException {
+      return null;
+    }
+    for (final Map<String, Object?> event in _machineEvents(decoded)) {
+      if (event['id'] != requestId) {
+        continue;
+      }
+      final Object? error = event['error'];
+      if (error == null) {
+        return const _MachineCommandResponse();
+      }
+      if (error is String) {
+        return _MachineCommandResponse(errorMessage: error);
+      }
+      if (error is Map<String, Object?>) {
+        final Object? message = error['message'];
+        return _MachineCommandResponse(
+          errorMessage: message is String ? message : jsonEncode(error),
+        );
+      }
+      return _MachineCommandResponse(errorMessage: error.toString());
+    }
+    return null;
+  }
+
   /// Normalize object-shaped and list-shaped Flutter machine events.
   static Iterable<Map<String, Object?>> _machineEvents(Object? decoded) sync* {
     if (decoded is Map<String, Object?>) {
@@ -303,6 +381,16 @@ class TargetAppLauncher {
       }
     }
   }
+}
+
+class _TargetAppLaunchState {
+  String? appId;
+}
+
+class _MachineCommandResponse {
+  const _MachineCommandResponse({this.errorMessage});
+
+  final String? errorMessage;
 }
 
 class _IoTargetAppProcess implements TargetAppProcess {
