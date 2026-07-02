@@ -31,6 +31,8 @@ features:
 ## Common Commands
 
 ```bash
+flutter_pilot init
+flutter_pilot doctor
 flutter_pilot validate scenarios/login.yaml
 flutter_pilot test scenarios/login.yaml
 ```

@@ -2,6 +2,8 @@
 
 [中文](README_zh.md)
 
+[Documentation](https://drown0315.github.io/flutter_pilot/)
+
 Flutter Pilot turns Flutter UI journeys into reproducible, AI-readable
 debugging context.
 
@@ -56,7 +58,8 @@ runtime context so a person or agent can answer sharper questions:
 scenario:
   name: login_error
   description: Reproduce the invalid login message.
-  recording: {}
+  recording:
+    enabled: true
 
 steps:
   - label: enter_email
@@ -82,33 +85,36 @@ This Scenario describes the UI journey only. Flutter Pilot launches the Target
 App Package through the `test` command and derives the Runtime Target from
 Flutter's machine output.
 
-`recording: {}` enables default Scenario Recording. Omit `recording` for no
+`capture` is a Step action. Put it as its own item under `steps` when you want
+Flutter Pilot to save diagnostic artifacts at that point in the journey.
+
+`recording.enabled: true` enables Scenario Recording. Omit `recording` for no
 recording, or use `recording.enabled: false` to disable it explicitly.
 Boolean shorthand such as `recording: true` is invalid.
 
-The HTML timeline report turns the same journey into a visual review surface:
+The HTML timeline report turns the same journey into a visual review surface.
 
-![Example Flutter Pilot HTML timeline report](docs-internal/assets/timeline-report-example.svg)
+## Quick Start
 
-## Usage
-
-Install the Flutter Pilot CLI in the workspace that owns your Scenarios:
+Install the Flutter Pilot CLI:
 
 ```bash
-dart pub add --dev flutter_pilot
+dart pub global activate flutter_pilot
 ```
 
 Flutter Pilot drives a Flutter app through `mcp_flutter`. The target app must
 expose the MCP Toolkit runtime extension before `flutter_pilot test` can
 interact with it.
 
-In the Flutter app package, add the runtime dependency:
+From the Target App Package, initialize the safe app-side setup:
 
 ```bash
-flutter pub add mcp_toolkit
+flutter_pilot init
 ```
 
-Then bootstrap the app through `MCPToolkitBinding`:
+`init` installs the MCP Toolkit runtime dependency when it is missing. It does
+not edit `lib/main.dart`; when `bootstrapFlutter` is missing, it prints the
+import and `runApp` wrapper to add manually:
 
 ```dart
 import 'package:flutter/material.dart';
@@ -121,6 +127,12 @@ Future<void> main() async {
 }
 ```
 
+Check the setup after making any required `lib/main.dart` change:
+
+```bash
+flutter_pilot doctor
+```
+
 Run `flutter_pilot test` from the Flutter app package. Flutter Pilot launches
 the app with `flutter run --machine`, reads the Runtime Target URI from Flutter,
 runs the selected Scenario or Project Run, and stops the launched app during
@@ -130,50 +142,34 @@ the final `Run report:`, `HTML report:`, and Project Run report paths stay on
 stdout for scripts.
 `test --json` suppresses progress output.
 
-Check app-side Flutter Pilot setup from the Flutter app package:
-
-```bash
-dart run flutter_pilot doctor
-```
-
-Initialize the safe dependency setup from the Flutter app package:
-
-```bash
-dart run flutter_pilot init
-```
-
-`init` runs `flutter pub add mcp_toolkit` when the runtime dependency is
-missing. It does not edit `lib/main.dart`; when `bootstrapFlutter` is missing,
-it prints the import and `runApp` wrapper to add manually.
-
 Validate a Scenario without connecting to a Flutter app:
 
 ```bash
-dart run flutter_pilot validate examples/smoke_scenario.yaml
+flutter_pilot validate examples/smoke_scenario.yaml
 ```
 
 Run a Scenario by launching the current Target App Package:
 
 ```bash
-dart run flutter_pilot test examples/smoke_scenario.yaml
+flutter_pilot test examples/smoke_scenario.yaml
 ```
 
 Run all Project Scenarios from the default Pilot Directory, `pilot/`:
 
 ```bash
-dart run flutter_pilot test
+flutter_pilot test
 ```
 
 Run all Project Scenarios from a specific directory:
 
 ```bash
-dart run flutter_pilot test pilot/regression
+flutter_pilot test pilot/regression
 ```
 
 Select the Target Device, Flutter flavor, or app entrypoint when needed:
 
 ```bash
-dart run flutter_pilot test examples/smoke_scenario.yaml \
+flutter_pilot test examples/smoke_scenario.yaml \
   --device <device-id-or-name> \
   --flavor staging \
   --target lib/main_staging.dart
@@ -182,7 +178,7 @@ dart run flutter_pilot test examples/smoke_scenario.yaml \
 Stop after a specific Step and print captured diagnostic context:
 
 ```bash
-dart run flutter_pilot test examples/smoke_scenario.yaml \
+flutter_pilot test examples/smoke_scenario.yaml \
   --until wait_for_error \
   --print snapshot
 ```
@@ -190,14 +186,14 @@ dart run flutter_pilot test examples/smoke_scenario.yaml \
 Regenerate the HTML timeline from an existing run directory:
 
 ```bash
-dart run flutter_pilot report .runs/<run-directory>
+flutter_pilot report .runs/<run-directory>
 ```
 
 Compare two existing run directories:
 
 ```bash
-dart run flutter_pilot diff .runs/<before-run> .runs/<after-run>
-dart run flutter_pilot diff .runs/<before-run> .runs/<after-run> --json
+flutter_pilot diff .runs/<before-run> .runs/<after-run>
+flutter_pilot diff .runs/<before-run> .runs/<after-run> --json
 ```
 
 ## Scenario YAML
@@ -206,16 +202,16 @@ Scenario YAML is Flutter Pilot's portable description of a UI journey. It
 supports ordered Steps, Step labels, Step Includes for shared Step Libraries,
 Finders, actions, waits, scrolling, and capture checkpoints.
 
-See [docs-internal/scenario-yaml.md](docs-internal/scenario-yaml.md) for the full syntax,
-examples, and validation rules.
+See the [Scenario DSL reference](docs/reference/scenario-dsl.md) for the full
+syntax, examples, and validation rules.
 
 ## Commands
 
 ```bash
 flutter_pilot validate <scenario.yaml>
 flutter_pilot validate <scenario.yaml> --json
-flutter_pilot doctor
 flutter_pilot init
+flutter_pilot doctor
 flutter_pilot test
 flutter_pilot test <scenario.yaml>
 flutter_pilot test <scenario-directory>
@@ -277,24 +273,18 @@ consistent.
 
 ## Documentation
 
-- [CONTEXT.md](CONTEXT.md): project vocabulary.
-- [docs-internal/scenario-yaml.md](docs-internal/scenario-yaml.md): Scenario YAML syntax.
-- [docs-internal/run-diff.md](docs-internal/run-diff.md): Run Diff command, output, outcomes,
-  Regression rules, and acceptance fixtures.
-- [docs-internal/flutter-pilot-prd.md](docs-internal/flutter-pilot-prd.md): product scope and
-  implementation decisions.
-- [docs-internal/test-command-prd.md](docs-internal/test-command-prd.md): `test` command launch,
-  device, recording, and Project Run behavior.
-- [docs-internal/project-run-prd.md](docs-internal/project-run-prd.md): Project Scenario
-  discovery, Project Run execution, and batch artifact requirements.
-- [docs-internal/cli-step-progress-prd.md](docs-internal/cli-step-progress-prd.md): CLI Step
-  progress feature requirements and implementation decisions.
-- [docs-internal/target-app-launch-progress-prd.md](docs-internal/target-app-launch-progress-prd.md):
-  Target App Launch Progress requirements and implementation decisions.
-- [docs-internal/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md](docs-internal/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md):
-  architecture decision for the Dart CLI and YAML Scenario DSL.
-- [docs-internal/adr/0004-run-project-scenarios-through-test.md](docs-internal/adr/0004-run-project-scenarios-through-test.md):
-  architecture decision for Project Run mode through `test`.
+- [Public documentation](https://drown0315.github.io/flutter_pilot/): hosted
+  guide and reference.
+- [Documentation home](docs/index.md): overview and documentation map.
+- [Getting Started](docs/guide/getting-started.md): shortest path from install
+  to first run.
+- [Write a Scenario](docs/guide/write-scenario.md): author YAML for a
+  reproducible UI path.
+- [Run a Scenario](docs/guide/run-scenario.md): launch options, checkpoints,
+  and printed diagnostics.
+- [Scenario DSL](docs/reference/scenario-dsl.md): exact fields, actions, and
+  Finder rules.
+- [CLI Reference](docs/reference/cli.md): commands and options.
 
 ## Scope
 
