@@ -10,6 +10,9 @@ export default defineConfig({
       { text: 'Guide', link: '/guide/getting-started' },
       { text: 'Reference', link: '/reference/scenario-dsl' }
     ],
+    socialLinks: [
+      { icon: 'github', link: 'https://github.com/drown0315/flutter_pilot' }
+    ],
     sidebar: [
       {
         text: 'Guide',

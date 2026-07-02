@@ -57,7 +57,8 @@ It is not a Step action.
 ```yaml scenario
 scenario:
   name: recorded_login
-  recording: {}
+  recording:
+    enabled: true
 steps:
   - label: capture_start
     capture: {}
@@ -77,6 +78,10 @@ steps:
 
 The label belongs beside the action, not inside it. Labels must be unique within
 the expanded Scenario.
+
+`capture` is one of the possible Step actions. If you want to interact with the
+UI and then capture diagnostics, write two ordered Steps: one for the
+interaction and one for `capture`.
 
 ## Step Includes
 
@@ -163,8 +168,14 @@ steps:
 
 ### capture
 
+`capture` records diagnostic artifacts at that exact point in the Step list. It
+must be written as a Step action under `steps`.
+
 ```yaml scenario
 steps:
+  - label: submit
+    tap:
+      byText: Submit
   - label: capture_state
     capture: {}
 ```

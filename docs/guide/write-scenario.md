@@ -50,11 +50,18 @@ When a Finder has multiple fields, every configured field must match.
 
 ## Capture diagnostics
 
-Use `capture: {}` when you want the default diagnostic bundle at a specific
-point in the run.
+`capture` is a Step action. Use it as its own Step when you want the default
+diagnostic bundle at a specific point in the run.
 
 ```yaml scenario
 steps:
+  - label: submit
+    tap:
+      byText: Submit
+      byType: button
   - label: capture_current_state
     capture: {}
 ```
+
+A Step may have only one action, so a tap and a capture are written as two
+ordered Steps.

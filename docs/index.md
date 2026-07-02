@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: Flutter Pilot
-  text: Reproducible Flutter UI debugging artifacts
-  tagline: Replay YAML Scenarios against a Target App Package, capture useful runtime context, and hand humans, CI, or agents the same debugging evidence.
+  text: Make Flutter UI bugs reproducible and explainable.
+  tagline: Replay user journeys whenever needed, and get the screenshots, logs, UI state, and timeline reports behind every run.
   actions:
     - theme: brand
       text: Get Started
@@ -31,6 +31,8 @@ features:
 ## Common Commands
 
 ```bash
+flutter_pilot init
+flutter_pilot doctor
 flutter_pilot validate scenarios/login.yaml
 flutter_pilot test scenarios/login.yaml
 ```
