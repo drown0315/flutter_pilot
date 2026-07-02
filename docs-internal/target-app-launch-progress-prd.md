@@ -174,7 +174,7 @@ buffered Flutter stderr lines.
 
 ## Further Notes
 
-- This PRD complements `docs/cli-step-progress-prd.md`; it does not replace it.
+- This PRD complements `docs-internal/cli-step-progress-prd.md`; it does not replace it.
 - Step progress starts only after the Runtime Target is available. Target App
   Launch Progress fills the UX gap before that point.
 - The glossary now defines Target App Launch Progress and clarifies that Target

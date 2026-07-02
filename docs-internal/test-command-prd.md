@@ -229,7 +229,7 @@ launch flow, not a user-provided command option.
 - A Target Device module should encapsulate Flutter Device parsing, Target Device modeling, Recording Device id matching, and device resolution errors.
 - The Target Device module may directly depend on the `screen_recorder` public API, but it outputs Flutter Pilot's Target Device model rather than exposing `screen_recorder` types as the app launch model.
 - Physical iOS Recording Device discovery should merge physical iOS devices from `xcrun xctrace list devices` with helper-discovered devices, excluding simulators and offline devices.
-- The ADR for this CLI decision is maintained in `docs/adr/0003-split-runtime-uri-run-from-target-device-test.md`.
+- The ADR for this CLI decision is maintained in `docs-internal/adr/0003-split-runtime-uri-run-from-target-device-test.md`.
 
 ## Testing Decisions
 

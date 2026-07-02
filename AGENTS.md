@@ -25,9 +25,9 @@ runs the Scenario through `mcp_flutter`, and cleans up the launched app process.
 Read these before changing behavior:
 
 - `CONTEXT.md`: project vocabulary. Preserve these terms.
-- `docs/flutter-pilot-prd.md`: product scope, user stories, implementation
+- `docs-internal/flutter-pilot-prd.md`: product scope, user stories, implementation
   decisions, testing decisions.
-- `docs/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md`: ADR for Dart CLI +
+- `docs-internal/adr/0001-use-dart-cli-with-yaml-scenario-dsl.md`: ADR for Dart CLI +
   YAML Scenario DSL.
 - `code_conventions/dart.md`: Dart-specific coding rules.
 - `code_conventions/comments.md`: comment/docstring style.

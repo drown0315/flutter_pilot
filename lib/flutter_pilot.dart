@@ -21,6 +21,7 @@ export 'src/runtime/mcp_flutter_runtime_adapter.dart';
 export 'src/runtime/runtime_contract.dart';
 export 'src/run_diff.dart';
 export 'src/scenario.dart';
+export 'src/scenario_dsl_docs.dart';
 export 'src/scenario_parser.dart';
 export 'src/scenario_runner.dart';
 export 'src/step_progress_renderer.dart';
