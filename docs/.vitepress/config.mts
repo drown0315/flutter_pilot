@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
+  base: process.env.GITHUB_PAGES === 'true' ? '/flutter_pilot/' : '/',
   title: 'Flutter Pilot',
   description:
     'Reproducible Flutter UI debugging artifacts from YAML Scenarios.',

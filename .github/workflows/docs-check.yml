@@ -1,0 +1,54 @@
+name: Docs Check
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "docs/**"
+      - "lib/src/cli.dart"
+      - "lib/src/scenario_dsl_docs.dart"
+      - "tool/check_*_docs.dart"
+      - "tool/generate_*_docs.dart"
+      - "test/*docs*_test.dart"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/docs-check.yml"
+
+jobs:
+  docs:
+    name: Docs check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Dart dependencies
+        run: dart pub get
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Analyze docs helpers
+        run: dart analyze --fatal-infos --fatal-warnings
+
+      - name: Test docs examples
+        run: dart test test/scenario_dsl_docs_test.dart test/scenario_dsl_docs_tool_test.dart
+
+      - name: Check Scenario DSL docs
+        run: dart run tool/check_scenario_dsl_docs.dart
+
+      - name: Build docs site
+        run: npm run docs:build
