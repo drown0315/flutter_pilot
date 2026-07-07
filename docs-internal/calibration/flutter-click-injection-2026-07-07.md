@@ -340,11 +340,21 @@ contract independent.
 ## Follow-Up
 
 - Create a `pilot_runtime` spike issue for app-side service extensions.
-- Prototype `semanticSnapshot` and `tap(ref)` inside a minimal sample app using
-  only Flutter SDK APIs.
+- The first app-side hook prototype is now captured in:
+
+  ```text
+  examples/smoke_app/lib/pilot_runtime_probe_app.dart
+  calibrate/pilot_runtime_hook_probe/bin/pilot_runtime_hook_probe.dart
+  calibrate/pilot_runtime_hook_probe/out/hook-probe-macos.txt
+  calibrate/pilot_runtime_hook_probe/out/hook-probe-android.txt
+  ```
+
+- The prototype verified `byKey`, `byWidgetType`, semantic `byType`, and
+  `tapAt` through VM Service service extensions on macOS and Android.
 - Add contract tests using a fake VM Service boundary before wiring the real
   adapter.
-- Run a manual smoke test on Android, iOS Simulator, desktop, and web to record
-  which paths use semantic action versus pointer-event fallback.
+- Run additional manual smoke tests on iOS Simulator and web to record which
+  paths use semantic action versus pointer-event fallback.
 - Keep `byKey` and Dart Widget runtime type matching out of public Scenario DSL
-  until the spike proves stable matching and clear cardinality behavior.
+  until the production spike proves stable matching, strict cardinality, and
+  clear failure behavior.

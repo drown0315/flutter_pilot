@@ -28,6 +28,14 @@ _Avoid_: Full test run, test suite run, all-Scenario run
 The running Flutter app instance that a Scenario is executed against. Connection details for the Runtime Target are provided outside the Scenario.
 _Avoid_: Target configuration, environment block
 
+**Debug Runtime Target**:
+A Runtime Target running as a Flutter debug app with a reachable VM Service URI and the Flutter runtime extensions needed by Flutter Pilot.
+_Avoid_: Profile target, release target, installed app
+
+**Non-invasive Runtime Access**:
+Runtime Target access that does not require the Target App Package to add Flutter Pilot code, plugins, hooks, or SDK initialization.
+_Avoid_: App SDK integration, target-side hook
+
 **Target App Package**:
 The Flutter app package in the current working directory that is expected to expose the runtime capabilities Flutter Pilot needs before it can be used as a Runtime Target.
 _Avoid_: Scenario workspace, CLI workspace, project root
@@ -43,6 +51,14 @@ _Avoid_: Runtime Target, Recording Device
 **Runtime Adapter**:
 The narrow interface between the Flutter Pilot runner and a concrete Flutter runtime bridge. It maps Scenario Finders, actions, and capture requests to executable runtime operations, then converts runtime results back into Flutter Pilot types.
 _Avoid_: Runtime Target, driver, bridge
+
+**pilot_runtime**:
+A Dart package that provides low-level capabilities against a Flutter Runtime Target for Flutter Pilot to consume through an adapter.
+_Avoid_: Runtime Adapter, Flutter Pilot runtime
+
+**PilotRuntimeAdapter**:
+The Flutter Pilot Runtime Adapter implementation backed by `pilot_runtime`.
+_Avoid_: pilot_runtime, mcp_flutter adapter
 
 **Finder**:
 A rule for finding the widget that a Scenario step should interact with or wait for. A Finder may combine text and semantic node type constraints in the same step; every configured constraint must match, each constraint has one string value, and there is no separate match option.
@@ -107,6 +123,10 @@ _Avoid_: Screenshot, raw widget tree, full dump
 **Widget Tree**:
 A raw or near-raw Flutter widget hierarchy artifact used for deeper debugging. It is separate from a Snapshot and is not the default agent-facing artifact.
 _Avoid_: Snapshot
+
+**Inspector Summary Widget Tree**:
+A Flutter Inspector-provided summary widget hierarchy used as Flutter Pilot's Widget Tree source when available. It should preserve useful widget identity and hierarchy without promising a complete source-level Flutter widget dump.
+_Avoid_: Full Widget Tree, Snapshot, debugDumpApp
 
 **Capture Action**:
 An action that records diagnostic artifacts at a specific Step in a Scenario. Its default bundle includes Screenshot, Snapshot, and Logs, but not Widget Tree. Runtime errors are collected as part of Logs rather than as a separate first-version artifact.

@@ -1,0 +1,12 @@
+name: pilot_runtime_hook_probe
+description: Calibration CLI for a pilot_runtime-style Flutter service extension hook.
+publish_to: none
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  vm_service: 14.3.1
+
+dev_dependencies:
+  test: ^1.25.8

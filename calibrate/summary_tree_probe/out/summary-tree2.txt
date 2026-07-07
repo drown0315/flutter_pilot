@@ -1,0 +1,399 @@
+Service Extension Calls
+- ext.flutter.inspector.setPubRootDirectories args={"arg0":"/Users/drown/flutter_project/flutter_pilot/examples/smoke_app"}
+- ext.flutter.inspector.getRootWidgetTree args={"groupName":"pilot_runtime_summary_tree_probe","isSummaryTree":"true","withPreviews":"true","fullDetails":"false"}
+
+Field Inventory
+nodes: 39
+- children: 36 node(s); List=36
+- createdByLocalProject: 38 node(s); bool=38
+- description: 39 node(s); String=39
+- shouldIndent: 39 node(s); bool=39
+- textPreview: 15 node(s); String=15
+- valueId: 39 node(s); String=39
+- widgetRuntimeType: 39 node(s); String=39
+
+Compact Tree
+- [root] id=inspector-0 children=1
+  - SmokeApp id=inspector-1 children=1
+    - MaterialApp id=inspector-2 children=1
+      - SmokeHomePage id=inspector-3 children=1
+        - Scaffold id=inspector-4 children=2
+          - ListView id=inspector-5 children=18
+            - Text id=inspector-7 children=0
+            - SizedBox id=inspector-8 children=0
+            - TextField id=inspector-9 children=0
+            - SizedBox id=inspector-10 children=0
+            - FilledButton-[<'测试'>] id=inspector-11 children=1
+              - Text id=inspector-26 children=0
+            - SizedBox id=inspector-12 children=0
+            - Padding id=inspector-13 children=1
+              - Text id=inspector-27 children=0
+            - Padding id=inspector-14 children=1
+              - Text id=inspector-28 children=0
+            - Padding id=inspector-15 children=1
+              - Text id=inspector-29 children=0
+            - Padding id=inspector-16 children=1
+              - Text id=inspector-30 children=0
+            - Padding id=inspector-17 children=1
+              - Text id=inspector-31 children=0
+            - Padding id=inspector-18 children=1
+              - Text id=inspector-32 children=0
+            - Padding id=inspector-19 children=1
+              - Text id=inspector-33 children=0
+            - Padding id=inspector-20 children=1
+              - Text id=inspector-34 children=0
+            - Padding id=inspector-21 children=1
+              - Text id=inspector-35 children=0
+            - Padding id=inspector-22 children=1
+              - Text id=inspector-36 children=0
+            - Padding id=inspector-23 children=1
+              - Text id=inspector-37 children=0
+            - Padding id=inspector-24 children=1
+              - Text id=inspector-38 children=0
+          - AppBar id=inspector-6 children=1
+            - Text id=inspector-25 children=0
+
+Full Summary Tree JSON
+{
+  "description": "[root]",
+  "shouldIndent": true,
+  "widgetRuntimeType": "RootWidget",
+  "valueId": "inspector-0",
+  "children": [
+    {
+      "description": "SmokeApp",
+      "shouldIndent": true,
+      "widgetRuntimeType": "SmokeApp",
+      "valueId": "inspector-1",
+      "createdByLocalProject": true,
+      "children": [
+        {
+          "description": "MaterialApp",
+          "shouldIndent": true,
+          "widgetRuntimeType": "MaterialApp",
+          "valueId": "inspector-2",
+          "createdByLocalProject": true,
+          "children": [
+            {
+              "description": "SmokeHomePage",
+              "shouldIndent": true,
+              "widgetRuntimeType": "SmokeHomePage",
+              "valueId": "inspector-3",
+              "createdByLocalProject": true,
+              "children": [
+                {
+                  "description": "Scaffold",
+                  "shouldIndent": true,
+                  "widgetRuntimeType": "Scaffold",
+                  "valueId": "inspector-4",
+                  "createdByLocalProject": true,
+                  "children": [
+                    {
+                      "description": "ListView",
+                      "shouldIndent": true,
+                      "widgetRuntimeType": "ListView",
+                      "valueId": "inspector-5",
+                      "createdByLocalProject": true,
+                      "children": [
+                        {
+                          "description": "Text",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "Text",
+                          "valueId": "inspector-7",
+                          "createdByLocalProject": true,
+                          "textPreview": "Smoke form",
+                          "children": []
+                        },
+                        {
+                          "description": "SizedBox",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "SizedBox",
+                          "valueId": "inspector-8",
+                          "createdByLocalProject": true
+                        },
+                        {
+                          "description": "TextField",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "TextField",
+                          "valueId": "inspector-9",
+                          "createdByLocalProject": true,
+                          "children": []
+                        },
+                        {
+                          "description": "SizedBox",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "SizedBox",
+                          "valueId": "inspector-10",
+                          "createdByLocalProject": true
+                        },
+                        {
+                          "description": "FilledButton-[<'测试'>]",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "FilledButton",
+                          "valueId": "inspector-11",
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "shouldIndent": true,
+                              "widgetRuntimeType": "Text",
+                              "valueId": "inspector-26",
+                              "createdByLocalProject": true,
+                              "textPreview": "Submit smoke",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "description": "SizedBox",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "SizedBox",
+                          "valueId": "inspector-12",
+                          "createdByLocalProject": true
+                        },
+                        {
+                          "description": "Padding",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "Padding",
+                          "valueId": "inspector-13",
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "shouldIndent": true,
+                              "widgetRuntimeType": "Text",
+                              "valueId": "inspector-27",
+                              "createdByLocalProject": true,
+                              "textPreview": "Smoke row 0",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "description": "Padding",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "Padding",
+                          "valueId": "inspector-14",
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "shouldIndent": true,
+                              "widgetRuntimeType": "Text",
+                              "valueId": "inspector-28",
+                              "createdByLocalProject": true,
+                              "textPreview": "Smoke row 1",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "description": "Padding",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "Padding",
+                          "valueId": "inspector-15",
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "shouldIndent": true,
+                              "widgetRuntimeType": "Text",
+                              "valueId": "inspector-29",
+                              "createdByLocalProject": true,
+                              "textPreview": "Smoke row 2",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "description": "Padding",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "Padding",
+                          "valueId": "inspector-16",
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "shouldIndent": true,
+                              "widgetRuntimeType": "Text",
+                              "valueId": "inspector-30",
+                              "createdByLocalProject": true,
+                              "textPreview": "Smoke row 3",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "description": "Padding",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "Padding",
+                          "valueId": "inspector-17",
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "shouldIndent": true,
+                              "widgetRuntimeType": "Text",
+                              "valueId": "inspector-31",
+                              "createdByLocalProject": true,
+                              "textPreview": "Smoke row 4",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "description": "Padding",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "Padding",
+                          "valueId": "inspector-18",
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "shouldIndent": true,
+                              "widgetRuntimeType": "Text",
+                              "valueId": "inspector-32",
+                              "createdByLocalProject": true,
+                              "textPreview": "Smoke row 5",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "description": "Padding",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "Padding",
+                          "valueId": "inspector-19",
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "shouldIndent": true,
+                              "widgetRuntimeType": "Text",
+                              "valueId": "inspector-33",
+                              "createdByLocalProject": true,
+                              "textPreview": "Smoke row 6",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "description": "Padding",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "Padding",
+                          "valueId": "inspector-20",
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "shouldIndent": true,
+                              "widgetRuntimeType": "Text",
+                              "valueId": "inspector-34",
+                              "createdByLocalProject": true,
+                              "textPreview": "Smoke row 7",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "description": "Padding",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "Padding",
+                          "valueId": "inspector-21",
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "shouldIndent": true,
+                              "widgetRuntimeType": "Text",
+                              "valueId": "inspector-35",
+                              "createdByLocalProject": true,
+                              "textPreview": "Smoke row 8",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "description": "Padding",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "Padding",
+                          "valueId": "inspector-22",
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "shouldIndent": true,
+                              "widgetRuntimeType": "Text",
+                              "valueId": "inspector-36",
+                              "createdByLocalProject": true,
+                              "textPreview": "Smoke row 9",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "description": "Padding",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "Padding",
+                          "valueId": "inspector-23",
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "shouldIndent": true,
+                              "widgetRuntimeType": "Text",
+                              "valueId": "inspector-37",
+                              "createdByLocalProject": true,
+                              "textPreview": "Smoke row 10",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "description": "Padding",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "Padding",
+                          "valueId": "inspector-24",
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "shouldIndent": true,
+                              "widgetRuntimeType": "Text",
+                              "valueId": "inspector-38",
+                              "createdByLocalProject": true,
+                              "textPreview": "Smoke row 11",
+                              "children": []
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "description": "AppBar",
+                      "shouldIndent": true,
+                      "widgetRuntimeType": "AppBar",
+                      "valueId": "inspector-6",
+                      "createdByLocalProject": true,
+                      "children": [
+                        {
+                          "description": "Text",
+                          "shouldIndent": true,
+                          "widgetRuntimeType": "Text",
+                          "valueId": "inspector-25",
+                          "createdByLocalProject": true,
+                          "textPreview": "Flutter Pilot Smoke",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
