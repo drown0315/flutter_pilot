@@ -15,6 +15,7 @@ import '../test_command_support.dart';
 /// `test` command shell for validating CLI arguments before app launch.
 ///
 /// It checks Scenario YAML and validates `--until` / `--print` relationships
+/// before the Target App Package is launched.
 class TestCommand extends Command<int> {
   TestCommand({
     required TestCommandExecutor executor,

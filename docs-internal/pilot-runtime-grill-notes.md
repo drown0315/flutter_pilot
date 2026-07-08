@@ -12,8 +12,9 @@ design memory, not a final PRD.
   `packages/pilot_runtime/`.
 - Keep `mcp_flutter` and `McpFlutterRuntimeAdapter` as the default while
   `pilot_runtime` is implemented and calibrated.
-- Add a `PilotRuntimeAdapter` behind a hidden experimental environment switch,
-  such as `FLUTTER_PILOT_RUNTIME=pilot_runtime`.
+- Add a `PilotRuntimeAdapter` behind the hidden experimental environment switch
+  `FLUTTER_PILOT_RUNTIME=pilot_runtime`. Leaving the variable unset, empty, or
+  set to `mcp_flutter` keeps the default adapter.
 - Do not start replacing `mcp_toolkit` setup, `doctor`, `init`, or the default
   runtime path until `pilot_runtime` is complete enough to replace the current
   adapter.
@@ -55,7 +56,7 @@ design memory, not a final PRD.
 ## Service Extension Protocol
 
 - App-side extensions use the `ext.flutter_pilot.runtime.*` prefix.
-- `ext.flutter_pilot.runtime.state` is the protocol handshake extension.
+- `ext.flutter_pilot.runtime.handshake` is the protocol handshake extension.
 - `initialize()` checks the handshake, validates `protocolVersion == 1`, and
   verifies required capabilities before any Scenario Step executes.
 - Protocol version mismatches are run-level initialization failures.

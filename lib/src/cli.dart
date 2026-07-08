@@ -11,9 +11,13 @@ import 'test_command_support.dart';
 
 /// Command-line entry point for Flutter Pilot.
 ///
-/// It installs the first-version command surface:
+/// It installs the current command surface:
 /// - `validate <scenario.yaml>`
-/// - `test <scenario.yaml>`
+/// - `test [scenario.yaml|scenario-directory]`
+/// - `report <run-directory>`
+/// - `diff <before-run> <after-run>`
+/// - `doctor`
+/// - `init`
 ///
 /// Example:
 /// `FlutterPilotCli().run(['validate', 'examples/login_error.yaml'])`

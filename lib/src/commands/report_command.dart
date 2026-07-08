@@ -7,6 +7,7 @@ import '../html_timeline_report.dart';
 /// `report` command for regenerating HTML from an existing run directory.
 ///
 /// It reads `<run-directory>/run_report.json` and writes
+/// `<run-directory>/timeline.html` without connecting to a Flutter runtime.
 class ReportCommand extends Command<int> {
   @override
   String get description =>

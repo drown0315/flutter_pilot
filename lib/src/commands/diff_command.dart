@@ -9,6 +9,7 @@ import '../run_diff.dart';
 /// It reads each directory's `run_report.json`, generates a Step-focused Run
 /// Diff, and prints either human-readable output or `--json` output.
 /// Regressions are report content, not process failures, so successful diff
+/// generation exits `0`.
 class DiffCommand extends Command<int> {
   DiffCommand() {
     argParser.addFlag(

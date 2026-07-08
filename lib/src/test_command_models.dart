@@ -16,12 +16,25 @@ class TestCommandOptions {
     required this.jsonOutput,
   });
 
+  /// Parsed Scenario to execute.
   final Scenario scenario;
+
+  /// Optional Target Device selector from `--device`.
   final String? device;
+
+  /// Optional Flutter flavor passed to `flutter run`.
   final String? flavor;
+
+  /// Optional app entrypoint passed to `flutter run --target`.
   final String? target;
+
+  /// Optional Step number or Step Label where execution should stop.
   final RunStopPoint? stopPoint;
+
+  /// Diagnostics requested by repeated `--print` options.
   final Set<PrintDiagnostic> printDiagnostics;
+
+  /// Whether printable diagnostics should use JSON stdout.
   final bool jsonOutput;
 }
 
@@ -43,9 +56,16 @@ class ProjectRunCommandOptions {
   /// Validated Entry Scenario files selected for the Project Run.
   final List<ProjectScenarioFile> scenarios;
 
+  /// Optional Target Device selector from `--device`.
   final String? device;
+
+  /// Optional Flutter flavor passed to `flutter run`.
   final String? flavor;
+
+  /// Optional app entrypoint passed to `flutter run --target`.
   final String? target;
+
+  /// Whether machine-readable command output was requested.
   final bool jsonOutput;
 }
 

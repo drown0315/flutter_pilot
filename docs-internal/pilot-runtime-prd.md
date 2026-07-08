@@ -88,7 +88,7 @@ structured UI artifact exposed through `widgetTree`.
 
 - Build `pilot_runtime` as an independent Flutter package, not a pure Dart package, because the app-side hook needs Flutter bindings, Elements, Semantics, gestures, editable text state, and render objects.
 - Keep `McpFlutterRuntimeAdapter` as the default runtime adapter while `pilot_runtime` is built and calibrated.
-- Select `PilotRuntimeAdapter` initially through a hidden environment switch rather than a public CLI flag.
+- Select `PilotRuntimeAdapter` initially with `FLUTTER_PILOT_RUNTIME=pilot_runtime`; omit the variable or set `FLUTTER_PILOT_RUNTIME=mcp_flutter` for the default path. Other values fail before Scenario execution.
 - Do not update `init`, `doctor`, or default Target App Package setup until `pilot_runtime` reaches replacement parity.
 - Provide one public package barrel that exports both app-side hook API and client API.
 - The app-side setup uses `PilotRuntimeBinding.ensureInitialized()` inside an explicit debug-mode branch.

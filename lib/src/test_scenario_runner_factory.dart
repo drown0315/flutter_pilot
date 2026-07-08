@@ -30,7 +30,10 @@ abstract interface class TestScenarioRunner {
   });
 }
 
-/// Default Scenario runner factory backed by `McpFlutterRuntimeAdapter`.
+/// Default Scenario runner factory backed by the selected Runtime Adapter.
+///
+/// The normal path remains `McpFlutterRuntimeAdapter`; experimental adapters
+/// are selected by `RuntimeAdapterSelector` through hidden environment state.
 class DefaultTestScenarioRunnerFactory implements TestScenarioRunnerFactory {
   /// Creates the default runner factory.
   const DefaultTestScenarioRunnerFactory();
