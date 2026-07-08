@@ -36,6 +36,10 @@ _Avoid_: Profile target, release target, installed app
 Runtime Target access that does not require the Target App Package to add Flutter Pilot code, plugins, hooks, or SDK initialization.
 _Avoid_: App SDK integration, target-side hook
 
+**Invasive Runtime Access**:
+Runtime Target access that requires the Target App Package to depend on and initialize Flutter Pilot runtime code so Flutter Pilot can inspect and interact with the app from inside the app isolate.
+_Avoid_: Non-invasive Runtime Access, external-only runtime access
+
 **Target App Package**:
 The Flutter app package in the current working directory that is expected to expose the runtime capabilities Flutter Pilot needs before it can be used as a Runtime Target.
 _Avoid_: Scenario workspace, CLI workspace, project root
@@ -53,7 +57,7 @@ The narrow interface between the Flutter Pilot runner and a concrete Flutter run
 _Avoid_: Runtime Target, driver, bridge
 
 **pilot_runtime**:
-A Dart package that provides low-level capabilities against a Flutter Runtime Target for Flutter Pilot to consume through an adapter.
+A Flutter package that provides low-level capabilities against a Flutter Runtime Target for Flutter Pilot to consume through an adapter.
 _Avoid_: Runtime Adapter, Flutter Pilot runtime
 
 **PilotRuntimeAdapter**:
@@ -61,20 +65,32 @@ The Flutter Pilot Runtime Adapter implementation backed by `pilot_runtime`.
 _Avoid_: pilot_runtime, mcp_flutter adapter
 
 **Finder**:
-A rule for finding the widget that a Scenario step should interact with or wait for. A Finder may combine text and semantic node type constraints in the same step; every configured constraint must match, each constraint has one string value, and there is no separate match option.
+A rule for finding a visible Runtime Target match that a Scenario step should interact with or wait for. A Finder may combine text, semantic node type, value key, and widget type constraints in the same step; every configured constraint must match, each constraint has one string value, and there is no separate match option.
 _Avoid_: Selector, locator, query
 
 **Finder Match**:
-The widget result produced by applying a Finder during a Scenario run. A valid action requires exactly one Finder Match; zero matches or multiple matches fail the step. Its runtime identifier is an opaque Runtime Adapter reference that may be recorded and passed back to the Runtime Adapter, but must not be parsed by the runner. A Finder Match is valid only for the action immediately following the Finder resolution that produced it; the runner must not cache it for later Steps.
+A Runtime Target match produced by applying a Finder during a Scenario run. A valid Finder resolution requires exactly one Finder Match; zero matches or multiple matches fail the step, and action-specific capabilities such as tapping, typing, or scrolling are validated when the action executes.
 _Avoid_: First match, best match
 
+**Runtime Handle**:
+An opaque runtime token returned with a Finder Match and accepted back by the Runtime Adapter for the immediately following action. Flutter Pilot may record it for diagnostics, but must not parse it, construct it, or treat it as stable identity.
+_Avoid_: Widget id, key, Inspector id, stable reference
+
 **Semantic Node Type**:
-The `mcp_flutter` semantic Snapshot node type used by `byType`. It names the role exposed by the runtime Snapshot, such as `textField`, `button`, `text`, `scrollable`, or `header`; it is not a Dart widget class name.
+The semantic UI role used by the `byType` Finder constraint. It names the role exposed by runtime semantics, such as `textField`, `button`, `text`, `scrollable`, or `header`; it is not a Dart widget class name.
 _Avoid_: Widget class name, runtime type expression, qualified type name
 
 **Text Finder**:
-A Finder constraint that matches a widget by exact visible text.
+A Finder constraint that matches exact user-visible text exposed by runtime semantics or editable text state.
 _Avoid_: Contains text, fuzzy text match
+
+**Value Key Finder**:
+A Finder constraint that matches a visible target by `ValueKey<String>` value.
+_Avoid_: Object key, GlobalKey, typed key expression
+
+**Widget Type Finder**:
+A Finder constraint that matches a visible target by exact Dart widget runtime type display name through the `byWidget` Scenario field.
+_Avoid_: Semantic Node Type, `byType`, widget instance, widget subtree query
 
 **Step**:
 One ordered item in a Scenario. A Step may have a label and must have exactly one action.
@@ -116,20 +132,16 @@ _Avoid_: Swipe
 A visual image artifact captured during a Scenario run. It represents what a human user would see on screen.
 _Avoid_: Snapshot
 
-**Snapshot**:
-A structured UI state artifact captured during a Scenario run for programmatic and agent consumption. It summarizes what the app exposes through semantic or UI inspection, such as visible text, interactive elements, labels, roles, states, and useful identifiers.
-_Avoid_: Screenshot, raw widget tree, full dump
-
 **Widget Tree**:
-A raw or near-raw Flutter widget hierarchy artifact used for deeper debugging. It is separate from a Snapshot and is not the default agent-facing artifact.
-_Avoid_: Snapshot
+A structured Flutter widget hierarchy artifact captured during a Scenario run for programmatic and agent consumption.
+_Avoid_: Snapshot, screenshot, full dump
 
 **Inspector Summary Widget Tree**:
-A Flutter Inspector-provided summary widget hierarchy used as Flutter Pilot's Widget Tree source when available. It should preserve useful widget identity and hierarchy without promising a complete source-level Flutter widget dump.
-_Avoid_: Full Widget Tree, Snapshot, debugDumpApp
+A normalized Flutter Inspector-provided summary widget hierarchy used as Flutter Pilot's Widget Tree source. It preserves useful widget identity and hierarchy without promising a complete source-level Flutter widget dump.
+_Avoid_: Full Widget Tree, Snapshot, debugDumpApp, raw Inspector response
 
 **Capture Action**:
-An action that records diagnostic artifacts at a specific Step in a Scenario. Its default bundle includes Screenshot, Snapshot, and Logs, but not Widget Tree. Runtime errors are collected as part of Logs rather than as a separate first-version artifact.
+An action that records diagnostic artifacts at a specific Step in a Scenario. Its default bundle includes Screenshot, Widget Tree, and Logs.
 _Avoid_: Screenshot step, dump step
 
 **Scenario Recording**:

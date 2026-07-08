@@ -914,3 +914,37 @@ Use the app-side hook as the path to replace `mcp_toolkit` action replay. Use
 non-invasive access for diagnostics and calibration, not for `byKey`,
 `byWidgetType`, semantic `byType`, or coordinate tapping until future Flutter
 SDK evidence proves a stable action boundary.
+
+## Follow-up Grill Decision Update - 2026-07-08
+
+The follow-up `grill-with-docs` session narrowed the replacement plan beyond
+this research report's conservative recommendations:
+
+- `pilot_runtime` v1 uses Invasive Runtime Access only. There is no
+  Non-invasive Runtime Access fallback for runtime replay.
+- Non-invasive Flutter Inspector access remains the source for normalized
+  Widget Tree capture, but not as a fallback runtime mode.
+- `mcp_toolkit` remains the default until `pilot_runtime` is fully implemented
+  and calibrated. `PilotRuntimeAdapter` is selected first through a hidden
+  environment switch.
+- `byKey` and `byWidget` enter the public Scenario DSL once the
+  `pilot_runtime` path lands. `byKey` supports `ValueKey<String>` only.
+  `byWidget` is the chosen public field name for exact Dart widget runtime type
+  matching, rather than `byWidgetType`.
+- `byText`, semantic `byType`, `byKey`, and `byWidget` use AND semantics and
+  strict cardinality.
+- Snapshot capture is removed from the Scenario DSL and Runtime Adapter
+  contract. Normalized Inspector Summary Widget Tree becomes the structured UI
+  artifact, with `widgetTree` as the YAML field, report artifact type, and
+  print diagnostic.
+- `capture: {}` and automatic failure diagnostics include Widget Tree by
+  default.
+- Logs collection remains in the adapter contract, but `pilot_runtime` v1
+  returns a not-implemented logs payload rather than collecting real logs.
+- Hot reload and hot restart are required `pilot_runtime` v1 client
+  capabilities before replacing `mcp_toolkit`, but they are not Scenario Step
+  actions.
+
+See `docs-internal/pilot-runtime-grill-notes.md` and
+`docs-internal/adr/0005-build-pilot-runtime-with-invasive-runtime-access.md`
+for the current decision snapshot.
