@@ -30,6 +30,40 @@ void main() {
 
     await connection.dispose();
   });
+
+  test('selects a fresh isolate for each extension name', () async {
+    final _FakeVmService service = _FakeVmService(
+      isolates: const <_HarnessIsolate>[
+        _HarnessIsolate(
+          id: 'app',
+          extensionRPCs: <String>[PilotRuntimeProtocol.handshakeExtension],
+        ),
+        _HarnessIsolate(
+          id: 'inspector',
+          extensionRPCs: <String>[
+            PilotRuntimeInspectorProtocol.getRootWidgetTreeExtension,
+          ],
+        ),
+      ],
+    );
+    final PilotRuntimeVmServiceConnection connection =
+        PilotRuntimeVmServiceConnection(
+          vmServiceUri: Uri.parse('ws://127.0.0.1:1234/example=/ws'),
+          connector: (_) async => service,
+        );
+
+    final Map<String, Object?> handshakeResponse = await connection
+        .callServiceExtension(PilotRuntimeProtocol.handshakeExtension);
+    final Map<String, Object?> inspectorResponse = await connection
+        .callServiceExtension(
+          PilotRuntimeInspectorProtocol.getRootWidgetTreeExtension,
+        );
+
+    expect(handshakeResponse['isolateId'], 'app');
+    expect(inspectorResponse['isolateId'], 'inspector');
+
+    await connection.dispose();
+  });
 }
 
 class _HarnessIsolate {

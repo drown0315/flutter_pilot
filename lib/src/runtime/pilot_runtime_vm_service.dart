@@ -24,7 +24,7 @@ class PilotRuntimeVmServiceConnection implements PilotRuntimeVmService {
   final Uri _vmServiceUri;
   final PilotRuntimeVmServiceConnector _connector;
   vm_service.VmService? _service;
-  String? _isolateId;
+  final Map<String, String> _isolateIdsByExtension = <String, String>{};
 
   @override
   Future<Map<String, Object?>> callServiceExtension(
@@ -53,7 +53,7 @@ class PilotRuntimeVmServiceConnection implements PilotRuntimeVmService {
   Future<void> dispose() async {
     await _service?.dispose();
     _service = null;
-    _isolateId = null;
+    _isolateIdsByExtension.clear();
   }
 
   Future<vm_service.VmService> _connectedService() async {
@@ -70,7 +70,7 @@ class PilotRuntimeVmServiceConnection implements PilotRuntimeVmService {
     vm_service.VmService service,
     String extensionName,
   ) async {
-    final String? existingIsolateId = _isolateId;
+    final String? existingIsolateId = _isolateIdsByExtension[extensionName];
     if (existingIsolateId != null) {
       return existingIsolateId;
     }
@@ -86,7 +86,7 @@ class PilotRuntimeVmServiceConnection implements PilotRuntimeVmService {
         final List<String> extensionRPCs =
             isolateDetails.extensionRPCs ?? const <String>[];
         if (extensionRPCs.contains(extensionName)) {
-          _isolateId = isolateId;
+          _isolateIdsByExtension[extensionName] = isolateId;
           return isolateId;
         }
       }

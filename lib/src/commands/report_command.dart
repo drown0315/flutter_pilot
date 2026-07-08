@@ -4,7 +4,6 @@ import 'package:args/command_runner.dart';
 
 import '../html_timeline_report.dart';
 
-
 /// `report` command for regenerating HTML from an existing run directory.
 ///
 /// It reads `<run-directory>/run_report.json` and writes
@@ -39,5 +38,3 @@ class ReportCommand extends Command<int> {
     }
   }
 }
-
-

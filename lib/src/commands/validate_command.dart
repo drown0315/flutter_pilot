@@ -72,5 +72,3 @@ class ValidateCommand extends Command<int> {
     }
   }
 }
-
-
