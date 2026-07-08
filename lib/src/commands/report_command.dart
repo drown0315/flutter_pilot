@@ -4,10 +4,10 @@ import 'package:args/command_runner.dart';
 
 import '../html_timeline_report.dart';
 
-
 /// `report` command for regenerating HTML from an existing run directory.
 ///
-/// It reads `<run-directory>/run_report.json` and writes
+/// It reads `<run-directory>/run_report.json` and writes `timeline.html` beside
+/// the existing report artifacts.
 class ReportCommand extends Command<int> {
   @override
   String get description =>
@@ -39,5 +39,3 @@ class ReportCommand extends Command<int> {
     }
   }
 }
-
-
