@@ -185,6 +185,7 @@ steps:
     expect(result.stdout, contains('--print'));
     expect(result.stdout, contains('--json'));
     expect(result.stdout, isNot(contains('--html')));
+    expect(result.stdout, isNot(contains('FLUTTER_PILOT_RUNTIME')));
   });
 
   test('test rejects unknown --until values before app launch', () async {

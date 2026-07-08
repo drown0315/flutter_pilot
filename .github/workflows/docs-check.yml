@@ -24,10 +24,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Dart
-        uses: dart-lang/setup-dart@v1
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
-          sdk: stable
+          channel: stable
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -36,7 +36,11 @@ jobs:
           cache: npm
 
       - name: Install Dart dependencies
-        run: dart pub get
+        run: flutter pub get
+
+      - name: Install pilot_runtime dependencies
+        working-directory: packages/pilot_runtime
+        run: flutter pub get
 
       - name: Install Node dependencies
         run: npm ci
