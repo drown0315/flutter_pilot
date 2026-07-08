@@ -38,11 +38,15 @@ jobs:
       - name: Install Dart dependencies
         run: flutter pub get
 
+      - name: Install pilot_runtime dependencies
+        working-directory: packages/pilot_runtime
+        run: flutter pub get
+
       - name: Install Node dependencies
         run: npm ci
 
       - name: Analyze docs helpers
-        run: dart analyze --fatal-infos --fatal-warnings
+        run: dart analyze --fatal-infos --fatal-warnings lib/src/scenario_dsl_docs.dart tool/check_scenario_dsl_docs.dart test/scenario_dsl_docs_test.dart test/scenario_dsl_docs_tool_test.dart
 
       - name: Test docs examples
         run: dart test test/scenario_dsl_docs_test.dart test/scenario_dsl_docs_tool_test.dart
