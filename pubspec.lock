@@ -41,14 +41,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
-  characters:
-    dependency: transitive
-    description:
-      name: characters
-      sha256: faf38497bda5ead2a8c7615f4f7939df04333478bf32e4173fcb06d428b5716b
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.4.1"
   cli_config:
     dependency: transitive
     description:
@@ -105,11 +97,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.0"
-  flutter:
-    dependency: transitive
-    description: flutter
-    source: sdk
-    version: "0.0.0"
   frontend_server_client:
     dependency: transitive
     description:
@@ -174,14 +161,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.12.19"
-  material_color_utilities:
-    dependency: transitive
-    description:
-      name: material_color_utilities
-      sha256: "9c337007e82b1889149c82ed242ed1cb24a66044e30979c44912381e9be4c48b"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.13.0"
   meta:
     dependency: transitive
     description:
@@ -222,10 +201,10 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.9.1"
-  pilot_runtime:
+  pilot_runtime_client:
     dependency: "direct main"
     description:
-      path: "packages/pilot_runtime"
+      path: "packages/pilot_runtime_client"
       relative: true
     source: path
     version: "0.1.0"
@@ -284,11 +263,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.0"
-  sky_engine:
-    dependency: transitive
-    description: flutter
-    source: sdk
-    version: "0.0.0"
   source_map_stack_trace:
     dependency: transitive
     description:
@@ -377,14 +351,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
-  vector_math:
-    dependency: transitive
-    description:
-      name: vector_math
-      sha256: d530bd74fea330e6e364cda7a85019c434070188383e1cd8d9777ee586914c5b
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.2.0"
   vm_service:
     dependency: "direct main"
     description:

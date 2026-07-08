@@ -1,5 +1,5 @@
 import 'package:flutter_pilot/flutter_pilot.dart';
-import 'package:pilot_runtime/pilot_runtime_client.dart';
+import 'package:pilot_runtime_client/pilot_runtime_client.dart';
 import 'package:test/test.dart';
 import 'package:vm_service/vm_service.dart' as vm_service;
 

@@ -1,4 +1,4 @@
-import 'package:pilot_runtime/pilot_runtime_client.dart';
+import 'package:pilot_runtime_client/pilot_runtime_client.dart';
 
 import '../scenario.dart';
 import 'runtime_contract.dart';

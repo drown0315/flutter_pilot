@@ -4,7 +4,7 @@ import 'dart:developer';
 
 import 'package:flutter/foundation.dart';
 
-import 'pilot_runtime_protocol.dart';
+import 'package:pilot_runtime_client/pilot_runtime_client.dart';
 
 /// Handles one app-side Flutter Pilot service extension request.
 ///

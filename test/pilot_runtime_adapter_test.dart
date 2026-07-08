@@ -1,5 +1,5 @@
 import 'package:flutter_pilot/flutter_pilot.dart';
-import 'package:pilot_runtime/pilot_runtime_client.dart';
+import 'package:pilot_runtime_client/pilot_runtime_client.dart';
 import 'package:test/test.dart';
 
 /// Verifies Flutter Pilot's Runtime Adapter backed by `pilot_runtime`.

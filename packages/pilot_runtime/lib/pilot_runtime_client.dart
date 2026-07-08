@@ -1,8 +1,7 @@
-/// Public client-side API for Flutter Pilot runtime access.
+/// Compatibility export for the Dart-only pilot runtime client API.
 ///
-/// Dart CLI tools can import this library without loading the Flutter app-side
-/// binding API from `pilot_runtime.dart`.
+/// New CLI code should depend on `package:pilot_runtime_client` directly so
+/// Dart-only dependency resolution never needs the Flutter SDK.
 library;
 
-export 'src/pilot_runtime_client.dart';
-export 'src/pilot_runtime_protocol.dart';
+export 'package:pilot_runtime_client/pilot_runtime_client.dart';

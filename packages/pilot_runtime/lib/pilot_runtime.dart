@@ -7,5 +7,4 @@
 library;
 
 export 'src/pilot_runtime_binding.dart';
-export 'src/pilot_runtime_client.dart';
-export 'src/pilot_runtime_protocol.dart';
+export 'package:pilot_runtime_client/pilot_runtime_client.dart';
