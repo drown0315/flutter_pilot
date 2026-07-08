@@ -50,8 +50,8 @@ design memory, not a final PRD.
 
 - `PilotRuntimeBinding.ensureInitialized()` is a no-op outside debug mode.
 - CLI execution derives `projectRoot` from the Target App Package working
-  directory and passes it through runtime target metadata. Users should not need
-  to pass project root manually for ordinary `flutter_pilot test` runs.
+  directory through the runtime adapter selector/factory path. Users should not
+  need to pass project root manually for ordinary `flutter_pilot test` runs.
 
 ## Service Extension Protocol
 
@@ -151,7 +151,7 @@ design memory, not a final PRD.
   with:
 
   ```text
-  groupName: flutter_pilot_widget_tree
+  groupName: pilot_runtime_widget_tree
   isSummaryTree: true
   withPreviews: true
   fullDetails: false
@@ -163,15 +163,15 @@ design memory, not a final PRD.
 
   ```json
   {
-    "schema": "flutterPilot.widgetTree.v1",
-    "source": "flutterInspectorSummaryTree",
+    "schema": "flutter_pilot.widget_tree.v1",
+    "source": "flutter_inspector_summary_tree",
     "root": {}
   }
   ```
 
 - Node fields include normalized Inspector data such as:
   - `description`
-  - `widgetType` from Inspector `widgetRuntimeType`
+  - `widgetRuntimeType`
   - `inspectorValueId` from Inspector `valueId`
   - `textPreview` when present
   - `createdByLocalProject` when present

@@ -25,6 +25,10 @@ Widget Tree capture. It does not yet implement Finder resolution, tap, type,
 scroll, screenshot, or logs replay, so Flutter Pilot keeps `mcp_flutter` as the
 default runtime bridge.
 
+Tooling that only needs the VM Service client can import
+`package:pilot_runtime/pilot_runtime_client.dart` without importing the
+app-side Flutter binding API.
+
 Flutter Pilot can select this runtime for calibration with:
 
 ```bash

@@ -23,6 +23,8 @@ class RuntimeAdapterSelector {
   /// `target` is the launched Runtime Target passed to the adapter.
   /// `environment` defaults to `Platform.environment`; tests pass explicit
   /// maps so selection can be verified without changing process state.
+  /// `projectRoot` is the Target App Package root used by experimental
+  /// `pilot_runtime` Widget Tree capture; it defaults to the current directory.
   static RuntimeAdapter select({
     required RuntimeTarget target,
     Map<String, String>? environment,

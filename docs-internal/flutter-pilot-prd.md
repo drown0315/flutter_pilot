@@ -19,6 +19,11 @@ mode are removed. `test --target` follows Flutter CLI vocabulary and selects
 the Flutter app entrypoint file, while `--device` selects the Target Device and
 `--flavor` selects the Flutter flavor.
 
+An experimental `pilot_runtime` path now exists behind the hidden
+`FLUTTER_PILOT_RUNTIME=pilot_runtime` switch for calibration. The public CLI
+and default Target App Package setup still use the `mcp_flutter` path until the
+owned runtime reaches parity.
+
 The first product milestone focuses on six capabilities:
 
 1. YAML replay
@@ -175,6 +180,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
   - Finder and action model: represents user intent independently from `mcp_flutter` command details.
   - Runner engine: executes steps, handles `--until`, applies waits, records status, and triggers captures.
   - `mcp_flutter` adapter: maps high-level actions and capture requests to `mcp_flutter`. Prefer an available API/SDK call path; use CLI subprocess execution only as a fallback when the API path is unavailable or insufficient.
+  - `pilot_runtime` adapter: hidden experimental adapter selected with `FLUTTER_PILOT_RUNTIME=pilot_runtime`; the current slice verifies the app-side handshake and captures normalized Inspector Summary Widget Tree data, while action replay remains on the default `mcp_flutter` path.
   - Artifact store: owns run directory layout and artifact metadata.
   - Diagnostic reducer: turns large widget and semantic data into agent-friendly summaries.
   - Report generator: builds JSON and HTML reports from run results.
@@ -243,7 +249,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - Interactive recording of manual app usage into YAML is not part of the MVP.
 - Automatic source-code patching is not part of this PRD.
 - Full visual regression testing infrastructure is not part of the MVP beyond before/after run diffing.
-- Replacing `mcp_flutter` or building a custom Flutter VM service integration is out of scope.
+- Replacing `mcp_flutter` as the default runtime bridge or exposing a public custom VM Service runtime is out of scope for this PRD.
 - Supporting every possible Flutter widget Finder in the first release is out of scope.
 - Cloud artifact hosting and team dashboard features are out of scope.
 

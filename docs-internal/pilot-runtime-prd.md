@@ -97,7 +97,7 @@ structured UI artifact exposed through `widgetTree`.
 - Add a protocol handshake extension that returns protocol version and capabilities.
 - Accept only protocol version 1 in the first client.
 - Treat missing runtime hook, missing handshake capability, and protocol version mismatch as run-level initialization failures.
-- Derive project root from the Target App Package working directory during ordinary `flutter_pilot test` execution and carry it in runtime target metadata.
+- Derive project root from the Target App Package working directory during ordinary `flutter_pilot test` execution through the runtime adapter selector/factory path.
 - Keep VM Service, Flutter Inspector extension names, and app hook extension names behind `PilotRuntimeClient`.
 - Runtime Adapter `initialize` maps `pilot_runtime` setup failures into Flutter Pilot run-level failures before Step execution.
 - Add `byKey` and `byWidget` to the public Scenario DSL once the `pilot_runtime` path lands.
@@ -124,7 +124,7 @@ structured UI artifact exposed through `widgetTree`.
 - Widget Tree capture sets Flutter Inspector pub root directories using the CLI-derived project root before requesting the tree.
 - Widget Tree capture fails when setting pub root directories fails or the summary tree cannot be normalized.
 - Widget Tree JSON includes a schema identifier, a source identifier, and one normalized root node.
-- Widget Tree nodes normalize Inspector description, widget runtime type, Inspector value id, text preview, local project marker, and children.
+- Widget Tree nodes normalize Inspector `description`, `widgetRuntimeType`, Inspector `valueId` as `inspectorValueId`, `textPreview`, local project marker, and children.
 - Rename Inspector `valueId` to `inspectorValueId` in normalized artifacts.
 - Do not parse keys from Inspector `description`; `byKey` must use app-side access to real `ValueKey<String>` values.
 - Screenshot capture uses a Flutter-layer or Flutter Inspector screenshot path, not device screenshots.
