@@ -15,7 +15,7 @@ import 'recording/recording_contract.dart';
 import 'recording/screen_recorder_recording_controller.dart';
 import 'project_scenario_discovery.dart';
 import 'project_run_report.dart';
-import 'runtime/mcp_flutter_runtime_adapter.dart';
+import 'runtime/runtime_adapter_selector.dart';
 import 'runtime/runtime_contract.dart';
 import 'run_diff.dart';
 import 'scenario.dart';
@@ -985,17 +985,27 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
           scenario: scenarioFile.scenario,
           startedAt: clock().toUtc(),
         );
-        final TestScenarioRunner runner = runnerFactory.create(
-          runtimeTarget: RuntimeTarget(vmServiceUri: launch.runtimeTargetUri),
-          targetDevice: targetDevice,
-          recordingController: scenarioFile.scenario.recording?.enabled == true
-              ? ScreenRecorderRecordingController(
-                  recorder: screen_recorder.ScreenRecorder.defaultRecorder(),
-                  deviceSelector: targetDevice!.id,
-                  outputDirectory: Directory.current,
-                )
-              : null,
-        );
+        final TestScenarioRunner runner;
+        try {
+          runner = runnerFactory.create(
+            runtimeTarget: RuntimeTarget(vmServiceUri: launch.runtimeTargetUri),
+            targetDevice: targetDevice,
+            recordingController:
+                scenarioFile.scenario.recording?.enabled == true
+                ? ScreenRecorderRecordingController(
+                    recorder: screen_recorder.ScreenRecorder.defaultRecorder(),
+                    deviceSelector: targetDevice!.id,
+                    outputDirectory: Directory.current,
+                  )
+                : null,
+          );
+        } on RuntimeAdapterSelectionException catch (error) {
+          environmentFailure = ProjectRunEnvironmentFailure(
+            phase: ProjectRunEnvironmentFailurePhase.runtimeSelection,
+            message: error.message,
+          );
+          break;
+        }
         final Future<ScenarioRunReport> runFuture = runner.run(
           scenarioFile.scenario,
           runArtifactWriter: childRun,
@@ -1356,17 +1366,22 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
     }
 
     try {
-      final TestScenarioRunner runner = runnerFactory.create(
-        runtimeTarget: RuntimeTarget(vmServiceUri: launch.runtimeTargetUri),
-        targetDevice: targetDevice,
-        recordingController: recordingRequired
-            ? ScreenRecorderRecordingController(
-                recorder: screen_recorder.ScreenRecorder.defaultRecorder(),
-                deviceSelector: targetDevice!.id,
-                outputDirectory: Directory.current,
-              )
-            : null,
-      );
+      final TestScenarioRunner runner;
+      try {
+        runner = runnerFactory.create(
+          runtimeTarget: RuntimeTarget(vmServiceUri: launch.runtimeTargetUri),
+          targetDevice: targetDevice,
+          recordingController: recordingRequired
+              ? ScreenRecorderRecordingController(
+                  recorder: screen_recorder.ScreenRecorder.defaultRecorder(),
+                  deviceSelector: targetDevice!.id,
+                  outputDirectory: Directory.current,
+                )
+              : null,
+        );
+      } on RuntimeAdapterSelectionException catch (error) {
+        throw TestCommandException(message: error.message, exitCode: 1);
+      }
       final Future<ScenarioRunReport> runFuture = runner.run(
         options.scenario,
         stopPoint: options.stopPoint,
@@ -1486,9 +1501,12 @@ class DefaultTestScenarioRunnerFactory implements TestScenarioRunnerFactory {
     required TargetDevice? targetDevice,
     required RecordingController? recordingController,
   }) {
+    final RuntimeAdapter adapter = RuntimeAdapterSelector.select(
+      target: runtimeTarget,
+    );
     return _ScenarioRunnerAdapter(
       ScenarioRunner(
-        adapter: McpFlutterRuntimeAdapter(target: runtimeTarget),
+        adapter: adapter,
         recordingController: recordingController,
         targetDevice: targetDevice,
         outputDirectory: Directory.current,

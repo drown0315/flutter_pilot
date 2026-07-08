@@ -150,5 +150,6 @@ enum ProjectRunEnvironmentFailurePhase {
   validation,
   targetDeviceResolution,
   launch,
+  runtimeSelection,
   hotRestart,
 }

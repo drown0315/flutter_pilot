@@ -769,6 +769,68 @@ steps:
   });
 
   test(
+    'default executor reports invalid hidden runtime switch values',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTargetAppProcess process = FakeTargetAppProcess();
+        final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+          process,
+        );
+        final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
+          deviceDiscovery: FakeDeviceDiscovery(),
+          launcher: TargetAppLauncher(starter: starter),
+          runnerFactory: const ThrowingScenarioRunnerFactory(
+            RuntimeAdapterSelectionException(
+              'Invalid FLUTTER_PILOT_RUNTIME value "other_runtime".',
+            ),
+          ),
+        );
+        final Scenario scenario = Scenario(
+          name: 'invalid_runtime_switch',
+          steps: const <ScenarioStep>[
+            ScenarioStep(
+              index: 1,
+              action: TapAction(finder: Finder(byText: 'Continue')),
+            ),
+          ],
+        );
+
+        final Future<ScenarioRunReport> reportFuture = executor.run(
+          TestCommandOptions(
+            scenario: scenario,
+            device: null,
+            flavor: null,
+            target: null,
+            stopPoint: null,
+            printDiagnostics: const <PrintDiagnostic>{},
+            jsonOutput: false,
+          ),
+        );
+        process.emitStdout(
+          jsonEncode(<String, Object?>{
+            'event': 'app.debugPort',
+            'params': <String, Object?>{
+              'wsUri': 'ws://127.0.0.1:1234/token=/ws',
+            },
+          }),
+        );
+
+        await expectLater(
+          reportFuture,
+          throwsA(
+            isA<TestCommandException>().having(
+              (TestCommandException error) => error.message,
+              'message',
+              contains('FLUTTER_PILOT_RUNTIME'),
+            ),
+          ),
+        );
+        expect(process.stdinWrites, <String>['q\n']);
+      });
+    },
+  );
+
+  test(
     'default executor forwards Step progress events to the runner',
     () async {
       await FileTestkit.runZoned(() async {
@@ -2588,6 +2650,21 @@ class FakeScenarioRunnerFactory implements TestScenarioRunnerFactory {
     runner.targetDevice = targetDevice;
     runner.recordingController = recordingController;
     return runner;
+  }
+}
+
+class ThrowingScenarioRunnerFactory implements TestScenarioRunnerFactory {
+  const ThrowingScenarioRunnerFactory(this.exception);
+
+  final Exception exception;
+
+  @override
+  TestScenarioRunner create({
+    required RuntimeTarget runtimeTarget,
+    required TargetDevice? targetDevice,
+    required RecordingController? recordingController,
+  }) {
+    throw exception;
   }
 }
 
