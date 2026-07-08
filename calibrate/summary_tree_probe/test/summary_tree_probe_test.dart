@@ -37,11 +37,11 @@ void main() {
     test('parses optional output file path', () {
       final InventoryArguments? arguments =
           InventoryArguments.parse(const <String>[
-        '--vm-service-uri',
-        'ws://127.0.0.1:12345/token=/ws',
-        '--output',
-        'out/service-extensions.txt',
-      ]);
+            '--vm-service-uri',
+            'ws://127.0.0.1:12345/token=/ws',
+            '--output',
+            'out/service-extensions.txt',
+          ]);
 
       expect(arguments, isNotNull);
       expect(arguments!.outputPath, 'out/service-extensions.txt');

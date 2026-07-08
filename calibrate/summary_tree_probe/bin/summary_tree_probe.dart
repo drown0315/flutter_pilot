@@ -63,8 +63,9 @@ Future<void> main(List<String> arguments) async {
       return;
     }
 
-    final DiagnosticsInventory inventory =
-        DiagnosticsInventory.collect(decoded);
+    final DiagnosticsInventory inventory = DiagnosticsInventory.collect(
+      decoded,
+    );
 
     final String report = _renderProbeReport(
       projectRoot: probeArguments.projectRoot,
@@ -277,12 +278,7 @@ String _renderProbeReport({
   );
   buffer.writeln(
     '- ext.flutter.inspector.getRootWidgetTree '
-    'args=${jsonEncode(<String, Object?>{
-          'groupName': 'pilot_runtime_summary_tree_probe',
-          'isSummaryTree': 'true',
-          'withPreviews': 'true',
-          'fullDetails': fullDetails ? 'true' : 'false',
-        })}',
+    'args=${jsonEncode(<String, Object?>{'groupName': 'pilot_runtime_summary_tree_probe', 'isSummaryTree': 'true', 'withPreviews': 'true', 'fullDetails': fullDetails ? 'true' : 'false'})}',
   );
   buffer.writeln('');
 
@@ -335,7 +331,8 @@ void _writeCompactTree(
   final Object? children = node['children'];
   final int childCount = children is List<Object?> ? children.length : 0;
   sink.writeln(
-      '$indent- $description id=$id children=$childCount$locationSuffix');
+    '$indent- $description id=$id children=$childCount$locationSuffix',
+  );
 
   if (children is List<Object?>) {
     for (final Object? child in children) {

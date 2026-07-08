@@ -13,8 +13,9 @@ import 'package:vm_service/vm_service_io.dart';
 /// Exit code `0` when the isolate and extension list can be read. Missing
 /// arguments or VM Service failures exit non-zero and print an error to stderr.
 Future<void> main(List<String> arguments) async {
-  final InventoryArguments? inventoryArguments =
-      InventoryArguments.parse(arguments);
+  final InventoryArguments? inventoryArguments = InventoryArguments.parse(
+    arguments,
+  );
   if (inventoryArguments == null) {
     _printUsage();
     exitCode = 64;

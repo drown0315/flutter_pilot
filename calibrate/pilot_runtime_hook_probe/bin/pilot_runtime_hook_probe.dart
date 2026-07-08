@@ -125,8 +125,10 @@ Future<void> main(List<String> arguments) async {
         output: byTypeResolve,
       ),
     );
-    final Map<String, Object?> byTypeMatch =
-        _singleMatch(byTypeResolve, 'byType');
+    final Map<String, Object?> byTypeMatch = _singleMatch(
+      byTypeResolve,
+      'byType',
+    );
 
     final Map<String, Object?> byTypeTap = await _tapRef(
       service,
@@ -320,10 +322,8 @@ Future<Map<String, Object?>> _callPilotExtension(
     method,
     isolateId: isolateId,
     args: args.map(
-      (String key, Object? value) => MapEntry<String, dynamic>(
-        key,
-        value?.toString(),
-      ),
+      (String key, Object? value) =>
+          MapEntry<String, dynamic>(key, value?.toString()),
     ),
   );
   final Map<String, Object?> decoded = _decodeResponse(response);
@@ -401,10 +401,13 @@ String _renderReport({
   buffer.writeln('isolateId: $isolateId');
   buffer.writeln('');
   buffer.writeln('Available pilot extensions');
-  for (final String extension in extensionRpcs
-      .where((String extension) => extension.startsWith('ext.flutter_pilot.'))
-      .toList()
-    ..sort()) {
+  for (final String extension
+      in extensionRpcs
+          .where(
+            (String extension) => extension.startsWith('ext.flutter_pilot.'),
+          )
+          .toList()
+        ..sort()) {
     buffer.writeln('- $extension');
   }
   buffer.writeln('');
