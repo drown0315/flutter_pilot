@@ -19,6 +19,34 @@ class PilotRuntimeProtocol {
   static const Set<String> requiredCapabilities = <String>{handshakeCapability};
 }
 
+/// Flutter Inspector service extension names and arguments used by the client.
+///
+/// Widget Tree capture first configures the Target App Package pub root and
+/// then requests the compact root Widget Tree with text previews. Flutter
+/// Inspector expects boolean-like options as strings in VM Service parameters.
+class PilotRuntimeInspectorProtocol {
+  PilotRuntimeInspectorProtocol._();
+
+  /// Extension that tells Inspector which package roots count as local project.
+  static const String setPubRootDirectoriesExtension =
+      'ext.flutter.inspector.setPubRootDirectories';
+
+  /// Extension that returns the root diagnostics Widget Tree.
+  static const String getRootWidgetTreeExtension =
+      'ext.flutter.inspector.getRootWidgetTree';
+
+  /// Deterministic Inspector group for Widget Tree capture objects.
+  static const String widgetTreeGroupName = 'pilot_runtime_widget_tree';
+
+  /// Parameters for the normalized Widget Tree source request.
+  static const Map<String, Object?> summaryTreeParameters = <String, Object?>{
+    'groupName': widgetTreeGroupName,
+    'isSummaryTree': 'true',
+    'withPreviews': 'true',
+    'fullDetails': 'false',
+  };
+}
+
 /// Versioned response returned by the app-side runtime handshake.
 ///
 /// The response contains the protocol version spoken by the Runtime Target and

@@ -115,8 +115,9 @@ class FakePilotRuntimeVmService implements PilotRuntimeVmService {
 
   @override
   Future<Map<String, Object?>> callServiceExtension(
-    String extensionName,
-  ) async {
+    String extensionName, {
+    Map<String, Object?> parameters = const <String, Object?>{},
+  }) async {
     calledExtensions.add(extensionName);
     if (missingExtension) {
       throw PilotRuntimeServiceExtensionMissingException(extensionName);

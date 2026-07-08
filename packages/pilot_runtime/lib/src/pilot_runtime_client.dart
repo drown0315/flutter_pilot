@@ -1,4 +1,5 @@
 import 'pilot_runtime_protocol.dart';
+import 'widget_tree_normalizer.dart';
 
 /// Minimal VM Service surface used by `PilotRuntimeClient`.
 ///
@@ -11,11 +12,17 @@ abstract interface class PilotRuntimeVmService {
   /// Args:
   /// - `extensionName`: Full VM Service extension name, such as
   ///   `ext.flutter_pilot.runtime.handshake`.
+  /// - `parameters`: JSON-compatible VM Service extension arguments. Flutter
+  ///   Inspector expects string values for its boolean-like flags, so callers
+  ///   pass normalized strings instead of Dart booleans.
   ///
   /// Returns the decoded JSON object returned by the extension. Implementations
   /// throw `PilotRuntimeServiceExtensionMissingException` when the extension is
   /// not registered on the Runtime Target.
-  Future<Map<String, Object?>> callServiceExtension(String extensionName);
+  Future<Map<String, Object?>> callServiceExtension(
+    String extensionName, {
+    Map<String, Object?> parameters = const <String, Object?>{},
+  });
 }
 
 /// Signals that a required Flutter Pilot service extension is not registered.
@@ -79,6 +86,49 @@ class PilotRuntimeInitializationException implements Exception {
   @override
   String toString() {
     return 'PilotRuntimeInitializationException: $message';
+  }
+}
+
+/// Widget Tree capture failure category reported by `PilotRuntimeClient`.
+///
+/// Flutter Pilot can map these values to capture-step failures while preserving
+/// the underlying VM Service or normalization error as context.
+enum PilotRuntimeWidgetTreeCaptureFailure {
+  /// Inspector failed while configuring Target App Package pub root directories.
+  setPubRootDirectoriesFailed,
+
+  /// Inspector failed while returning the root summary Widget Tree.
+  getRootWidgetTreeFailed,
+
+  /// Inspector returned a tree shape that cannot be normalized safely.
+  invalidResponse,
+}
+
+/// Clear failure thrown by `PilotRuntimeClient.captureWidgetTree()`.
+///
+/// The exception identifies which capture stage failed and includes a message
+/// suitable for run reports. The original lower-level error is retained when
+/// one caused the failure.
+class PilotRuntimeWidgetTreeCaptureException implements Exception {
+  /// Create a Widget Tree capture failure.
+  const PilotRuntimeWidgetTreeCaptureException({
+    required this.failure,
+    required this.message,
+    this.cause,
+  });
+
+  /// Machine-readable Widget Tree capture failure category.
+  final PilotRuntimeWidgetTreeCaptureFailure failure;
+
+  /// Human-readable explanation of the capture failure.
+  final String message;
+
+  /// Original VM Service or normalization error when available.
+  final Object? cause;
+
+  @override
+  String toString() {
+    return 'PilotRuntimeWidgetTreeCaptureException: $message';
   }
 }
 
@@ -150,6 +200,68 @@ class PilotRuntimeClient {
       protocolVersion: handshake.protocolVersion,
       capabilities: handshake.capabilities,
     );
+  }
+
+  /// Capture a normalized Widget Tree from Flutter Inspector summary data.
+  ///
+  /// This method:
+  /// 1. configures Flutter Inspector pub root directories from `projectRoot`
+  /// 2. requests the root Widget Tree as a summary tree with previews
+  /// 3. normalizes Inspector node fields into Flutter Pilot Widget Tree v1 JSON
+  ///
+  /// Args:
+  /// - `projectRoot`: Target App Package root used by Inspector to mark local
+  ///   project widgets. It is passed to
+  ///   `ext.flutter.inspector.setPubRootDirectories` as `arg0`.
+  ///
+  /// Returns JSON with `schema`, `source`, and a normalized `root` node. Missing
+  /// child lists are returned as empty `children` arrays.
+  Future<Map<String, Object?>> captureWidgetTree({
+    required String projectRoot,
+  }) async {
+    try {
+      await _vmService.callServiceExtension(
+        PilotRuntimeInspectorProtocol.setPubRootDirectoriesExtension,
+        parameters: <String, Object?>{'arg0': projectRoot},
+      );
+    } catch (error) {
+      throw PilotRuntimeWidgetTreeCaptureException(
+        failure:
+            PilotRuntimeWidgetTreeCaptureFailure.setPubRootDirectoriesFailed,
+        message:
+            'Flutter Inspector could not set pub root directories for '
+            'Widget Tree capture: $error',
+        cause: error,
+      );
+    }
+
+    final Map<String, Object?> rawTree;
+    try {
+      rawTree = await _vmService.callServiceExtension(
+        PilotRuntimeInspectorProtocol.getRootWidgetTreeExtension,
+        parameters: PilotRuntimeInspectorProtocol.summaryTreeParameters,
+      );
+    } catch (error) {
+      throw PilotRuntimeWidgetTreeCaptureException(
+        failure: PilotRuntimeWidgetTreeCaptureFailure.getRootWidgetTreeFailed,
+        message:
+            'Flutter Inspector could not return the root summary '
+            'Widget Tree: $error',
+        cause: error,
+      );
+    }
+
+    try {
+      return PilotRuntimeWidgetTreeNormalizer.normalize(rawTree);
+    } on FormatException catch (error) {
+      throw PilotRuntimeWidgetTreeCaptureException(
+        failure: PilotRuntimeWidgetTreeCaptureFailure.invalidResponse,
+        message:
+            'Flutter Inspector returned an invalid Widget Tree: '
+            '${error.message}',
+        cause: error,
+      );
+    }
   }
 
   Future<Map<String, Object?>> _callHandshake() async {
