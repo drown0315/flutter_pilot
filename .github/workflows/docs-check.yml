@@ -46,7 +46,7 @@ jobs:
         run: npm ci
 
       - name: Analyze docs helpers
-        run: dart analyze --fatal-infos --fatal-warnings lib/src/scenario_dsl_docs.dart tool/check_scenario_dsl_docs.dart test/scenario_dsl_docs_test.dart test/scenario_dsl_docs_tool_test.dart
+        run: dart analyze --fatal-infos --fatal-warnings
 
       - name: Test docs examples
         run: dart test test/scenario_dsl_docs_test.dart test/scenario_dsl_docs_tool_test.dart
