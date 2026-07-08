@@ -1,0 +1,367 @@
+Pilot Runtime Hook Probe
+vmServiceUri: ws://127.0.0.1:65052/_K67zUN0SoE=/ws
+isolateId: isolates/4435303956550511
+
+Available pilot extensions
+- ext.flutter_pilot.resolve
+- ext.flutter_pilot.snapshot
+- ext.flutter_pilot.state
+- ext.flutter_pilot.tap
+- ext.flutter_pilot.tapAt
+
+Step: snapshot
+method: ext.flutter_pilot.snapshot
+input: {}
+output:
+{
+  "ok": true,
+  "snapshotId": 1,
+  "coordinateSpace": "flutterLogicalGlobal",
+  "nodeCount": 467,
+  "nodes": [
+    {
+      "ref": "p_1_0",
+      "widgetType": "RootWidget",
+      "depth": 0,
+      "bounds": {
+        "left": 0.0,
+        "top": 0.0,
+        "width": 411.42857142857144,
+        "height": 890.2857142857143,
+        "right": 411.42857142857144,
+        "bottom": 890.2857142857143
+      },
+      "center": {
+        "x": 205.71428571428572,
+        "y": 445.14285714285717
+      }
+    },
+    {
+      "ref": "p_1_1",
+      "widgetType": "View",
+      "depth": 1,
+      "bounds": {
+        "left": 0.0,
+        "top": 0.0,
+        "width": 411.42857142857144,
+        "height": 890.2857142857143,
+        "right": 411.42857142857144,
+        "bottom": 890.2857142857143
+      },
+      "center": {
+        "x": 205.71428571428572,
+        "y": 445.14285714285717
+      }
+    },
+    {
+      "ref": "p_1_2",
+      "widgetType": "RawView",
+      "depth": 2,
+      "bounds": {
+        "left": 0.0,
+        "top": 0.0,
+        "width": 411.42857142857144,
+        "height": 890.2857142857143,
+        "right": 411.42857142857144,
+        "bottom": 890.2857142857143
+      },
+      "center": {
+        "x": 205.71428571428572,
+        "y": 445.14285714285717
+      }
+    },
+    {
+      "ref": "p_1_3",
+      "widgetType": "_RawViewInternal",
+      "depth": 3,
+      "bounds": {
+        "left": 0.0,
+        "top": 0.0,
+        "width": 411.42857142857144,
+        "height": 890.2857142857143,
+        "right": 411.42857142857144,
+        "bottom": 890.2857142857143
+      },
+      "center": {
+        "x": 205.71428571428572,
+        "y": 445.14285714285717
+      }
+    },
+    {
+      "ref": "p_1_4",
+      "widgetType": "_ViewScope",
+      "depth": 4,
+      "bounds": {
+        "left": 0.0,
+        "top": 0.0,
+        "width": 411.42857142857144,
+        "height": 890.2857142857143,
+        "right": 411.42857142857144,
+        "bottom": 890.2857142857143
+      },
+      "center": {
+        "x": 205.71428571428572,
+        "y": 445.14285714285717
+      }
+    },
+    {
+      "ref": "p_1_5",
+      "widgetType": "_PipelineOwnerScope",
+      "depth": 5,
+      "bounds": {
+        "left": 0.0,
+        "top": 0.0,
+        "width": 411.42857142857144,
+        "height": 890.2857142857143,
+        "right": 411.42857142857144,
+        "bottom": 890.2857142857143
+      },
+      "center": {
+        "x": 205.71428571428572,
+        "y": 445.14285714285717
+      }
+    },
+    {
+      "ref": "p_1_6",
+      "widgetType": "_MediaQueryFromView",
+      "depth": 6,
+      "bounds": {
+        "left": 0.0,
+        "top": 0.0,
+        "width": 411.42857142857144,
+        "height": 890.2857142857143,
+        "right": 411.42857142857144,
+        "bottom": 890.2857142857143
+      },
+      "center": {
+        "x": 205.71428571428572,
+        "y": 445.14285714285717
+      }
+    },
+    {
+      "ref": "p_1_7",
+      "widgetType": "MediaQuery",
+      "depth": 7,
+      "bounds": {
+        "left": 0.0,
+        "top": 0.0,
+        "width": 411.42857142857144,
+        "height": 890.2857142857143,
+        "right": 411.42857142857144,
+        "bottom": 890.2857142857143
+      },
+      "center": {
+        "x": 205.71428571428572,
+        "y": 445.14285714285717
+      }
+    }
+  ],
+  "state": {
+    "submitTapCount": 0
+  },
+  "nodesTruncated": 459
+}
+
+Step: resolve byKey
+method: ext.flutter_pilot.resolve
+input: {"byKey":"submit-smoke"}
+output:
+{
+  "ok": true,
+  "snapshotId": 2,
+  "input": {
+    "byKey": "submit-smoke",
+    "isolateId": "isolates/4435303956550511"
+  },
+  "matchCount": 1,
+  "matches": [
+    {
+      "ref": "p_2_286",
+      "widgetType": "ProbeSubmitButton",
+      "key": {
+        "kind": "ValueKey",
+        "value": "submit-smoke",
+        "valueType": "String"
+      },
+      "depth": 186,
+      "bounds": {
+        "left": 24.0,
+        "top": 236.76190476190476,
+        "width": 363.42857142857144,
+        "height": 48.0,
+        "right": 387.42857142857144,
+        "bottom": 284.76190476190476
+      },
+      "center": {
+        "x": 205.71428571428572,
+        "y": 260.76190476190476
+      }
+    }
+  ],
+  "state": {
+    "submitTapCount": 0
+  }
+}
+
+Step: tap byKey ref
+method: ext.flutter_pilot.tap
+input: {"ref":"p_2_286"}
+output:
+{
+  "ok": true,
+  "input": {
+    "ref": "p_2_286",
+    "isolateId": "isolates/4435303956550511"
+  },
+  "tappedRef": "p_2_286",
+  "coordinateSpace": "flutterLogicalGlobal",
+  "tapPosition": {
+    "x": 205.71428571428572,
+    "y": 260.76190476190476
+  },
+  "state": {
+    "submitTapCount": 1
+  }
+}
+
+Step: resolve byWidgetType
+method: ext.flutter_pilot.resolve
+input: {"byWidgetType":"ProbeSubmitButton"}
+output:
+{
+  "ok": true,
+  "snapshotId": 3,
+  "input": {
+    "byWidgetType": "ProbeSubmitButton",
+    "isolateId": "isolates/4435303956550511"
+  },
+  "matchCount": 1,
+  "matches": [
+    {
+      "ref": "p_3_286",
+      "widgetType": "ProbeSubmitButton",
+      "key": {
+        "kind": "ValueKey",
+        "value": "submit-smoke",
+        "valueType": "String"
+      },
+      "depth": 186,
+      "bounds": {
+        "left": 24.0,
+        "top": 236.76190476190476,
+        "width": 363.42857142857144,
+        "height": 48.0,
+        "right": 387.42857142857144,
+        "bottom": 284.76190476190476
+      },
+      "center": {
+        "x": 205.71428571428572,
+        "y": 260.76190476190476
+      }
+    }
+  ],
+  "state": {
+    "submitTapCount": 1
+  }
+}
+
+Step: tap byWidgetType ref
+method: ext.flutter_pilot.tap
+input: {"ref":"p_3_286"}
+output:
+{
+  "ok": true,
+  "input": {
+    "ref": "p_3_286",
+    "isolateId": "isolates/4435303956550511"
+  },
+  "tappedRef": "p_3_286",
+  "coordinateSpace": "flutterLogicalGlobal",
+  "tapPosition": {
+    "x": 205.71428571428572,
+    "y": 260.76190476190476
+  },
+  "state": {
+    "submitTapCount": 2
+  }
+}
+
+Step: resolve semantic byType
+method: ext.flutter_pilot.resolve
+input: {"byType":"button"}
+output:
+{
+  "ok": true,
+  "snapshotId": 4,
+  "input": {
+    "byType": "button",
+    "isolateId": "isolates/4435303956550511"
+  },
+  "matchCount": 1,
+  "matches": [
+    {
+      "ref": "p_4_287",
+      "widgetType": "FilledButton",
+      "semanticType": "button",
+      "depth": 187,
+      "bounds": {
+        "left": 24.0,
+        "top": 236.76190476190476,
+        "width": 363.42857142857144,
+        "height": 48.0,
+        "right": 387.42857142857144,
+        "bottom": 284.76190476190476
+      },
+      "center": {
+        "x": 205.71428571428572,
+        "y": 260.76190476190476
+      }
+    }
+  ],
+  "state": {
+    "submitTapCount": 2
+  }
+}
+
+Step: tap semantic byType ref
+method: ext.flutter_pilot.tap
+input: {"ref":"p_4_287"}
+output:
+{
+  "ok": true,
+  "input": {
+    "ref": "p_4_287",
+    "isolateId": "isolates/4435303956550511"
+  },
+  "tappedRef": "p_4_287",
+  "coordinateSpace": "flutterLogicalGlobal",
+  "tapPosition": {
+    "x": 205.71428571428572,
+    "y": 260.76190476190476
+  },
+  "state": {
+    "submitTapCount": 3
+  }
+}
+
+Step: tapAt logical coordinate
+method: ext.flutter_pilot.tapAt
+input: {"x":205.71428571428572,"y":260.76190476190476}
+output:
+{
+  "ok": true,
+  "input": {
+    "x": "205.71428571428572",
+    "y": "260.76190476190476",
+    "isolateId": "isolates/4435303956550511"
+  },
+  "coordinateSpace": "flutterLogicalGlobal",
+  "tapPosition": {
+    "x": 205.71428571428572,
+    "y": 260.76190476190476
+  },
+  "state": {
+    "submitTapCount": 4
+  }
+}
+

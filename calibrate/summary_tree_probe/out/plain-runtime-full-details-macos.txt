@@ -1,0 +1,765 @@
+Service Extension Calls
+- ext.flutter.inspector.setPubRootDirectories args={"arg0":"/Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app"}
+- ext.flutter.inspector.getRootWidgetTree args={"groupName":"pilot_runtime_summary_tree_probe","isSummaryTree":"true","withPreviews":"true","fullDetails":"true"}
+
+Field Inventory
+nodes: 34
+- allowWrap: 34 node(s); bool=34
+- children: 34 node(s); List=34
+- createdByLocalProject: 33 node(s); bool=33
+- creationLocation: 34 node(s); Map=34
+- description: 34 node(s); String=34
+- hasChildren: 31 node(s); bool=31
+- locationId: 34 node(s); int=34
+- stateful: 34 node(s); bool=34
+- style: 34 node(s); String=34
+- summaryTree: 34 node(s); bool=34
+- textPreview: 13 node(s); String=13
+- type: 34 node(s); String=34
+- valueId: 34 node(s); String=34
+- widgetRuntimeType: 34 node(s); String=34
+
+Compact Tree
+- [root] id=inspector-0 children=1 location=file:///Users/drown/development/flutter/packages/flutter/lib/src/widgets/binding.dart:1673:24
+  - PilotRuntimeProbeApp id=inspector-1 children=1 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/plain_runtime_probe_app.dart:13:16
+    - MaterialApp id=inspector-2 children=1 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:27:12
+      - PilotRuntimeProbeHome id=inspector-3 children=1 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:30:19
+        - Scaffold id=inspector-4 children=2 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:41:12
+          - ListView-[<'probe-scrollable'>] id=inspector-5 children=15 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:43:13
+            - Text id=inspector-6 children=0 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:47:17
+            - SizedBox id=inspector-7 children=0 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:48:17
+            - TextField-[<'probe-email-field'>] id=inspector-8 children=0 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:49:17
+            - SizedBox id=inspector-9 children=0 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:53:17
+            - ProbeSubmitButton-[<'submit-smoke'>] id=inspector-10 children=1 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:54:17
+              - FilledButton id=inspector-11 children=1 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:82:12
+                - Text id=inspector-12 children=0 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:84:20
+            - SizedBox id=inspector-13 children=0 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:55:17
+            - ValueListenableBuilder<int> id=inspector-14 children=1 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:56:11
+              - Text-[<'tap-count-text'>] id=inspector-15 children=0 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:59:22
+            - Padding id=inspector-16 children=1 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:66:13
+              - Text id=inspector-17 children=0 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:68:22
+            - Padding id=inspector-18 children=1 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:66:13
+              - Text id=inspector-19 children=0 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:68:22
+            - Padding id=inspector-20 children=1 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:66:13
+              - Text id=inspector-21 children=0 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:68:22
+            - Padding id=inspector-22 children=1 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:66:13
+              - Text id=inspector-23 children=0 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:68:22
+            - Padding id=inspector-24 children=1 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:66:13
+              - Text id=inspector-25 children=0 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:68:22
+            - Padding id=inspector-26 children=1 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:66:13
+              - Text id=inspector-27 children=0 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:68:22
+            - Padding id=inspector-28 children=1 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:66:13
+              - Text id=inspector-29 children=0 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:68:22
+            - Padding id=inspector-30 children=1 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:66:13
+              - Text id=inspector-31 children=0 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:68:22
+          - AppBar id=inspector-32 children=1 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:42:15
+            - Text id=inspector-33 children=0 location=file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart:42:35
+
+Full Summary Tree JSON
+{
+  "description": "[root]",
+  "type": "_ElementDiagnosticableTreeNode",
+  "style": "dense",
+  "hasChildren": true,
+  "allowWrap": false,
+  "summaryTree": true,
+  "valueId": "inspector-0",
+  "locationId": 0,
+  "creationLocation": {
+    "file": "file:///Users/drown/development/flutter/packages/flutter/lib/src/widgets/binding.dart",
+    "line": 1673,
+    "column": 24,
+    "name": "RootWidget"
+  },
+  "children": [
+    {
+      "description": "PilotRuntimeProbeApp",
+      "type": "_ElementDiagnosticableTreeNode",
+      "style": "dense",
+      "hasChildren": true,
+      "allowWrap": false,
+      "summaryTree": true,
+      "valueId": "inspector-1",
+      "locationId": 1,
+      "creationLocation": {
+        "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/plain_runtime_probe_app.dart",
+        "line": 13,
+        "column": 16,
+        "name": "PilotRuntimeProbeApp"
+      },
+      "createdByLocalProject": true,
+      "children": [
+        {
+          "description": "MaterialApp",
+          "type": "_ElementDiagnosticableTreeNode",
+          "style": "dense",
+          "hasChildren": true,
+          "allowWrap": false,
+          "summaryTree": true,
+          "valueId": "inspector-2",
+          "locationId": 2,
+          "creationLocation": {
+            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+            "line": 27,
+            "column": 12,
+            "name": "MaterialApp"
+          },
+          "createdByLocalProject": true,
+          "children": [
+            {
+              "description": "PilotRuntimeProbeHome",
+              "type": "_ElementDiagnosticableTreeNode",
+              "style": "dense",
+              "hasChildren": true,
+              "allowWrap": false,
+              "summaryTree": true,
+              "valueId": "inspector-3",
+              "locationId": 3,
+              "creationLocation": {
+                "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                "line": 30,
+                "column": 19,
+                "name": "PilotRuntimeProbeHome"
+              },
+              "createdByLocalProject": true,
+              "children": [
+                {
+                  "description": "Scaffold",
+                  "type": "_ElementDiagnosticableTreeNode",
+                  "style": "dense",
+                  "hasChildren": true,
+                  "allowWrap": false,
+                  "summaryTree": true,
+                  "valueId": "inspector-4",
+                  "locationId": 4,
+                  "creationLocation": {
+                    "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                    "line": 41,
+                    "column": 12,
+                    "name": "Scaffold"
+                  },
+                  "createdByLocalProject": true,
+                  "children": [
+                    {
+                      "description": "ListView-[<'probe-scrollable'>]",
+                      "type": "_ElementDiagnosticableTreeNode",
+                      "style": "dense",
+                      "hasChildren": true,
+                      "allowWrap": false,
+                      "summaryTree": true,
+                      "valueId": "inspector-5",
+                      "locationId": 5,
+                      "creationLocation": {
+                        "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                        "line": 43,
+                        "column": 13,
+                        "name": "ListView"
+                      },
+                      "createdByLocalProject": true,
+                      "children": [
+                        {
+                          "description": "Text",
+                          "type": "_ElementDiagnosticableTreeNode",
+                          "style": "dense",
+                          "hasChildren": true,
+                          "allowWrap": false,
+                          "summaryTree": true,
+                          "valueId": "inspector-6",
+                          "locationId": 6,
+                          "creationLocation": {
+                            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                            "line": 47,
+                            "column": 17,
+                            "name": "Text"
+                          },
+                          "createdByLocalProject": true,
+                          "textPreview": "Probe form",
+                          "children": [],
+                          "widgetRuntimeType": "Text",
+                          "stateful": false
+                        },
+                        {
+                          "description": "SizedBox",
+                          "type": "_ElementDiagnosticableTreeNode",
+                          "style": "dense",
+                          "allowWrap": false,
+                          "summaryTree": true,
+                          "valueId": "inspector-7",
+                          "locationId": 7,
+                          "creationLocation": {
+                            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                            "line": 48,
+                            "column": 17,
+                            "name": "SizedBox"
+                          },
+                          "createdByLocalProject": true,
+                          "children": [],
+                          "widgetRuntimeType": "SizedBox",
+                          "stateful": false
+                        },
+                        {
+                          "description": "TextField-[<'probe-email-field'>]",
+                          "type": "_ElementDiagnosticableTreeNode",
+                          "style": "dense",
+                          "hasChildren": true,
+                          "allowWrap": false,
+                          "summaryTree": true,
+                          "valueId": "inspector-8",
+                          "locationId": 8,
+                          "creationLocation": {
+                            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                            "line": 49,
+                            "column": 17,
+                            "name": "TextField"
+                          },
+                          "createdByLocalProject": true,
+                          "children": [],
+                          "widgetRuntimeType": "TextField",
+                          "stateful": true
+                        },
+                        {
+                          "description": "SizedBox",
+                          "type": "_ElementDiagnosticableTreeNode",
+                          "style": "dense",
+                          "allowWrap": false,
+                          "summaryTree": true,
+                          "valueId": "inspector-9",
+                          "locationId": 9,
+                          "creationLocation": {
+                            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                            "line": 53,
+                            "column": 17,
+                            "name": "SizedBox"
+                          },
+                          "createdByLocalProject": true,
+                          "children": [],
+                          "widgetRuntimeType": "SizedBox",
+                          "stateful": false
+                        },
+                        {
+                          "description": "ProbeSubmitButton-[<'submit-smoke'>]",
+                          "type": "_ElementDiagnosticableTreeNode",
+                          "style": "dense",
+                          "hasChildren": true,
+                          "allowWrap": false,
+                          "summaryTree": true,
+                          "valueId": "inspector-10",
+                          "locationId": 10,
+                          "creationLocation": {
+                            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                            "line": 54,
+                            "column": 17,
+                            "name": "ProbeSubmitButton"
+                          },
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "FilledButton",
+                              "type": "_ElementDiagnosticableTreeNode",
+                              "style": "dense",
+                              "hasChildren": true,
+                              "allowWrap": false,
+                              "summaryTree": true,
+                              "valueId": "inspector-11",
+                              "locationId": 11,
+                              "creationLocation": {
+                                "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                                "line": 82,
+                                "column": 12,
+                                "name": "FilledButton"
+                              },
+                              "createdByLocalProject": true,
+                              "children": [
+                                {
+                                  "description": "Text",
+                                  "type": "_ElementDiagnosticableTreeNode",
+                                  "style": "dense",
+                                  "hasChildren": true,
+                                  "allowWrap": false,
+                                  "summaryTree": true,
+                                  "valueId": "inspector-12",
+                                  "locationId": 12,
+                                  "creationLocation": {
+                                    "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                                    "line": 84,
+                                    "column": 20,
+                                    "name": "Text"
+                                  },
+                                  "createdByLocalProject": true,
+                                  "textPreview": "Submit smoke",
+                                  "children": [],
+                                  "widgetRuntimeType": "Text",
+                                  "stateful": false
+                                }
+                              ],
+                              "widgetRuntimeType": "FilledButton",
+                              "stateful": true
+                            }
+                          ],
+                          "widgetRuntimeType": "ProbeSubmitButton",
+                          "stateful": false
+                        },
+                        {
+                          "description": "SizedBox",
+                          "type": "_ElementDiagnosticableTreeNode",
+                          "style": "dense",
+                          "allowWrap": false,
+                          "summaryTree": true,
+                          "valueId": "inspector-13",
+                          "locationId": 13,
+                          "creationLocation": {
+                            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                            "line": 55,
+                            "column": 17,
+                            "name": "SizedBox"
+                          },
+                          "createdByLocalProject": true,
+                          "children": [],
+                          "widgetRuntimeType": "SizedBox",
+                          "stateful": false
+                        },
+                        {
+                          "description": "ValueListenableBuilder<int>",
+                          "type": "_ElementDiagnosticableTreeNode",
+                          "style": "dense",
+                          "hasChildren": true,
+                          "allowWrap": false,
+                          "summaryTree": true,
+                          "valueId": "inspector-14",
+                          "locationId": 14,
+                          "creationLocation": {
+                            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                            "line": 56,
+                            "column": 11,
+                            "name": "ValueListenableBuilder"
+                          },
+                          "createdByLocalProject": true,
+                          "textPreview": "Submit taps: 0",
+                          "children": [
+                            {
+                              "description": "Text-[<'tap-count-text'>]",
+                              "type": "_ElementDiagnosticableTreeNode",
+                              "style": "dense",
+                              "hasChildren": true,
+                              "allowWrap": false,
+                              "summaryTree": true,
+                              "valueId": "inspector-15",
+                              "locationId": 15,
+                              "creationLocation": {
+                                "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                                "line": 59,
+                                "column": 22,
+                                "name": "Text"
+                              },
+                              "createdByLocalProject": true,
+                              "textPreview": "Submit taps: 0",
+                              "children": [],
+                              "widgetRuntimeType": "Text",
+                              "stateful": false
+                            }
+                          ],
+                          "widgetRuntimeType": "ValueListenableBuilder<int>",
+                          "stateful": true
+                        },
+                        {
+                          "description": "Padding",
+                          "type": "_ElementDiagnosticableTreeNode",
+                          "style": "dense",
+                          "hasChildren": true,
+                          "allowWrap": false,
+                          "summaryTree": true,
+                          "valueId": "inspector-16",
+                          "locationId": 16,
+                          "creationLocation": {
+                            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                            "line": 66,
+                            "column": 13,
+                            "name": "Padding"
+                          },
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "type": "_ElementDiagnosticableTreeNode",
+                              "style": "dense",
+                              "hasChildren": true,
+                              "allowWrap": false,
+                              "summaryTree": true,
+                              "valueId": "inspector-17",
+                              "locationId": 17,
+                              "creationLocation": {
+                                "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                                "line": 68,
+                                "column": 22,
+                                "name": "Text"
+                              },
+                              "createdByLocalProject": true,
+                              "textPreview": "Probe row 0",
+                              "children": [],
+                              "widgetRuntimeType": "Text",
+                              "stateful": false
+                            }
+                          ],
+                          "widgetRuntimeType": "Padding",
+                          "stateful": false
+                        },
+                        {
+                          "description": "Padding",
+                          "type": "_ElementDiagnosticableTreeNode",
+                          "style": "dense",
+                          "hasChildren": true,
+                          "allowWrap": false,
+                          "summaryTree": true,
+                          "valueId": "inspector-18",
+                          "locationId": 16,
+                          "creationLocation": {
+                            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                            "line": 66,
+                            "column": 13,
+                            "name": "Padding"
+                          },
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "type": "_ElementDiagnosticableTreeNode",
+                              "style": "dense",
+                              "hasChildren": true,
+                              "allowWrap": false,
+                              "summaryTree": true,
+                              "valueId": "inspector-19",
+                              "locationId": 17,
+                              "creationLocation": {
+                                "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                                "line": 68,
+                                "column": 22,
+                                "name": "Text"
+                              },
+                              "createdByLocalProject": true,
+                              "textPreview": "Probe row 1",
+                              "children": [],
+                              "widgetRuntimeType": "Text",
+                              "stateful": false
+                            }
+                          ],
+                          "widgetRuntimeType": "Padding",
+                          "stateful": false
+                        },
+                        {
+                          "description": "Padding",
+                          "type": "_ElementDiagnosticableTreeNode",
+                          "style": "dense",
+                          "hasChildren": true,
+                          "allowWrap": false,
+                          "summaryTree": true,
+                          "valueId": "inspector-20",
+                          "locationId": 16,
+                          "creationLocation": {
+                            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                            "line": 66,
+                            "column": 13,
+                            "name": "Padding"
+                          },
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "type": "_ElementDiagnosticableTreeNode",
+                              "style": "dense",
+                              "hasChildren": true,
+                              "allowWrap": false,
+                              "summaryTree": true,
+                              "valueId": "inspector-21",
+                              "locationId": 17,
+                              "creationLocation": {
+                                "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                                "line": 68,
+                                "column": 22,
+                                "name": "Text"
+                              },
+                              "createdByLocalProject": true,
+                              "textPreview": "Probe row 2",
+                              "children": [],
+                              "widgetRuntimeType": "Text",
+                              "stateful": false
+                            }
+                          ],
+                          "widgetRuntimeType": "Padding",
+                          "stateful": false
+                        },
+                        {
+                          "description": "Padding",
+                          "type": "_ElementDiagnosticableTreeNode",
+                          "style": "dense",
+                          "hasChildren": true,
+                          "allowWrap": false,
+                          "summaryTree": true,
+                          "valueId": "inspector-22",
+                          "locationId": 16,
+                          "creationLocation": {
+                            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                            "line": 66,
+                            "column": 13,
+                            "name": "Padding"
+                          },
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "type": "_ElementDiagnosticableTreeNode",
+                              "style": "dense",
+                              "hasChildren": true,
+                              "allowWrap": false,
+                              "summaryTree": true,
+                              "valueId": "inspector-23",
+                              "locationId": 17,
+                              "creationLocation": {
+                                "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                                "line": 68,
+                                "column": 22,
+                                "name": "Text"
+                              },
+                              "createdByLocalProject": true,
+                              "textPreview": "Probe row 3",
+                              "children": [],
+                              "widgetRuntimeType": "Text",
+                              "stateful": false
+                            }
+                          ],
+                          "widgetRuntimeType": "Padding",
+                          "stateful": false
+                        },
+                        {
+                          "description": "Padding",
+                          "type": "_ElementDiagnosticableTreeNode",
+                          "style": "dense",
+                          "hasChildren": true,
+                          "allowWrap": false,
+                          "summaryTree": true,
+                          "valueId": "inspector-24",
+                          "locationId": 16,
+                          "creationLocation": {
+                            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                            "line": 66,
+                            "column": 13,
+                            "name": "Padding"
+                          },
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "type": "_ElementDiagnosticableTreeNode",
+                              "style": "dense",
+                              "hasChildren": true,
+                              "allowWrap": false,
+                              "summaryTree": true,
+                              "valueId": "inspector-25",
+                              "locationId": 17,
+                              "creationLocation": {
+                                "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                                "line": 68,
+                                "column": 22,
+                                "name": "Text"
+                              },
+                              "createdByLocalProject": true,
+                              "textPreview": "Probe row 4",
+                              "children": [],
+                              "widgetRuntimeType": "Text",
+                              "stateful": false
+                            }
+                          ],
+                          "widgetRuntimeType": "Padding",
+                          "stateful": false
+                        },
+                        {
+                          "description": "Padding",
+                          "type": "_ElementDiagnosticableTreeNode",
+                          "style": "dense",
+                          "hasChildren": true,
+                          "allowWrap": false,
+                          "summaryTree": true,
+                          "valueId": "inspector-26",
+                          "locationId": 16,
+                          "creationLocation": {
+                            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                            "line": 66,
+                            "column": 13,
+                            "name": "Padding"
+                          },
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "type": "_ElementDiagnosticableTreeNode",
+                              "style": "dense",
+                              "hasChildren": true,
+                              "allowWrap": false,
+                              "summaryTree": true,
+                              "valueId": "inspector-27",
+                              "locationId": 17,
+                              "creationLocation": {
+                                "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                                "line": 68,
+                                "column": 22,
+                                "name": "Text"
+                              },
+                              "createdByLocalProject": true,
+                              "textPreview": "Probe row 5",
+                              "children": [],
+                              "widgetRuntimeType": "Text",
+                              "stateful": false
+                            }
+                          ],
+                          "widgetRuntimeType": "Padding",
+                          "stateful": false
+                        },
+                        {
+                          "description": "Padding",
+                          "type": "_ElementDiagnosticableTreeNode",
+                          "style": "dense",
+                          "hasChildren": true,
+                          "allowWrap": false,
+                          "summaryTree": true,
+                          "valueId": "inspector-28",
+                          "locationId": 16,
+                          "creationLocation": {
+                            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                            "line": 66,
+                            "column": 13,
+                            "name": "Padding"
+                          },
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "type": "_ElementDiagnosticableTreeNode",
+                              "style": "dense",
+                              "hasChildren": true,
+                              "allowWrap": false,
+                              "summaryTree": true,
+                              "valueId": "inspector-29",
+                              "locationId": 17,
+                              "creationLocation": {
+                                "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                                "line": 68,
+                                "column": 22,
+                                "name": "Text"
+                              },
+                              "createdByLocalProject": true,
+                              "textPreview": "Probe row 6",
+                              "children": [],
+                              "widgetRuntimeType": "Text",
+                              "stateful": false
+                            }
+                          ],
+                          "widgetRuntimeType": "Padding",
+                          "stateful": false
+                        },
+                        {
+                          "description": "Padding",
+                          "type": "_ElementDiagnosticableTreeNode",
+                          "style": "dense",
+                          "hasChildren": true,
+                          "allowWrap": false,
+                          "summaryTree": true,
+                          "valueId": "inspector-30",
+                          "locationId": 16,
+                          "creationLocation": {
+                            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                            "line": 66,
+                            "column": 13,
+                            "name": "Padding"
+                          },
+                          "createdByLocalProject": true,
+                          "children": [
+                            {
+                              "description": "Text",
+                              "type": "_ElementDiagnosticableTreeNode",
+                              "style": "dense",
+                              "hasChildren": true,
+                              "allowWrap": false,
+                              "summaryTree": true,
+                              "valueId": "inspector-31",
+                              "locationId": 17,
+                              "creationLocation": {
+                                "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                                "line": 68,
+                                "column": 22,
+                                "name": "Text"
+                              },
+                              "createdByLocalProject": true,
+                              "textPreview": "Probe row 7",
+                              "children": [],
+                              "widgetRuntimeType": "Text",
+                              "stateful": false
+                            }
+                          ],
+                          "widgetRuntimeType": "Padding",
+                          "stateful": false
+                        }
+                      ],
+                      "widgetRuntimeType": "ListView",
+                      "stateful": false
+                    },
+                    {
+                      "description": "AppBar",
+                      "type": "_ElementDiagnosticableTreeNode",
+                      "style": "dense",
+                      "hasChildren": true,
+                      "allowWrap": false,
+                      "summaryTree": true,
+                      "valueId": "inspector-32",
+                      "locationId": 18,
+                      "creationLocation": {
+                        "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                        "line": 42,
+                        "column": 15,
+                        "name": "AppBar"
+                      },
+                      "createdByLocalProject": true,
+                      "children": [
+                        {
+                          "description": "Text",
+                          "type": "_ElementDiagnosticableTreeNode",
+                          "style": "dense",
+                          "hasChildren": true,
+                          "allowWrap": false,
+                          "summaryTree": true,
+                          "valueId": "inspector-33",
+                          "locationId": 19,
+                          "creationLocation": {
+                            "file": "file:///Users/drown/.treehouse/flutter_pilot-b6aa0b/1/flutter_pilot/examples/smoke_app/lib/pilot_runtime_probe_app.dart",
+                            "line": 42,
+                            "column": 35,
+                            "name": "Text"
+                          },
+                          "createdByLocalProject": true,
+                          "textPreview": "Pilot Runtime Probe",
+                          "children": [],
+                          "widgetRuntimeType": "Text",
+                          "stateful": false
+                        }
+                      ],
+                      "widgetRuntimeType": "AppBar",
+                      "stateful": true
+                    }
+                  ],
+                  "widgetRuntimeType": "Scaffold",
+                  "stateful": true
+                }
+              ],
+              "widgetRuntimeType": "PilotRuntimeProbeHome",
+              "stateful": false
+            }
+          ],
+          "widgetRuntimeType": "MaterialApp",
+          "stateful": true
+        }
+      ],
+      "widgetRuntimeType": "PilotRuntimeProbeApp",
+      "stateful": false
+    }
+  ],
+  "widgetRuntimeType": "RootWidget",
+  "stateful": false
+}
