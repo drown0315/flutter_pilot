@@ -1,4 +1,4 @@
-import 'package:pilot_runtime/pilot_runtime_client.dart';
+import 'package:pilot_runtime/pilot_runtime.dart';
 
 import '../scenario.dart';
 import 'runtime_contract.dart';
@@ -41,8 +41,28 @@ class PilotRuntimeAdapter implements RuntimeAdapter {
   }
 
   @override
-  Future<List<FinderMatch>> resolveFinder(Finder finder) {
-    throw _notImplemented(RuntimeOperation.resolveFinder);
+  Future<List<FinderMatch>> resolveFinder(Finder finder) async {
+    final List<PilotRuntimeFinderMatch> matches = await _client.resolveFinder(
+      byText: finder.byText,
+      byType: finder.byType,
+    );
+    return <FinderMatch>[
+      for (final PilotRuntimeFinderMatch match in matches)
+        FinderMatch(
+          id: match.handle,
+          debugLabel: _debugLabelFor(match),
+          text: match.text,
+          type: match.semanticType,
+          bounds: match.bounds == null
+              ? null
+              : WidgetBounds(
+                  left: match.bounds!.left,
+                  top: match.bounds!.top,
+                  width: match.bounds!.width,
+                  height: match.bounds!.height,
+                ),
+        ),
+    ];
   }
 
   @override
@@ -100,5 +120,17 @@ class PilotRuntimeAdapter implements RuntimeAdapter {
       operation: operation,
       message: '${operation.name} is not implemented for pilot_runtime yet.',
     );
+  }
+
+  String? _debugLabelFor(PilotRuntimeFinderMatch match) {
+    final List<String> parts = <String>[
+      if (match.actionWidgetType != null) match.actionWidgetType!,
+      if (match.semanticType != null) 'semanticType=${match.semanticType}',
+      if (match.text != null) 'text="${match.text}"',
+    ];
+    if (parts.isEmpty) {
+      return null;
+    }
+    return parts.join(' ');
   }
 }

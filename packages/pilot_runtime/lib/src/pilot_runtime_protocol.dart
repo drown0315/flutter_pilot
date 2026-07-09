@@ -1,7 +1,6 @@
 /// Protocol constants shared by the app-side hook and VM Service client.
 ///
-/// Version 1 exposes only the runtime handshake. Later runtime capabilities add
-/// capability names while keeping the version gate explicit.
+/// Version 1 exposes runtime handshake and visible Finder resolution.
 class PilotRuntimeProtocol {
   PilotRuntimeProtocol._();
 
@@ -12,11 +11,21 @@ class PilotRuntimeProtocol {
   static const String handshakeExtension =
       'ext.flutter_pilot.runtime.handshake';
 
+  /// VM Service extension used to resolve visible Runtime Target Finder Matches.
+  static const String resolveFinderExtension =
+      'ext.flutter_pilot.runtime.resolveFinder';
+
   /// Capability name reported when the handshake extension is available.
   static const String handshakeCapability = 'runtime.handshake';
 
+  /// Capability name reported when visible Finder resolution is available.
+  static const String resolveFinderCapability = 'runtime.finder.resolve';
+
   /// Capabilities that this client requires before Scenario execution.
-  static const Set<String> requiredCapabilities = <String>{handshakeCapability};
+  static const Set<String> requiredCapabilities = <String>{
+    handshakeCapability,
+    resolveFinderCapability,
+  };
 }
 
 /// Flutter Inspector service extension names and arguments used by the client.

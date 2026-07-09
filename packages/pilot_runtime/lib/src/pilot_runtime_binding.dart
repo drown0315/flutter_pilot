@@ -4,6 +4,7 @@ import 'dart:developer';
 
 import 'package:flutter/foundation.dart';
 
+import 'finder_resolver.dart';
 import 'pilot_runtime_protocol.dart';
 
 /// Handles one app-side Flutter Pilot service extension request.
@@ -11,7 +12,8 @@ import 'pilot_runtime_protocol.dart';
 /// The first runtime slice only needs a zero-argument handshake request. Later
 /// capabilities can add their own typed request handlers without changing the
 /// handshake registration contract.
-typedef PilotRuntimeExtensionHandler = Future<Map<String, Object?>> Function();
+typedef PilotRuntimeExtensionHandler =
+    Future<Map<String, Object?>> Function(Map<String, Object?> parameters);
 
 /// Registers one Flutter Pilot service extension with the debug VM Service.
 ///
@@ -55,6 +57,10 @@ class PilotRuntimeBinding {
     final PilotRuntimeExtensionRegistrar registrar =
         registerExtension ?? _registerVmServiceExtension;
     registrar(PilotRuntimeProtocol.handshakeExtension, _handleHandshake);
+    registrar(
+      PilotRuntimeProtocol.resolveFinderExtension,
+      _handleResolveFinder,
+    );
     _initialized = true;
   }
 
@@ -67,8 +73,33 @@ class PilotRuntimeBinding {
     _initialized = false;
   }
 
-  static Future<Map<String, Object?>> _handleHandshake() async {
+  static Future<Map<String, Object?>> _handleHandshake(
+    Map<String, Object?> parameters,
+  ) async {
     return PilotRuntimeHandshakeResponse.current().toJson();
+  }
+
+  static Future<Map<String, Object?>> _handleResolveFinder(
+    Map<String, Object?> parameters,
+  ) async {
+    return PilotRuntimeFinderResolver.resolve(
+      byText: _optionalString(parameters, 'byText'),
+      byType: _optionalString(parameters, 'byType'),
+    );
+  }
+
+  static String? _optionalString(
+    Map<String, Object?> parameters,
+    String field,
+  ) {
+    final Object? value = parameters[field];
+    if (value == null) {
+      return null;
+    }
+    if (value is String) {
+      return value;
+    }
+    throw FormatException('resolveFinder parameter $field must be a string.');
   }
 
   static void _registerVmServiceExtension(
@@ -79,7 +110,9 @@ class PilotRuntimeBinding {
       String method,
       Map<String, String> parameters,
     ) async {
-      final Map<String, Object?> payload = await handler();
+      final Map<String, Object?> payload = await handler(
+        Map<String, Object?>.from(parameters),
+      );
       return ServiceExtensionResponse.result(jsonEncode(payload));
     });
   }

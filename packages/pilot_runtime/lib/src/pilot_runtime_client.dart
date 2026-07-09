@@ -132,6 +132,139 @@ class PilotRuntimeWidgetTreeCaptureException implements Exception {
   }
 }
 
+/// Logical-pixel rectangle reported for a resolved Finder Match.
+class PilotRuntimeBounds {
+  /// Create one visible target bounds rectangle.
+  const PilotRuntimeBounds({
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.height,
+  });
+
+  /// Decode bounds from a runtime Finder Match.
+  factory PilotRuntimeBounds.fromJson(Map<String, Object?> json) {
+    return PilotRuntimeBounds(
+      left: _readDouble(json, 'left'),
+      top: _readDouble(json, 'top'),
+      width: _readDouble(json, 'width'),
+      height: _readDouble(json, 'height'),
+    );
+  }
+
+  /// Left edge in global logical pixels.
+  final double left;
+
+  /// Top edge in global logical pixels.
+  final double top;
+
+  /// Width in logical pixels.
+  final double width;
+
+  /// Height in logical pixels.
+  final double height;
+
+  /// Encode this rectangle for VM Service transport.
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'left': left,
+      'top': top,
+      'width': width,
+      'height': height,
+    };
+  }
+
+  static double _readDouble(Map<String, Object?> json, String field) {
+    final Object? value = json[field];
+    if (value is int) {
+      return value.toDouble();
+    }
+    if (value is double) {
+      return value;
+    }
+    throw FormatException('Finder Match bounds.$field must be a number.');
+  }
+}
+
+/// One visible Runtime Target match returned by `pilot_runtime`.
+///
+/// The `handle` is opaque to Flutter Pilot. Diagnostics describe why the match
+/// was selected without exposing Flutter internals as the public contract.
+class PilotRuntimeFinderMatch {
+  /// Create one decoded runtime Finder Match.
+  const PilotRuntimeFinderMatch({
+    required this.handle,
+    this.text,
+    this.semanticType,
+    this.actionWidgetType,
+    this.bounds,
+  });
+
+  /// Opaque Runtime Handle for the matched target.
+  final String handle;
+
+  /// User-visible text evidence when available.
+  final String? text;
+
+  /// Semantic Node Type evidence when available.
+  final String? semanticType;
+
+  /// Widget type expected to receive a later action when available.
+  final String? actionWidgetType;
+
+  /// Global logical-pixel bounds when available.
+  final PilotRuntimeBounds? bounds;
+
+  /// Decode a Finder Match from the app-side runtime extension.
+  factory PilotRuntimeFinderMatch.fromJson(Map<String, Object?> json) {
+    final Object? handleValue = json['handle'];
+    if (handleValue is! String || handleValue.isEmpty) {
+      throw const FormatException(
+        'Finder Match must include a non-empty opaque handle.',
+      );
+    }
+
+    final Object? boundsValue = json['bounds'];
+    PilotRuntimeBounds? bounds;
+    if (boundsValue != null) {
+      if (boundsValue is! Map<String, Object?>) {
+        throw const FormatException('Finder Match bounds must be an object.');
+      }
+      bounds = PilotRuntimeBounds.fromJson(boundsValue);
+    }
+
+    return PilotRuntimeFinderMatch(
+      handle: handleValue,
+      text: _readOptionalString(json, 'text'),
+      semanticType: _readOptionalString(json, 'semanticType'),
+      actionWidgetType: _readOptionalString(json, 'actionWidgetType'),
+      bounds: bounds,
+    );
+  }
+
+  /// Encode this match for VM Service transport.
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'handle': handle,
+      if (text != null) 'text': text,
+      if (semanticType != null) 'semanticType': semanticType,
+      if (actionWidgetType != null) 'actionWidgetType': actionWidgetType,
+      if (bounds != null) 'bounds': bounds!.toJson(),
+    };
+  }
+
+  static String? _readOptionalString(Map<String, Object?> json, String field) {
+    final Object? value = json[field];
+    if (value == null) {
+      return null;
+    }
+    if (value is String) {
+      return value;
+    }
+    throw FormatException('Finder Match $field must be a string.');
+  }
+}
+
 /// Verified runtime session returned after a successful protocol handshake.
 ///
 /// The session records the accepted protocol version and the capabilities
@@ -262,6 +395,46 @@ class PilotRuntimeClient {
         cause: error,
       );
     }
+  }
+
+  /// Resolve one Finder through the app-side runtime extension.
+  ///
+  /// Args:
+  /// - `byText`: Exact visible text constraint from a Scenario Finder.
+  /// - `byType`: Semantic Node Type constraint from a Scenario Finder. It
+  ///   names roles such as `button`, `textField`, `text`, `scrollable`, or
+  ///   `header`; it is not a Dart widget runtime type.
+  ///
+  /// Returns all visible Finder Matches. The Flutter Pilot runner applies the
+  /// zero, one, and multiple-match cardinality rules.
+  Future<List<PilotRuntimeFinderMatch>> resolveFinder({
+    String? byText,
+    String? byType,
+  }) async {
+    final Map<String, Object?> parameters = <String, Object?>{};
+    if (byText != null) {
+      parameters['byText'] = byText;
+    }
+    if (byType != null) {
+      parameters['byType'] = byType;
+    }
+
+    final Map<String, Object?> response = await _vmService.callServiceExtension(
+      PilotRuntimeProtocol.resolveFinderExtension,
+      parameters: parameters,
+    );
+    final Object? matchesValue = response['matches'];
+    if (matchesValue is! List<Object?>) {
+      throw const FormatException('resolveFinder must return a matches list.');
+    }
+    final List<PilotRuntimeFinderMatch> matches = <PilotRuntimeFinderMatch>[];
+    for (final Object? matchValue in matchesValue) {
+      if (matchValue is! Map<String, Object?>) {
+        throw const FormatException('Finder Match entries must be objects.');
+      }
+      matches.add(PilotRuntimeFinderMatch.fromJson(matchValue));
+    }
+    return List<PilotRuntimeFinderMatch>.unmodifiable(matches);
   }
 
   Future<Map<String, Object?>> _callHandshake() async {

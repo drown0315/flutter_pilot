@@ -1,5 +1,5 @@
 import 'package:flutter_pilot/flutter_pilot.dart';
-import 'package:pilot_runtime/pilot_runtime_client.dart';
+import 'package:pilot_runtime/pilot_runtime.dart';
 import 'package:test/test.dart';
 
 /// Verifies Flutter Pilot's Runtime Adapter backed by `pilot_runtime`.
@@ -94,17 +94,64 @@ void main() {
       'root': <String, Object?>{'widgetType': 'MaterialApp'},
     });
   });
+
+  test(
+    'maps pilot_runtime Finder Matches to Runtime Adapter matches',
+    () async {
+      final _FakePilotRuntimeClient client = _FakePilotRuntimeClient(
+        finderMatches: const <PilotRuntimeFinderMatch>[
+          PilotRuntimeFinderMatch(
+            handle: 'runtime-match-1',
+            text: 'Submit',
+            semanticType: 'button',
+            actionWidgetType: 'ElevatedButton',
+            bounds: PilotRuntimeBounds(
+              left: 10,
+              top: 20,
+              width: 100,
+              height: 40,
+            ),
+          ),
+        ],
+      );
+      final PilotRuntimeAdapter adapter = PilotRuntimeAdapter(
+        client: client,
+        projectRoot: '/target/app',
+      );
+
+      final List<FinderMatch> matches = await adapter.resolveFinder(
+        const Finder(byText: 'Submit', byType: 'button'),
+      );
+
+      expect(client.finderRequests.single.byText, 'Submit');
+      expect(client.finderRequests.single.byType, 'button');
+      expect(matches, hasLength(1));
+      expect(matches.single.id, 'runtime-match-1');
+      expect(matches.single.text, 'Submit');
+      expect(matches.single.type, 'button');
+      expect(matches.single.debugLabel, contains('ElevatedButton'));
+      expect(matches.single.bounds?.left, 10);
+      expect(matches.single.bounds?.top, 20);
+      expect(matches.single.bounds?.width, 100);
+      expect(matches.single.bounds?.height, 40);
+    },
+  );
 }
 
 class _FakePilotRuntimeClient implements PilotRuntimeClient {
   _FakePilotRuntimeClient({
     this.initializeFailure,
     Map<String, Object?>? widgetTree,
-  }) : widgetTree = widgetTree ?? <String, Object?>{};
+    List<PilotRuntimeFinderMatch>? finderMatches,
+  }) : widgetTree = widgetTree ?? <String, Object?>{},
+       finderMatches = finderMatches ?? const <PilotRuntimeFinderMatch>[];
 
   final PilotRuntimeInitializationException? initializeFailure;
   final Map<String, Object?> widgetTree;
+  final List<PilotRuntimeFinderMatch> finderMatches;
   final List<String> projectRoots = <String>[];
+  final List<({String? byText, String? byType})> finderRequests =
+      <({String? byText, String? byType})>[];
 
   @override
   Future<PilotRuntimeSession> initialize() async {
@@ -124,5 +171,14 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
   }) async {
     projectRoots.add(projectRoot);
     return widgetTree;
+  }
+
+  @override
+  Future<List<PilotRuntimeFinderMatch>> resolveFinder({
+    String? byText,
+    String? byType,
+  }) async {
+    finderRequests.add((byText: byText, byType: byType));
+    return finderMatches;
   }
 }

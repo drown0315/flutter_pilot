@@ -8,24 +8,34 @@ void main() {
 
     test('registers the debug runtime handshake', () async {
       final List<String> registeredExtensions = <String>[];
-      PilotRuntimeExtensionHandler? registeredHandler;
+      final Map<String, PilotRuntimeExtensionHandler> registeredHandlers =
+          <String, PilotRuntimeExtensionHandler>{};
 
       PilotRuntimeBinding.ensureInitialized(
         debugMode: true,
         registerExtension:
             (String extensionName, PilotRuntimeExtensionHandler handler) {
               registeredExtensions.add(extensionName);
-              registeredHandler = handler;
+              registeredHandlers[extensionName] = handler;
             },
       );
 
       expect(registeredExtensions, <String>[
         PilotRuntimeProtocol.handshakeExtension,
+        PilotRuntimeProtocol.resolveFinderExtension,
       ]);
-      expect(await registeredHandler!(), <String, Object?>{
-        'protocolVersion': 1,
-        'capabilities': <Object?>['runtime.handshake'],
-      });
+      expect(
+        await registeredHandlers[PilotRuntimeProtocol.handshakeExtension]!(
+          const <String, Object?>{},
+        ),
+        <String, Object?>{
+          'protocolVersion': 1,
+          'capabilities': <Object?>[
+            'runtime.finder.resolve',
+            'runtime.handshake',
+          ],
+        },
+      );
     });
 
     test('is a no-op outside debug mode', () {

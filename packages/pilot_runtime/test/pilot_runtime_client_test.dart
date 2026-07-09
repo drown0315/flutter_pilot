@@ -8,7 +8,10 @@ void main() {
       final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
         handshakeResponse: <String, Object?>{
           'protocolVersion': 1,
-          'capabilities': <Object?>['runtime.handshake'],
+          'capabilities': <Object?>[
+            'runtime.finder.resolve',
+            'runtime.handshake',
+          ],
         },
       );
       final PilotRuntimeClient client = PilotRuntimeClient(vmService);
@@ -17,6 +20,7 @@ void main() {
 
       expect(session.protocolVersion, 1);
       expect(session.capabilities, contains('runtime.handshake'));
+      expect(session.capabilities, contains('runtime.finder.resolve'));
       expect(vmService.calledExtensions, <String>[
         PilotRuntimeProtocol.handshakeExtension,
       ]);
@@ -77,7 +81,10 @@ void main() {
       final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
         handshakeResponse: <String, Object?>{
           'protocolVersion': 2,
-          'capabilities': <Object?>['runtime.handshake'],
+          'capabilities': <Object?>[
+            'runtime.finder.resolve',
+            'runtime.handshake',
+          ],
         },
       );
       final PilotRuntimeClient client = PilotRuntimeClient(vmService);
@@ -100,6 +107,54 @@ void main() {
       );
     });
   });
+
+  group('PilotRuntimeClient Finder resolution', () {
+    test('decodes Finder Matches from the runtime extension', () async {
+      final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
+        extensionResponses: <String, Map<String, Object?>>{
+          PilotRuntimeProtocol.resolveFinderExtension: <String, Object?>{
+            'matches': <Object?>[
+              <String, Object?>{
+                'handle': 'runtime-match-1',
+                'text': 'Log in',
+                'semanticType': 'button',
+                'actionWidgetType': 'ElevatedButton',
+                'bounds': <String, Object?>{
+                  'left': 10.0,
+                  'top': 20.0,
+                  'width': 80.0,
+                  'height': 40.0,
+                },
+              },
+            ],
+          },
+        },
+      );
+      final PilotRuntimeClient client = PilotRuntimeClient(vmService);
+
+      final List<PilotRuntimeFinderMatch> matches = await client.resolveFinder(
+        byText: 'Log in',
+        byType: 'button',
+      );
+
+      expect(vmService.calledExtensions, <String>[
+        PilotRuntimeProtocol.resolveFinderExtension,
+      ]);
+      expect(vmService.calledParameters.single, <String, Object?>{
+        'byText': 'Log in',
+        'byType': 'button',
+      });
+      expect(matches, hasLength(1));
+      expect(matches.single.handle, 'runtime-match-1');
+      expect(matches.single.text, 'Log in');
+      expect(matches.single.semanticType, 'button');
+      expect(matches.single.actionWidgetType, 'ElevatedButton');
+      expect(matches.single.bounds?.left, 10.0);
+      expect(matches.single.bounds?.top, 20.0);
+      expect(matches.single.bounds?.width, 80.0);
+      expect(matches.single.bounds?.height, 40.0);
+    });
+  });
 }
 
 class FakePilotRuntimeVmService implements PilotRuntimeVmService {
@@ -107,11 +162,15 @@ class FakePilotRuntimeVmService implements PilotRuntimeVmService {
   FakePilotRuntimeVmService({
     this.handshakeResponse = const <String, Object?>{},
     this.missingExtension = false,
-  });
+    Map<String, Map<String, Object?>>? extensionResponses,
+  }) : extensionResponses =
+           extensionResponses ?? const <String, Map<String, Object?>>{};
 
   final Map<String, Object?> handshakeResponse;
   final bool missingExtension;
+  final Map<String, Map<String, Object?>> extensionResponses;
   final List<String> calledExtensions = <String>[];
+  final List<Map<String, Object?>> calledParameters = <Map<String, Object?>>[];
 
   @override
   Future<Map<String, Object?>> callServiceExtension(
@@ -119,8 +178,14 @@ class FakePilotRuntimeVmService implements PilotRuntimeVmService {
     Map<String, Object?> parameters = const <String, Object?>{},
   }) async {
     calledExtensions.add(extensionName);
+    calledParameters.add(parameters);
     if (missingExtension) {
       throw PilotRuntimeServiceExtensionMissingException(extensionName);
+    }
+    final Map<String, Object?>? extensionResponse =
+        extensionResponses[extensionName];
+    if (extensionResponse != null) {
+      return extensionResponse;
     }
     return handshakeResponse;
   }
