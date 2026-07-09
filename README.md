@@ -144,13 +144,13 @@ stdout for scripts.
 Validate a Scenario without connecting to a Flutter app:
 
 ```bash
-flutter_pilot validate examples/smoke_scenario.yaml
+flutter_pilot validate examples/smoke_app/smoke_scenario.yaml
 ```
 
 Run a Scenario by launching the current Target App Package:
 
 ```bash
-flutter_pilot test examples/smoke_scenario.yaml
+flutter_pilot test examples/smoke_app/smoke_scenario.yaml
 ```
 
 Run all Project Scenarios from the default Pilot Directory, `pilot/`:
@@ -168,7 +168,7 @@ flutter_pilot test pilot/regression
 Select the Target Device, Flutter flavor, or app entrypoint when needed:
 
 ```bash
-flutter_pilot test examples/smoke_scenario.yaml \
+flutter_pilot test examples/smoke_app/smoke_scenario.yaml \
   --device <device-id-or-name> \
   --flavor staging \
   --target lib/main_staging.dart
@@ -177,7 +177,7 @@ flutter_pilot test examples/smoke_scenario.yaml \
 Stop after a specific Step and print captured diagnostic context:
 
 ```bash
-flutter_pilot test examples/smoke_scenario.yaml \
+flutter_pilot test examples/smoke_app/smoke_scenario.yaml \
   --until wait_for_error \
   --print snapshot
 ```

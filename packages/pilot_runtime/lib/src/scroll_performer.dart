@@ -111,7 +111,8 @@ class PilotRuntimeScrollPerformer {
     if (element == null) {
       return null;
     }
-    if (element.widget is Scrollable) {
+    if (PilotRuntimeFinderResolver.isVisibleElement(element) &&
+        element.widget is Scrollable) {
       return element;
     }
     final List<Element> scrollables = <Element>[];
@@ -128,6 +129,9 @@ class PilotRuntimeScrollPerformer {
     Element element,
     List<Element> scrollables,
   ) {
+    if (!PilotRuntimeFinderResolver.isVisibleElement(element)) {
+      return;
+    }
     if (element.widget is Scrollable) {
       scrollables.add(element);
     }

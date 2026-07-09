@@ -637,6 +637,50 @@ void main() {
       expect(controller.text, 'locked');
     });
 
+    testWidgets('type fails for a wrapper with multiple editable descendants', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      final TextEditingController firstController = TextEditingController(
+        text: 'first',
+      );
+      final TextEditingController secondController = TextEditingController(
+        text: 'second',
+      );
+      addTearDown(firstController.dispose);
+      addTearDown(secondController.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              key: const ValueKey<String>('credentials'),
+              children: <Widget>[
+                TextField(controller: firstController),
+                TextField(controller: secondController),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byKey: 'credentials',
+      );
+      final Map<String, Object?> match = _singleMatch(response);
+
+      final Map<String, Object?> clearResponse = await _clearText(
+        extensions,
+        handle: match['handle']! as String,
+      );
+
+      expect(clearResponse['ok'], false);
+      expect(clearResponse['code'], 'notEditableText');
+      expect(firstController.text, 'first');
+      expect(secondController.text, 'second');
+    });
+
     testWidgets('wrapper evidence ignores hidden descendant text and types', (
       WidgetTester tester,
     ) async {
@@ -784,6 +828,73 @@ void main() {
       expect(scrollResponse['ok'], false);
       expect(scrollResponse['code'], 'notScrollable');
       expect(scrollResponse['message'], contains('scrollable'));
+    });
+
+    testWidgets('targeted scroll ignores hidden descendant scrollables', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      final ScrollController visibleController = ScrollController();
+      final ScrollController hiddenController = ScrollController();
+      addTearDown(visibleController.dispose);
+      addTearDown(hiddenController.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              key: const ValueKey<String>('scroll_wrapper'),
+              children: <Widget>[
+                Offstage(
+                  child: SizedBox(
+                    height: 200,
+                    child: ListView.builder(
+                      controller: hiddenController,
+                      itemCount: 30,
+                      itemBuilder: (BuildContext context, int index) {
+                        return SizedBox(
+                          height: 48,
+                          child: Text('Hidden $index'),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    controller: visibleController,
+                    itemCount: 30,
+                    itemBuilder: (BuildContext context, int index) {
+                      return SizedBox(
+                        height: 48,
+                        child: Text('Visible $index'),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byKey: 'scroll_wrapper',
+      );
+      final Map<String, Object?> match = _singleMatch(response);
+
+      final Map<String, Object?> scrollResponse = await _scroll(
+        extensions,
+        handle: match['handle']! as String,
+        deltaX: 0,
+        deltaY: -120,
+      );
+      await tester.pumpAndSettle();
+
+      expect(scrollResponse['ok'], true);
+      expect(visibleController.offset, greaterThan(0));
+      expect(hiddenController.offset, 0);
     });
 
     testWidgets('scroll drags the primary scrollable when no handle is given', (

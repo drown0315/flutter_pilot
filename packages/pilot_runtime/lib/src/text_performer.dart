@@ -54,33 +54,31 @@ class PilotRuntimeTextPerformer {
     if (element == null) {
       return null;
     }
-    EditableTextState? state;
-    if (element is StatefulElement && element.state is EditableTextState) {
-      state = element.state as EditableTextState;
-    }
-    element.visitChildren((Element child) {
-      state ??= _editableStateFromElement(child);
-    });
-    final EditableTextState? editableState = state;
-    if (editableState == null || !_isEditable(editableState)) {
+    final List<EditableTextState> states = <EditableTextState>[];
+    _collectEditableStates(element, states);
+    if (states.length != 1) {
       return null;
     }
-    return editableState;
+    return states.single;
   }
 
-  static EditableTextState? _editableStateFromElement(Element element) {
+  static void _collectEditableStates(
+    Element element,
+    List<EditableTextState> states,
+  ) {
+    if (!PilotRuntimeFinderResolver.isVisibleElement(element)) {
+      return;
+    }
     if (element is StatefulElement && element.state is EditableTextState) {
       final EditableTextState state = element.state as EditableTextState;
       if (_isEditable(state)) {
-        return state;
+        states.add(state);
       }
-      return null;
+      return;
     }
-    EditableTextState? state;
     element.visitChildren((Element child) {
-      state ??= _editableStateFromElement(child);
+      _collectEditableStates(child, states);
     });
-    return state;
   }
 
   static bool _isEditable(EditableTextState state) {

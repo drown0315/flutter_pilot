@@ -134,13 +134,13 @@ stdout，方便脚本读取。
 不连接 Flutter 应用，只校验 Scenario：
 
 ```bash
-flutter_pilot validate examples/smoke_scenario.yaml
+flutter_pilot validate examples/smoke_app/smoke_scenario.yaml
 ```
 
 通过启动当前 Target App Package 运行 Scenario：
 
 ```bash
-flutter_pilot test examples/smoke_scenario.yaml
+flutter_pilot test examples/smoke_app/smoke_scenario.yaml
 ```
 
 运行默认 Pilot Directory（`pilot/`）下的全部 Project Scenarios：
@@ -158,7 +158,7 @@ flutter_pilot test pilot/regression
 需要时可以选择 Target Device、Flutter flavor 或应用入口文件：
 
 ```bash
-flutter_pilot test examples/smoke_scenario.yaml \
+flutter_pilot test examples/smoke_app/smoke_scenario.yaml \
   --device <device-id-or-name> \
   --flavor staging \
   --target lib/main_staging.dart
@@ -167,7 +167,7 @@ flutter_pilot test examples/smoke_scenario.yaml \
 运行到指定 Step 后停止，并打印捕获到的诊断上下文：
 
 ```bash
-flutter_pilot test examples/smoke_scenario.yaml \
+flutter_pilot test examples/smoke_app/smoke_scenario.yaml \
   --until wait_for_error \
   --print snapshot
 ```

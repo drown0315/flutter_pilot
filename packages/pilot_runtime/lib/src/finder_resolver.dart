@@ -102,6 +102,11 @@ class PilotRuntimeFinderResolver {
     _visitVisibleElements(rootElement, visitor);
   }
 
+  /// Return whether one Element satisfies Finder visibility rules.
+  static bool isVisibleElement(Element element) {
+    return _isVisible(element);
+  }
+
   static void _visitVisibleElements(
     Element element,
     void Function(Element element) visitor,
