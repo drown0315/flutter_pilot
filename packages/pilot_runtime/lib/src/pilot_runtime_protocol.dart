@@ -1,6 +1,6 @@
 /// Protocol constants shared by the app-side hook and VM Service client.
 ///
-/// Version 1 exposes runtime handshake and visible Finder resolution.
+/// Version 1 exposes runtime handshake, visible Finder resolution, and tap.
 class PilotRuntimeProtocol {
   PilotRuntimeProtocol._();
 
@@ -15,16 +15,23 @@ class PilotRuntimeProtocol {
   static const String resolveFinderExtension =
       'ext.flutter_pilot.runtime.resolveFinder';
 
+  /// VM Service extension used to tap one resolved Runtime Handle.
+  static const String tapExtension = 'ext.flutter_pilot.runtime.tap';
+
   /// Capability name reported when the handshake extension is available.
   static const String handshakeCapability = 'runtime.handshake';
 
   /// Capability name reported when visible Finder resolution is available.
   static const String resolveFinderCapability = 'runtime.finder.resolve';
 
+  /// Capability name reported when tap replay is available.
+  static const String tapCapability = 'runtime.action.tap';
+
   /// Capabilities that this client requires before Scenario execution.
   static const Set<String> requiredCapabilities = <String>{
     handshakeCapability,
     resolveFinderCapability,
+    tapCapability,
   };
 }
 

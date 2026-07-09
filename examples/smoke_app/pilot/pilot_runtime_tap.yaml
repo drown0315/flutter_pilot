@@ -1,0 +1,25 @@
+scenario:
+  name: pilot_runtime_tap
+  description: |
+    Verifies tap replay through PilotRuntimeAdapter against the smoke app.
+
+steps:
+  - label: tap_semantic_button
+    tap:
+      byText: Semantic submit
+      byType: button
+
+  - label: wait_for_semantic_count
+    waitFor:
+      byText: 'Semantic taps: 1'
+      timeoutMs: 5000
+
+  - label: tap_pointer_fallback
+    tap:
+      byKey: pointer_fallback_target
+      byWidget: GestureDetector
+
+  - label: wait_for_pointer_count
+    waitFor:
+      byText: 'Pointer taps: 1'
+      timeoutMs: 5000

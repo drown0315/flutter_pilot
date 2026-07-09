@@ -147,17 +147,58 @@ void main() {
       expect(matches.single.bounds?.height, 40);
     },
   );
+
+  test(
+    'passes opaque Runtime Handle to pilot_runtime tap capability',
+    () async {
+      final _FakePilotRuntimeClient client = _FakePilotRuntimeClient();
+      final PilotRuntimeAdapter adapter = PilotRuntimeAdapter(
+        client: client,
+        projectRoot: '/target/app',
+      );
+
+      await adapter.performTap(const FinderMatch(id: 'runtime-match-1'));
+
+      expect(client.tapHandles, <String>['runtime-match-1']);
+    },
+  );
+
+  test('maps pilot_runtime tap failures to action failures', () async {
+    final PilotRuntimeAdapter adapter = PilotRuntimeAdapter(
+      client: _FakePilotRuntimeClient(tapFailure: StateError('cannot tap')),
+      projectRoot: '/target/app',
+    );
+
+    await expectLater(
+      adapter.performTap(const FinderMatch(id: 'runtime-match-1')),
+      throwsA(
+        isA<RuntimeOperationException>()
+            .having(
+              (RuntimeOperationException error) => error.operation,
+              'operation',
+              RuntimeOperation.performTap,
+            )
+            .having(
+              (RuntimeOperationException error) => error.message,
+              'message',
+              contains('cannot tap'),
+            ),
+      ),
+    );
+  });
 }
 
 class _FakePilotRuntimeClient implements PilotRuntimeClient {
   _FakePilotRuntimeClient({
     this.initializeFailure,
+    this.tapFailure,
     Map<String, Object?>? widgetTree,
     List<PilotRuntimeFinderMatch>? finderMatches,
   }) : widgetTree = widgetTree ?? <String, Object?>{},
        finderMatches = finderMatches ?? const <PilotRuntimeFinderMatch>[];
 
   final PilotRuntimeInitializationException? initializeFailure;
+  final Object? tapFailure;
   final Map<String, Object?> widgetTree;
   final List<PilotRuntimeFinderMatch> finderMatches;
   final List<String> projectRoots = <String>[];
@@ -166,6 +207,7 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
   >
   finderRequests =
       <({String? byText, String? byType, String? byKey, String? byWidget})>[];
+  final List<String> tapHandles = <String>[];
 
   @override
   Future<PilotRuntimeSession> initialize() async {
@@ -175,7 +217,11 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
     }
     return const PilotRuntimeSession(
       protocolVersion: 1,
-      capabilities: <String>{'runtime.handshake'},
+      capabilities: <String>{
+        'runtime.action.tap',
+        'runtime.finder.resolve',
+        'runtime.handshake',
+      },
     );
   }
 
@@ -201,5 +247,14 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
       byWidget: byWidget,
     ));
     return finderMatches;
+  }
+
+  @override
+  Future<void> performTap({required String handle}) async {
+    final Object? failure = tapFailure;
+    if (failure != null) {
+      throw failure;
+    }
+    tapHandles.add(handle);
   }
 }

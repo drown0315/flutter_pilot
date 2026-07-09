@@ -9,6 +9,7 @@ void main() {
         handshakeResponse: <String, Object?>{
           'protocolVersion': 1,
           'capabilities': <Object?>[
+            'runtime.action.tap',
             'runtime.finder.resolve',
             'runtime.handshake',
           ],
@@ -21,6 +22,7 @@ void main() {
       expect(session.protocolVersion, 1);
       expect(session.capabilities, contains('runtime.handshake'));
       expect(session.capabilities, contains('runtime.finder.resolve'));
+      expect(session.capabilities, contains('runtime.action.tap'));
       expect(vmService.calledExtensions, <String>[
         PilotRuntimeProtocol.handshakeExtension,
       ]);
@@ -82,6 +84,7 @@ void main() {
         handshakeResponse: <String, Object?>{
           'protocolVersion': 2,
           'capabilities': <Object?>[
+            'runtime.action.tap',
             'runtime.finder.resolve',
             'runtime.handshake',
           ],
@@ -161,6 +164,29 @@ void main() {
       expect(matches.single.bounds?.top, 20.0);
       expect(matches.single.bounds?.width, 80.0);
       expect(matches.single.bounds?.height, 40.0);
+    });
+  });
+
+  group('PilotRuntimeClient tap', () {
+    test('passes opaque Runtime Handle to the tap extension', () async {
+      final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
+        extensionResponses: <String, Map<String, Object?>>{
+          PilotRuntimeProtocol.tapExtension: <String, Object?>{
+            'status': 'ok',
+            'method': 'semantic',
+          },
+        },
+      );
+      final PilotRuntimeClient client = PilotRuntimeClient(vmService);
+
+      await client.performTap(handle: 'runtime-match-1');
+
+      expect(vmService.calledExtensions, <String>[
+        PilotRuntimeProtocol.tapExtension,
+      ]);
+      expect(vmService.calledParameters.single, <String, Object?>{
+        'handle': 'runtime-match-1',
+      });
     });
   });
 }

@@ -46,7 +46,7 @@ class PilotRuntimeFinderResolver {
       }
       matches.add(
         PilotRuntimeFinderMatch(
-          handle: 'element-${identityHashCode(element)}',
+          handle: handleForElement(element),
           text: evidence.textForDiagnostics,
           semanticType: evidence.semanticType,
           key: evidence.valueKey,
@@ -62,6 +62,31 @@ class PilotRuntimeFinderResolver {
         for (final PilotRuntimeFinderMatch match in matches) match.toJson(),
       ],
     };
+  }
+
+  /// Return the opaque Runtime Handle used for one Element.
+  static String handleForElement(Element element) {
+    return 'element-${identityHashCode(element)}';
+  }
+
+  /// Find the currently visible Element represented by an opaque handle.
+  ///
+  /// Runtime Handles are only valid for immediate action after Finder
+  /// resolution. The lookup traverses the current visible Element tree and
+  /// returns `null` when the handle is stale or malformed.
+  static Element? elementForHandle(String handle) {
+    final Element? rootElement = WidgetsBinding.instance.rootElement;
+    if (rootElement == null) {
+      return null;
+    }
+
+    Element? match;
+    _visitVisibleElements(rootElement, (Element element) {
+      if (match == null && handleForElement(element) == handle) {
+        match = element;
+      }
+    });
+    return match;
   }
 
   static void _visitVisibleElements(

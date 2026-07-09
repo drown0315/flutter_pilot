@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import 'finder_resolver.dart';
 import 'pilot_runtime_protocol.dart';
+import 'tap_performer.dart';
 
 /// Handles one app-side Flutter Pilot service extension request.
 ///
@@ -61,6 +62,7 @@ class PilotRuntimeBinding {
       PilotRuntimeProtocol.resolveFinderExtension,
       _handleResolveFinder,
     );
+    registrar(PilotRuntimeProtocol.tapExtension, _handleTap);
     _initialized = true;
   }
 
@@ -90,6 +92,14 @@ class PilotRuntimeBinding {
     );
   }
 
+  static Future<Map<String, Object?>> _handleTap(
+    Map<String, Object?> parameters,
+  ) async {
+    return PilotRuntimeTapPerformer.tap(
+      handle: _requiredString(parameters, 'handle', 'tap'),
+    );
+  }
+
   static String? _optionalString(
     Map<String, Object?> parameters,
     String field,
@@ -102,6 +112,18 @@ class PilotRuntimeBinding {
       return value;
     }
     throw FormatException('resolveFinder parameter $field must be a string.');
+  }
+
+  static String _requiredString(
+    Map<String, Object?> parameters,
+    String field,
+    String operation,
+  ) {
+    final Object? value = parameters[field];
+    if (value is String && value.isNotEmpty) {
+      return value;
+    }
+    throw FormatException('$operation parameter $field must be a string.');
   }
 
   static void _registerVmServiceExtension(

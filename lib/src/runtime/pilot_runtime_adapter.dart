@@ -69,8 +69,16 @@ class PilotRuntimeAdapter implements RuntimeAdapter {
   }
 
   @override
-  Future<void> performTap(FinderMatch match) {
-    throw _notImplemented(RuntimeOperation.performTap);
+  Future<void> performTap(FinderMatch match) async {
+    try {
+      await _client.performTap(handle: match.id);
+    } catch (error) {
+      throw RuntimeOperationException(
+        operation: RuntimeOperation.performTap,
+        message: error.toString(),
+        cause: error,
+      );
+    }
   }
 
   @override

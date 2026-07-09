@@ -288,6 +288,135 @@ void main() {
       expect(match['key'], 'message_wrapper');
       expect(match['matchedWidgetType'], 'Padding');
     });
+
+    testWidgets('tap performs semantic tap action for a resolved handle', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      int taps = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Semantics(
+              button: true,
+              onTap: () {
+                taps += 1;
+              },
+              child: const Text('Semantic submit'),
+            ),
+          ),
+        ),
+      );
+      final SemanticsHandle semantics = tester.ensureSemantics();
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byType: 'button',
+      );
+      final Map<String, Object?> match = _singleMatch(response);
+
+      await _tap(extensions, handle: match['handle']! as String);
+      await tester.pump();
+
+      expect(taps, 1);
+      semantics.dispose();
+    });
+
+    testWidgets(
+      'tap falls back to pointer center tap when semantics is absent',
+      (WidgetTester tester) async {
+        final Map<String, PilotRuntimeExtensionHandler> extensions =
+            _registerRuntimeExtensions();
+        int taps = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: GestureDetector(
+                key: const ValueKey<String>('pointer_target'),
+                excludeFromSemantics: true,
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  taps += 1;
+                },
+                child: const SizedBox(width: 80, height: 40),
+              ),
+            ),
+          ),
+        );
+
+        final Map<String, Object?> response = await _resolveFinder(
+          extensions,
+          byKey: 'pointer_target',
+        );
+        final Map<String, Object?> match = _singleMatch(response);
+
+        await _tap(extensions, handle: match['handle']! as String);
+        await tester.pump();
+
+        expect(taps, 1);
+      },
+    );
+
+    testWidgets('tap falls back to pointer center tap for Material buttons', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      int taps = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: FilledButton(
+              key: const ValueKey<String>('material_button_target'),
+              onPressed: () {
+                taps += 1;
+              },
+              child: const Text('Material submit'),
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byText: 'Material submit',
+        byType: 'button',
+      );
+      final Map<String, Object?> match = _singleMatch(response);
+
+      await _tap(extensions, handle: match['handle']! as String);
+      await tester.pump();
+
+      expect(taps, 1);
+    });
+
+    testWidgets('tap fails clearly for a non-tappable resolved handle', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: Text('Read only'))),
+      );
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byText: 'Read only',
+      );
+      final Map<String, Object?> match = _singleMatch(response);
+
+      await expectLater(
+        _tap(extensions, handle: match['handle']! as String),
+        throwsA(
+          isA<StateError>().having(
+            (StateError error) => error.message,
+            'message',
+            contains('cannot be tapped'),
+          ),
+        ),
+      );
+    });
   });
 }
 
@@ -325,6 +454,15 @@ Future<Map<String, Object?>> _resolveFinder(
     parameters['byWidget'] = byWidget;
   }
   return extensions[PilotRuntimeProtocol.resolveFinderExtension]!(parameters);
+}
+
+Future<Map<String, Object?>> _tap(
+  Map<String, PilotRuntimeExtensionHandler> extensions, {
+  required String handle,
+}) {
+  return extensions[PilotRuntimeProtocol.tapExtension]!(<String, Object?>{
+    'handle': handle,
+  });
 }
 
 Map<String, Object?> _singleMatch(Map<String, Object?> response) {

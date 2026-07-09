@@ -459,6 +459,23 @@ class PilotRuntimeClient {
     return List<PilotRuntimeFinderMatch>.unmodifiable(matches);
   }
 
+  /// Tap one Runtime Handle returned by Finder resolution.
+  ///
+  /// Args:
+  /// - `handle`: Opaque Runtime Handle from a `PilotRuntimeFinderMatch`.
+  ///   Flutter Pilot passes it back unchanged for the immediately following
+  ///   action and does not parse or construct it.
+  ///
+  /// Returns when the app-side runtime completed the tap. Runtime action
+  /// failures are reported by the service extension and surface as VM Service
+  /// call failures.
+  Future<void> performTap({required String handle}) async {
+    await _vmService.callServiceExtension(
+      PilotRuntimeProtocol.tapExtension,
+      parameters: <String, Object?>{'handle': handle},
+    );
+  }
+
   Future<Map<String, Object?>> _callHandshake() async {
     try {
       return await _vmService.callServiceExtension(
