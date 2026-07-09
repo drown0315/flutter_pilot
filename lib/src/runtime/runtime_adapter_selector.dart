@@ -2,13 +2,14 @@ import 'dart:io';
 
 import 'package:pilot_runtime/pilot_runtime.dart';
 
+import 'mcp_flutter_runtime_adapter.dart';
 import 'pilot_runtime_adapter.dart';
 import 'pilot_runtime_vm_service.dart';
 import 'runtime_contract.dart';
 
 /// Selects the Runtime Adapter for a launched Runtime Target.
 ///
-/// The default path uses `pilot_runtime`. A hidden environment switch remains
+/// The default path stays on `mcp_flutter`. A hidden environment switch remains
 /// available for explicit runtime selection without adding public CLI flags.
 class RuntimeAdapterSelector {
   RuntimeAdapterSelector._();
@@ -30,7 +31,10 @@ class RuntimeAdapterSelector {
     final Map<String, String> effectiveEnvironment =
         environment ?? Platform.environment;
     final String runtime = effectiveEnvironment[environmentKey] ?? '';
-    if (runtime.isEmpty || runtime == 'pilot_runtime') {
+    if (runtime.isEmpty || runtime == 'mcp_flutter') {
+      return McpFlutterRuntimeAdapter(target: target);
+    }
+    if (runtime == 'pilot_runtime') {
       final PilotRuntimeVmServiceConnection vmService =
           PilotRuntimeVmServiceConnection(vmServiceUri: target.vmServiceUri);
       return PilotRuntimeAdapter(
@@ -41,7 +45,7 @@ class RuntimeAdapterSelector {
     }
     throw RuntimeAdapterSelectionException(
       'Invalid $environmentKey value "$runtime". '
-      'Expected "pilot_runtime".',
+      'Expected "mcp_flutter" or "pilot_runtime".',
     );
   }
 }

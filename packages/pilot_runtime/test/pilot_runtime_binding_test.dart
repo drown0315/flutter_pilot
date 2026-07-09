@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pilot_runtime/pilot_runtime.dart';
 
@@ -58,6 +59,39 @@ void main() {
       );
 
       expect(registeredExtensions, isEmpty);
+    });
+
+    testWidgets('accepts VM service string parameters for scroll deltas', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> registeredHandlers =
+          <String, PilotRuntimeExtensionHandler>{};
+      PilotRuntimeBinding.ensureInitialized(
+        debugMode: true,
+        registerExtension:
+            (String extensionName, PilotRuntimeExtensionHandler handler) {
+              registeredHandlers[extensionName] = handler;
+            },
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ListView(
+              children: const <Widget>[
+                SizedBox(height: 2000, child: Text('Long content')),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> response =
+          await registeredHandlers[PilotRuntimeProtocol.scrollExtension]!(
+            const <String, Object?>{'deltaX': '0', 'deltaY': '-120.5'},
+          );
+
+      expect(response['ok'], isTrue);
+      expect(response['method'], 'pointer');
     });
   });
 }

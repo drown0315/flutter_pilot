@@ -625,6 +625,51 @@ void main() {
       expect(scrollResponse['message'], contains('scrollable'));
     });
 
+    testWidgets('scroll fails for a handle with multiple scrollable children', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Row(
+              key: const ValueKey<String>('scroll_group'),
+              children: <Widget>[
+                Expanded(
+                  child: ListView(
+                    children: const <Widget>[Text('Left'), Text('Left 2')],
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    children: const <Widget>[Text('Right'), Text('Right 2')],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byKey: 'scroll_group',
+      );
+      final Map<String, Object?> match = _singleMatch(response);
+
+      final Map<String, Object?> scrollResponse = await _scroll(
+        extensions,
+        handle: match['handle']! as String,
+        deltaX: 0,
+        deltaY: -120,
+      );
+
+      expect(scrollResponse['ok'], false);
+      expect(scrollResponse['code'], 'notScrollable');
+      expect(scrollResponse['message'], contains('scrollable'));
+    });
+
     testWidgets('scroll drags the primary scrollable when no handle is given', (
       WidgetTester tester,
     ) async {

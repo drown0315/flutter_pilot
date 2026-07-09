@@ -114,22 +114,26 @@ class PilotRuntimeScrollPerformer {
     if (element.widget is Scrollable) {
       return element;
     }
-    Element? scrollable;
+    final List<Element> scrollables = <Element>[];
     element.visitChildren((Element child) {
-      scrollable ??= _firstScrollableInSubtree(child);
+      _collectScrollablesInSubtree(child, scrollables);
     });
-    return scrollable;
+    if (scrollables.length != 1) {
+      return null;
+    }
+    return scrollables.single;
   }
 
-  static Element? _firstScrollableInSubtree(Element element) {
+  static void _collectScrollablesInSubtree(
+    Element element,
+    List<Element> scrollables,
+  ) {
     if (element.widget is Scrollable) {
-      return element;
+      scrollables.add(element);
     }
-    Element? scrollable;
     element.visitChildren((Element child) {
-      scrollable ??= _firstScrollableInSubtree(child);
+      _collectScrollablesInSubtree(child, scrollables);
     });
-    return scrollable;
   }
 
   static Element? _primaryScrollable() {
