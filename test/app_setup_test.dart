@@ -7,7 +7,7 @@ import 'package:test/test.dart';
 /// Exercises Target App Package setup checks through the public app setup API.
 void main() {
   test(
-    'reports complete setup for a Flutter package with pilot_runtime',
+    'reports complete setup for a Flutter package with mcp_toolkit',
     () async {
       await FileTestkit.runZoned(() async {
         final Directory packageDirectory = Directory('/target_app')
@@ -17,31 +17,30 @@ name: target_app
 dependencies:
   flutter:
     sdk: flutter
-  pilot_runtime:
-    path: packages/pilot_runtime
+  mcp_toolkit: ^0.6.0
 ''');
         _writeMain(packageDirectory, '''
 import 'package:flutter/material.dart';
-import 'package:pilot_runtime/pilot_runtime.dart';
+import 'package:mcp_toolkit/mcp_toolkit.dart';
 
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  PilotRuntimeBinding.ensureInitialized();
-  runApp(const Placeholder());
+Future<void> main() async {
+  await MCPToolkitBinding.instance.bootstrapFlutter(
+    runApp: () => runApp(const Placeholder()),
+  );
 }
 ''');
 
         final AppSetupStatus status = AppSetupChecker.check(packageDirectory);
 
         expect(status.isFlutterPackage, isTrue);
-        expect(status.hasPilotRuntimeDependency, isTrue);
-        expect(status.hasPilotRuntimeBinding, isTrue);
+        expect(status.hasMcpToolkitDependency, isTrue);
+        expect(status.hasBootstrapFlutter, isTrue);
         expect(status.isComplete, isTrue);
       });
     },
   );
 
-  test('does not accept pilot_runtime from dev dependencies', () async {
+  test('does not accept mcp_toolkit from dev dependencies', () async {
     await FileTestkit.runZoned(() async {
       final Directory packageDirectory = Directory('/target_app')
         ..createSync(recursive: true);
@@ -51,26 +50,25 @@ dependencies:
   flutter:
     sdk: flutter
 dev_dependencies:
-  pilot_runtime:
-    path: packages/pilot_runtime
+  mcp_toolkit: ^0.6.0
 ''');
       _writeMain(packageDirectory, '''
 void main() {
-  PilotRuntimeBinding.ensureInitialized();
+  MCPToolkitBinding.instance.bootstrapFlutter();
 }
 ''');
 
       final AppSetupStatus status = AppSetupChecker.check(packageDirectory);
 
       expect(status.isFlutterPackage, isTrue);
-      expect(status.hasPilotRuntimeDependency, isFalse);
-      expect(status.hasPilotRuntimeBinding, isTrue);
+      expect(status.hasMcpToolkitDependency, isFalse);
+      expect(status.hasBootstrapFlutter, isTrue);
       expect(status.isComplete, isFalse);
     });
   });
 
   test(
-    'init adds pilot_runtime dependency when runtime dependency is missing',
+    'init adds mcp_toolkit dependency when runtime dependency is missing',
     () async {
       await FileTestkit.runZoned(() async {
         final Directory packageDirectory = Directory('/target_app')
@@ -85,20 +83,20 @@ dependencies:
 
         final AppSetupInitResult result = await AppSetupInitializer.initialize(
           packageDirectory,
-          addPilotRuntimeDependency: (Directory directory) async {
+          addMcpToolkitDependency: (Directory directory) async {
             installDirectories.add(directory);
             return const AppSetupInstallResult.success();
           },
         );
 
-        expect(result.addedPilotRuntimeDependency, isTrue);
-        expect(result.status.hasPilotRuntimeDependency, isFalse);
+        expect(result.addedMcpToolkitDependency, isTrue);
+        expect(result.status.hasMcpToolkitDependency, isFalse);
         expect(installDirectories, <Directory>[packageDirectory]);
       });
     },
   );
 
-  test('init stops when pilot_runtime dependency install fails', () async {
+  test('init stops when mcp_toolkit dependency install fails', () async {
     await FileTestkit.runZoned(() async {
       final Directory packageDirectory = Directory('/target_app')
         ..createSync(recursive: true);
@@ -112,7 +110,7 @@ dependencies:
       expect(
         () => AppSetupInitializer.initialize(
           packageDirectory,
-          addPilotRuntimeDependency: (Directory directory) async {
+          addMcpToolkitDependency: (Directory directory) async {
             return const AppSetupInstallResult.failure(
               exitCode: 69,
               stderr: 'pub failed',

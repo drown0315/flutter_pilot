@@ -306,7 +306,7 @@ class McpFlutterRuntimeAdapter implements RuntimeAdapter {
     if (data is! Map<String, Object?>) {
       return const <Map<String, Object?>>[];
     }
-    final Object? nodes = data['nodes'];
+    final Object? nodes = data['nodes'] ?? data['widgets'] ?? data['items'];
     if (nodes is! List<Object?>) {
       return const <Map<String, Object?>>[];
     }
@@ -317,10 +317,10 @@ class McpFlutterRuntimeAdapter implements RuntimeAdapter {
   }
 
   static bool _matchesFinder(Map<String, Object?> node, Finder finder) {
-    return _matchesString(node['label'], finder.byText) &&
-        _matchesString(node['type'], finder.byType) &&
-        _matchesString(node['key'], finder.byKey) &&
-        _matchesString(node['widgetType'], finder.byWidget);
+    return _matchesString(_nodeText(node), finder.byText) &&
+        _matchesString(_nodeType(node), finder.byType) &&
+        _matchesString(_nodeKey(node), finder.byKey) &&
+        _matchesString(_nodeWidgetType(node), finder.byWidget);
   }
 
   static bool _matchesString(Object? actual, String? expected) {
@@ -328,18 +328,20 @@ class McpFlutterRuntimeAdapter implements RuntimeAdapter {
   }
 
   static FinderMatch _matchFromNode(Map<String, Object?> node) {
-    final Object? ref = node['ref'];
     return FinderMatch(
-      id: ref is String ? ref : '',
-      debugLabel: node['label'] as String?,
-      text: node['label'] as String?,
-      key: node['key'] as String?,
-      type: node['type'] as String?,
-      bounds: _boundsFromNode(node['rect']),
+      id: _stringField(node, const <String>['ref', 'id']) ?? '',
+      debugLabel: _nodeText(node) ?? _nodeType(node),
+      text: _nodeText(node),
+      key: _nodeKey(node),
+      type: _nodeType(node),
+      bounds: _boundsFromNode(node),
     );
   }
 
   static WidgetBounds? _boundsFromNode(Object? value) {
+    if (value is Map<String, Object?>) {
+      value = value['rect'] ?? value['bounds'];
+    }
     if (value is! Map<String, Object?>) {
       return null;
     }
@@ -359,6 +361,36 @@ class McpFlutterRuntimeAdapter implements RuntimeAdapter {
     }
     if (value is double) {
       return value;
+    }
+    return null;
+  }
+
+  static String? _nodeText(Map<String, Object?> node) {
+    return _stringField(node, const <String>['label', 'text', 'name']);
+  }
+
+  static String? _nodeKey(Map<String, Object?> node) {
+    return _stringField(node, const <String>['key', 'valueKey']);
+  }
+
+  static String? _nodeWidgetType(Map<String, Object?> node) {
+    return _stringField(node, const <String>[
+      'widgetType',
+      'runtimeType',
+      'widget',
+    ]);
+  }
+
+  static String? _nodeType(Map<String, Object?> node) {
+    return _stringField(node, const <String>['type', 'widgetType']);
+  }
+
+  static String? _stringField(Map<String, Object?> map, List<String> keys) {
+    for (final String key in keys) {
+      final Object? value = map[key];
+      if (value is String) {
+        return value;
+      }
     }
     return null;
   }

@@ -33,12 +33,12 @@ class DoctorCommand extends Command<int> {
       if (status.isComplete) {
         stdout.writeln('✅ Flutter Pilot app setup is complete.');
       } else {
-        if (!status.hasPilotRuntimeDependency) {
+        if (!status.hasMcpToolkitDependency) {
           stdout.writeln(
-            '❌ pilot_runtime dependency missing: run `flutter pub add pilot_runtime`',
+            '❌ MCP Toolkit dependency missing: run `flutter pub add mcp_toolkit`',
           );
         }
-        if (!status.hasPilotRuntimeBinding) {
+        if (!status.hasBootstrapFlutter) {
           _writeBootstrapGuidance();
         }
       }
@@ -55,8 +55,8 @@ class DoctorCommand extends Command<int> {
 
 /// `init` command for adding safe Flutter Pilot setup to a Target App Package.
 ///
-/// It can add the `pilot_runtime` dependency through Flutter tooling, then
-/// reports whether the app entrypoint still needs manual binding code.
+/// It can add the `mcp_toolkit` dependency through Flutter tooling, then
+/// reports whether the app entrypoint still needs manual bootstrap code.
 class InitCommand extends Command<int> {
   @override
   String get description =>
@@ -78,23 +78,23 @@ class InitCommand extends Command<int> {
       }
       final AppSetupInitResult result = await AppSetupInitializer.initialize(
         Directory.current,
-        addPilotRuntimeDependency: _addPilotRuntimeDependency,
+        addMcpToolkitDependency: _addMcpToolkitDependency,
       );
       stdout.writeln('Flutter Pilot init');
       stdout.writeln('');
-      if (result.addedPilotRuntimeDependency) {
-        stdout.writeln('✅ Added pilot_runtime dependency.');
+      if (result.addedMcpToolkitDependency) {
+        stdout.writeln('✅ Added MCP Toolkit dependency.');
       } else {
-        stdout.writeln('✅ pilot_runtime dependency already exists.');
+        stdout.writeln('✅ MCP Toolkit dependency already exists.');
       }
-      if (result.status.hasPilotRuntimeBinding) {
-        stdout.writeln('✅ PilotRuntimeBinding already exists.');
+      if (result.status.hasBootstrapFlutter) {
+        stdout.writeln('✅ bootstrapFlutter already exists.');
       } else {
         _writeBootstrapGuidance();
       }
       return 0;
     } on AppSetupInstallException catch (error) {
-      stderr.writeln('Failed to add pilot_runtime dependency.');
+      stderr.writeln('Failed to add MCP Toolkit dependency.');
       if (error.result.stderr.isNotEmpty) {
         stderr.writeln('');
         stderr.writeln('flutter pub add output:');
@@ -102,7 +102,7 @@ class InitCommand extends Command<int> {
       }
       stderr.writeln('');
       stderr.writeln('Run this command manually from the Flutter package:');
-      stderr.writeln('flutter pub add pilot_runtime');
+      stderr.writeln('flutter pub add mcp_toolkit');
       return 1;
     } on FileSystemException catch (error) {
       stderr.writeln(error.message);
@@ -115,14 +115,14 @@ class InitCommand extends Command<int> {
 }
 
 /// Run Flutter tooling to add the runtime dependency.
-Future<AppSetupInstallResult> _addPilotRuntimeDependency(
+Future<AppSetupInstallResult> _addMcpToolkitDependency(
   Directory packageDirectory,
 ) async {
   try {
     final ProcessResult result = await Process.run('flutter', <String>[
       'pub',
       'add',
-      'pilot_runtime',
+      'mcp_toolkit',
     ], workingDirectory: packageDirectory.path);
     if (result.exitCode == 0) {
       return const AppSetupInstallResult.success();
@@ -136,21 +136,21 @@ Future<AppSetupInstallResult> _addPilotRuntimeDependency(
   }
 }
 
-/// Print the manual app entrypoint change required for pilot_runtime.
+/// Print the manual app entrypoint change required for MCP Toolkit.
 void _writeBootstrapGuidance() {
   stdout.writeln(
-    '❌ PilotRuntimeBinding missing: add '
-    'PilotRuntimeBinding.ensureInitialized() in lib/main.dart',
+    '❌ bootstrapFlutter missing: add '
+    'MCPToolkitBinding.instance.bootstrapFlutter in lib/main.dart',
   );
   stdout.writeln('');
-  stdout.writeln('Add the pilot_runtime import:');
-  stdout.writeln("import 'package:pilot_runtime/pilot_runtime.dart';");
+  stdout.writeln('Add the MCP Toolkit import:');
+  stdout.writeln("import 'package:mcp_toolkit/mcp_toolkit.dart';");
   stdout.writeln('');
-  stdout.writeln('Initialize PilotRuntimeBinding before runApp:');
-  stdout.writeln('void main() {');
-  stdout.writeln('  WidgetsFlutterBinding.ensureInitialized();');
-  stdout.writeln('  PilotRuntimeBinding.ensureInitialized();');
-  stdout.writeln('  runApp(const MyApp());');
+  stdout.writeln('Wrap runApp with MCPToolkitBinding:');
+  stdout.writeln('Future<void> main() async {');
+  stdout.writeln('  await MCPToolkitBinding.instance.bootstrapFlutter(');
+  stdout.writeln('    runApp: () => runApp(const MyApp()),');
+  stdout.writeln('  );');
   stdout.writeln('}');
 }
 

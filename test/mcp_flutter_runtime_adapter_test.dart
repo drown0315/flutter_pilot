@@ -82,4 +82,44 @@ void main() {
       expect(calls[2].arguments['text'], 'ab');
     },
   );
+
+  test('matches alternate semantic snapshot response shapes', () async {
+    final McpFlutterRuntimeAdapter adapter = McpFlutterRuntimeAdapter(
+      target: RuntimeTarget(
+        vmServiceUri: Uri.parse('ws://127.0.0.1:1234/example=/ws'),
+      ),
+      commandRunner: (McpFlutterCommandCall call) async {
+        return <String, Object?>{
+          'ok': true,
+          'data': <String, Object?>{
+            'widgets': <Object?>[
+              <String, Object?>{
+                'id': 'submit-1',
+                'text': 'Submit',
+                'valueKey': 'submit_button',
+                'widgetType': 'button',
+                'bounds': <String, Object?>{
+                  'left': 10,
+                  'top': 20,
+                  'width': 80,
+                  'height': 40,
+                },
+              },
+            ],
+          },
+        };
+      },
+    );
+
+    final List<FinderMatch> matches = await adapter.resolveFinder(
+      const Finder(byText: 'Submit', byType: 'button', byKey: 'submit_button'),
+    );
+
+    expect(matches, hasLength(1));
+    expect(matches.single.id, 'submit-1');
+    expect(matches.single.text, 'Submit');
+    expect(matches.single.key, 'submit_button');
+    expect(matches.single.type, 'button');
+    expect(matches.single.bounds?.left, 10);
+  });
 }

@@ -345,19 +345,18 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  pilot_runtime:
-    path: packages/pilot_runtime
+  mcp_toolkit: ^0.6.0
 ''');
       final Directory libDirectory = Directory('${tempDirectory.path}/lib')
         ..createSync(recursive: true);
       File('${libDirectory.path}/main.dart').writeAsStringSync('''
 import 'package:flutter/material.dart';
-import 'package:pilot_runtime/pilot_runtime.dart';
+import 'package:mcp_toolkit/mcp_toolkit.dart';
 
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  PilotRuntimeBinding.ensureInitialized();
-  runApp(const Placeholder());
+Future<void> main() async {
+  await MCPToolkitBinding.instance.bootstrapFlutter(
+    runApp: () => runApp(const Placeholder()),
+  );
 }
 ''');
 
@@ -411,13 +410,13 @@ void main() {
       expect(
         result.stdout,
         contains(
-          '❌ pilot_runtime dependency missing: run `flutter pub add pilot_runtime`',
+          '❌ MCP Toolkit dependency missing: run `flutter pub add mcp_toolkit`',
         ),
       );
       expect(
         result.stdout,
         contains(
-          '❌ PilotRuntimeBinding missing: add PilotRuntimeBinding.ensureInitialized() in lib/main.dart',
+          '❌ bootstrapFlutter missing: add MCPToolkitBinding.instance.bootstrapFlutter in lib/main.dart',
         ),
       );
       expect(result.stderr, isEmpty);
@@ -500,14 +499,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  pilot_runtime:
-    path: packages/pilot_runtime
+  mcp_toolkit: ^0.6.0
 ''');
       final Directory libDirectory = Directory('${tempDirectory.path}/lib')
         ..createSync(recursive: true);
       File('${libDirectory.path}/main.dart').writeAsStringSync('''
 void main() {
-  PilotRuntimeBinding.ensureInitialized();
+  MCPToolkitBinding.instance.bootstrapFlutter();
 }
 ''');
 
@@ -521,9 +519,9 @@ void main() {
       expect(result.stdout, contains('Flutter Pilot init'));
       expect(
         result.stdout,
-        contains('✅ pilot_runtime dependency already exists.'),
+        contains('✅ MCP Toolkit dependency already exists.'),
       );
-      expect(result.stdout, contains('✅ PilotRuntimeBinding already exists.'));
+      expect(result.stdout, contains('✅ bootstrapFlutter already exists.'));
       expect(result.stderr, isEmpty);
     } finally {
       tempDirectory.deleteSync(recursive: true);
@@ -545,8 +543,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  pilot_runtime:
-    path: packages/pilot_runtime
+  mcp_toolkit: ^0.6.0
 ''');
         final Directory libDirectory = Directory('${tempDirectory.path}/lib')
           ..createSync(recursive: true);
@@ -566,16 +563,16 @@ void main() {
         expect(
           result.stdout,
           contains(
-            '❌ PilotRuntimeBinding missing: add PilotRuntimeBinding.ensureInitialized() in lib/main.dart',
+            '❌ bootstrapFlutter missing: add MCPToolkitBinding.instance.bootstrapFlutter in lib/main.dart',
           ),
         );
         expect(
           result.stdout,
-          contains("import 'package:pilot_runtime/pilot_runtime.dart';"),
+          contains("import 'package:mcp_toolkit/mcp_toolkit.dart';"),
         );
         expect(
           result.stdout,
-          contains('PilotRuntimeBinding.ensureInitialized();'),
+          contains('MCPToolkitBinding.instance.bootstrapFlutter('),
         );
       } finally {
         tempDirectory.deleteSync(recursive: true);
