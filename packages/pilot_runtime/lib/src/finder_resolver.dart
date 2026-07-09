@@ -47,8 +47,8 @@ class PilotRuntimeFinderResolver {
       matches.add(
         PilotRuntimeFinderMatch(
           handle: handleForElement(element),
-          text: evidence.textForDiagnostics,
-          semanticType: evidence.semanticTypeForDiagnostics,
+          text: evidence.diagnosticTextFor(byText),
+          semanticType: evidence.diagnosticSemanticTypeFor(byType),
           key: evidence.valueKey,
           matchedWidgetType: evidence.widgetType,
           actionWidgetType: element.widget.runtimeType.toString(),
@@ -126,16 +126,16 @@ class PilotRuntimeFinderResolver {
     final bool hasStructuralConstraint =
         byType != null || byKey != null || byWidget != null;
     final bool hasWrapperConstraint = byKey != null || byWidget != null;
-    final String? comparableText = hasStructuralConstraint
-        ? evidence.textForDiagnostics
-        : evidence.ownText;
-    final String? comparableSemanticType = hasWrapperConstraint
-        ? evidence.semanticType ?? evidence.descendantSemanticType
-        : evidence.semanticType;
-    if (byText != null && comparableText != byText) {
+    final bool matchesText = hasStructuralConstraint
+        ? evidence.hasText(byText)
+        : evidence.ownText == byText;
+    final bool matchesSemanticType = hasWrapperConstraint
+        ? evidence.hasSemanticType(byType)
+        : evidence.semanticType == byType;
+    if (byText != null && !matchesText) {
       return false;
     }
-    if (byType != null && comparableSemanticType != byType) {
+    if (byType != null && !matchesSemanticType) {
       return false;
     }
     if (byKey != null && evidence.valueKey != byKey) {
@@ -153,12 +153,11 @@ class PilotRuntimeFinderResolver {
   static _FinderEvidence _evidenceFor(Element element) {
     final String? ownText = _ownTextFor(element);
     final String? semanticType = _semanticTypeFor(element);
-    final String? descendantText = _descendantTextFor(element);
     return _FinderEvidence(
       ownText: ownText,
-      descendantText: descendantText,
+      descendantTexts: _descendantTextsFor(element),
       semanticType: semanticType,
-      descendantSemanticType: _descendantSemanticTypeFor(element),
+      descendantSemanticTypes: _descendantSemanticTypesFor(element),
       valueKey: _valueKeyFor(element),
       widgetType: element.widget.runtimeType.toString(),
     );
@@ -189,22 +188,28 @@ class PilotRuntimeFinderResolver {
     return null;
   }
 
-  static String? _descendantTextFor(Element element) {
-    String? matchedText;
+  static List<String> _descendantTextsFor(Element element) {
+    final List<String> texts = <String>[];
     element.visitChildren((Element child) {
-      matchedText ??= _ownTextFor(child);
-      matchedText ??= _descendantTextFor(child);
+      final String? text = _ownTextFor(child);
+      if (text != null) {
+        texts.add(text);
+      }
+      texts.addAll(_descendantTextsFor(child));
     });
-    return matchedText;
+    return texts;
   }
 
-  static String? _descendantSemanticTypeFor(Element element) {
-    String? matchedType;
+  static List<String> _descendantSemanticTypesFor(Element element) {
+    final List<String> semanticTypes = <String>[];
     element.visitChildren((Element child) {
-      matchedType ??= _semanticTypeFor(child);
-      matchedType ??= _descendantSemanticTypeFor(child);
+      final String? semanticType = _semanticTypeFor(child);
+      if (semanticType != null) {
+        semanticTypes.add(semanticType);
+      }
+      semanticTypes.addAll(_descendantSemanticTypesFor(child));
     });
-    return matchedType;
+    return semanticTypes;
   }
 
   static String? _semanticTypeFor(Element element) {
@@ -313,22 +318,57 @@ class PilotRuntimeFinderResolver {
 class _FinderEvidence {
   const _FinderEvidence({
     this.ownText,
-    this.descendantText,
+    required this.descendantTexts,
     this.semanticType,
-    this.descendantSemanticType,
+    required this.descendantSemanticTypes,
     this.valueKey,
     this.widgetType,
   });
 
   final String? ownText;
-  final String? descendantText;
+  final List<String> descendantTexts;
   final String? semanticType;
-  final String? descendantSemanticType;
+  final List<String> descendantSemanticTypes;
   final String? valueKey;
   final String? widgetType;
 
-  String? get textForDiagnostics => ownText ?? descendantText;
+  bool hasText(String? text) {
+    if (text == null) {
+      return true;
+    }
+    return ownText == text || descendantTexts.contains(text);
+  }
 
-  String? get semanticTypeForDiagnostics =>
-      semanticType ?? descendantSemanticType;
+  bool hasSemanticType(String? type) {
+    if (type == null) {
+      return true;
+    }
+    return semanticType == type || descendantSemanticTypes.contains(type);
+  }
+
+  String? diagnosticTextFor(String? requestedText) {
+    if (requestedText != null && hasText(requestedText)) {
+      return requestedText;
+    }
+    if (ownText != null) {
+      return ownText;
+    }
+    if (descendantTexts.isNotEmpty) {
+      return descendantTexts.first;
+    }
+    return null;
+  }
+
+  String? diagnosticSemanticTypeFor(String? requestedType) {
+    if (requestedType != null && hasSemanticType(requestedType)) {
+      return requestedType;
+    }
+    if (semanticType != null) {
+      return semanticType;
+    }
+    if (descendantSemanticTypes.isNotEmpty) {
+      return descendantSemanticTypes.first;
+    }
+    return null;
+  }
 }

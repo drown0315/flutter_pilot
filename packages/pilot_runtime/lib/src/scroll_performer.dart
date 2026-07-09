@@ -139,7 +139,7 @@ class PilotRuntimeScrollPerformer {
   static Element? _primaryScrollable() {
     final List<Element> scrollables = <Element>[];
     PilotRuntimeFinderResolver.visitVisibleElements((Element element) {
-      if (element.widget is Scrollable) {
+      if (_isPrimaryScrollableCandidate(element)) {
         scrollables.add(element);
       }
     });
@@ -147,6 +147,13 @@ class PilotRuntimeScrollPerformer {
       return null;
     }
     return scrollables.single;
+  }
+
+  static bool _isPrimaryScrollableCandidate(Element element) {
+    if (element.widget is! Scrollable) {
+      return false;
+    }
+    return !_hasAncestorWidget<EditableText>(element);
   }
 
   static Offset? _centerFor(Element element) {
@@ -165,5 +172,17 @@ class PilotRuntimeScrollPerformer {
     required String message,
   }) {
     return <String, Object?>{'ok': false, 'code': code, 'message': message};
+  }
+
+  static bool _hasAncestorWidget<T extends Widget>(Element element) {
+    bool found = false;
+    element.visitAncestorElements((Element ancestor) {
+      if (ancestor.widget is T) {
+        found = true;
+        return false;
+      }
+      return true;
+    });
+    return found;
   }
 }

@@ -354,6 +354,43 @@ void main() {
       expect(match['matchedWidgetType'], 'Padding');
     });
 
+    testWidgets('combines wrapper key with later descendant text and type', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Padding(
+              key: const ValueKey<String>('message_wrapper'),
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                children: <Widget>[
+                  const Text('Leading'),
+                  Semantics(header: true, child: const Text('Saved')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byText: 'Saved',
+        byType: 'header',
+        byKey: 'message_wrapper',
+      );
+
+      expect(response['matches'], hasLength(1));
+      final Map<String, Object?> match = _singleMatch(response);
+      expect(match['text'], 'Saved');
+      expect(match['semanticType'], 'header');
+      expect(match['key'], 'message_wrapper');
+      expect(match['matchedWidgetType'], 'Padding');
+    });
+
     testWidgets('tap performs semantic tap action for a resolved handle', (
       WidgetTester tester,
     ) async {
@@ -689,6 +726,47 @@ void main() {
                   return SizedBox(height: 48, child: Text('Item $index'));
                 },
               ),
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> scrollResponse = await _scroll(
+        extensions,
+        deltaX: 0,
+        deltaY: -120,
+      );
+      await tester.pumpAndSettle();
+
+      expect(scrollResponse['ok'], true);
+      expect(controller.offset, greaterThan(0));
+    });
+
+    testWidgets('untargeted scroll ignores editable text internals', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      final ScrollController controller = ScrollController();
+      final TextEditingController textController = TextEditingController();
+      addTearDown(controller.dispose);
+      addTearDown(textController.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: <Widget>[
+                TextField(controller: textController),
+                Expanded(
+                  child: ListView.builder(
+                    controller: controller,
+                    itemCount: 30,
+                    itemBuilder: (BuildContext context, int index) {
+                      return SizedBox(height: 48, child: Text('Item $index'));
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
         ),
