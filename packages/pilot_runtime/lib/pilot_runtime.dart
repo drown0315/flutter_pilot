@@ -6,6 +6,7 @@
 /// Scenarios.
 library;
 
-export 'src/pilot_runtime_binding.dart';
+export 'src/pilot_runtime_binding_stub.dart'
+    if (dart.library.ui) 'src/pilot_runtime_binding.dart';
 export 'src/pilot_runtime_client.dart';
 export 'src/pilot_runtime_protocol.dart';

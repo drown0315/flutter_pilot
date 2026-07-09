@@ -1,0 +1,10 @@
+scenario:
+  name: pilot_runtime_non_tappable
+  description: |
+    Verifies that PilotRuntimeAdapter fails clearly for non-tappable matches.
+
+steps:
+  - label: tap_read_only_text
+    tap:
+      byText: Read only target
+      byType: text

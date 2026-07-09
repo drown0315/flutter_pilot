@@ -37,5 +37,5 @@ flutter_pilot test scenarios/login.yaml --until wait_for_error
 Use `--print` with `--until` to inspect diagnostics from that point:
 
 ```bash
-flutter_pilot test scenarios/login.yaml --until wait_for_error --print snapshot
+flutter_pilot test scenarios/login.yaml --until wait_for_error --print widget-tree
 ```

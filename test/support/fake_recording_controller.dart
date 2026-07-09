@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import '../runtime/fake_runtime_adapter.dart';
-import '../scenario.dart';
-import 'recording_contract.dart';
+import 'package:flutter_pilot/flutter_pilot.dart';
+
+import 'fake_runtime_adapter.dart';
 
 /// In-memory Recording Controller for runner tests.
 ///

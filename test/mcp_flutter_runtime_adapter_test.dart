@@ -25,6 +25,7 @@ void main() {
                 'label': 'Log in',
                 'key': 'login_button',
                 'type': 'button',
+                'widgetType': 'ElevatedButton',
                 'rect': <String, Object?>{
                   'left': 10,
                   'top': 20,
@@ -46,18 +47,35 @@ void main() {
     );
 
     final List<FinderMatch> matches = await adapter.resolveFinder(
-      const Finder(byText: 'Log in', byType: 'button'),
+      const Finder(
+        byText: 'Log in',
+        byType: 'button',
+        byKey: 'login_button',
+        byWidget: 'ElevatedButton',
+      ),
+    );
+    final List<FinderMatch> wrongWidgetMatches = await adapter.resolveFinder(
+      const Finder(
+        byText: 'Log in',
+        byType: 'button',
+        byKey: 'login_button',
+        byWidget: 'TextButton',
+      ),
     );
 
     expect(matches, hasLength(1));
+    expect(wrongWidgetMatches, isEmpty);
     expect(matches.single.id, 's_0');
     expect(matches.single.debugLabel, 'Log in');
     expect(matches.single.text, 'Log in');
     expect(matches.single.key, 'login_button');
     expect(matches.single.type, 'button');
     expect(matches.single.bounds!.width, 100);
-    expect(calls.single.name, 'semantic_snapshot');
-    expect(calls.single.arguments, <String, Object?>{
+    expect(calls.map((McpFlutterCommandCall call) => call.name), <String>[
+      'semantic_snapshot',
+      'semantic_snapshot',
+    ]);
+    expect(calls.first.arguments, <String, Object?>{
       'connection': <String, Object?>{
         'mode': 'uri',
         'uri': 'ws://127.0.0.1:1234/example=/ws',

@@ -291,7 +291,7 @@ steps:
           'test',
           'examples/login_error.yaml',
           '--print',
-          'snapshot',
+          'widget-tree',
         ]);
 
     expect(result.exitCode, isNonZero);
@@ -312,7 +312,24 @@ steps:
         ]);
 
     expect(result.exitCode, isNonZero);
-    expect(result.stderr, contains('[snapshot, widget-tree, errors]'));
+    expect(result.stderr, contains('[widget-tree, errors]'));
+  });
+
+  test('test rejects snapshot as printable output', () async {
+    final ProcessResult result =
+        await Process.run(Platform.resolvedExecutable, [
+          'run',
+          'bin/flutter_pilot.dart',
+          'test',
+          'examples/login_error.yaml',
+          '--until',
+          '1',
+          '--print',
+          'snapshot',
+        ]);
+
+    expect(result.exitCode, isNonZero);
+    expect(result.stderr, contains('[widget-tree, errors]'));
   });
 
   test('doctor reports complete Flutter Pilot app setup', () async {

@@ -39,8 +39,7 @@ steps:
   - label: capture_failure
     capture:
       screenshot: true
-      snapshot: true
-      widgetTree: false
+      widgetTree: true
       logs: true
 ```
 
@@ -103,7 +102,7 @@ A Finder identifies the widget that an action should interact with or wait for.
 | Field | Meaning |
 | --- | --- |
 | `byText` | Exact visible text. |
-| `byType` | Semantic Snapshot node type from `mcp_flutter`. |
+| `byType` | Semantic node type exposed by the runtime, such as `button` or `textField`. |
 
 ```yaml scenario
 steps:
@@ -180,5 +179,4 @@ steps:
     capture: {}
 ```
 
-`capture: {}` records the default bundle: screenshot, Snapshot, and logs.
-Widget Tree capture is off by default.
+`capture: {}` records the default bundle: screenshot, Widget Tree, and logs.

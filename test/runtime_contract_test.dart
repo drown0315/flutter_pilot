@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter_pilot/flutter_pilot.dart';
 import 'package:test/test.dart';
 
+import 'support/fake_runtime_adapter.dart';
+
 /// Exercises the Runtime Adapter contract through the public package export.
 ///
 /// These tests use a local fake implementation because Issue 1 defines the

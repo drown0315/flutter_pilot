@@ -36,13 +36,23 @@ steps:
       expect(tap.finder.byText, 'Log in');
       expect(tap.finder.byType, 'button');
 
+      final Scenario keyedScenario = parseScenario('''
+steps:
+  - tap:
+      byKey: login_button
+      byWidget: ElevatedButton
+''');
+      final TapAction keyedTap = keyedScenario.steps.single.action as TapAction;
+      expect(keyedTap.finder.byKey, 'login_button');
+      expect(keyedTap.finder.byWidget, 'ElevatedButton');
+
       final WaitForAction waitFor = scenario.steps[1].action as WaitForAction;
       expect(waitFor.timeoutMs, 3000);
 
       final CaptureAction capture = scenario.steps[2].action as CaptureAction;
       expect(capture.screenshot, isTrue);
-      expect(capture.snapshot, isTrue);
-      expect(capture.widgetTree, isFalse);
+      expect(capture.snapshot, isFalse);
+      expect(capture.widgetTree, isTrue);
       expect(capture.logs, isTrue);
     });
 
@@ -129,9 +139,19 @@ steps:
   - tap:
       byText:
         - Log in
+      byKey:
+        value: login_button
+      byWidget: 1
 ''');
 
-      expect(paths, contains('steps[0].tap.byText'));
+      expect(
+        paths,
+        containsAll([
+          'steps[0].tap.byText',
+          'steps[0].tap.byKey',
+          'steps[0].tap.byWidget',
+        ]),
+      );
     });
 
     test('rejects duplicate labels and invalid slugs', () {
@@ -208,6 +228,16 @@ steps:
 ''');
 
       expect(paths, contains('steps[0].capture.errors'));
+    });
+
+    test('rejects snapshot as a capture field', () {
+      final List<String> paths = invalidPaths('''
+steps:
+  - capture:
+      snapshot: true
+''');
+
+      expect(paths, contains('steps[0].capture.snapshot'));
     });
 
     test('parseFile expands Step Library includes into a flat Step list', () {

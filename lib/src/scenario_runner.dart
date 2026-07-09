@@ -681,7 +681,15 @@ class ScenarioRunner {
     }
     if (widgetTree) {
       try {
-        await adapter.captureWidgetTree();
+        final WidgetTreeCapture capture = await adapter.captureWidgetTree();
+        artifacts.add(
+          runArtifactWriter.writeWidgetTree(
+            index: step.index,
+            label: step.label,
+            data: capture.data,
+            purpose: purpose,
+          ),
+        );
       } on RuntimeOperationException catch (error) {
         failures.add(error.message);
       }
@@ -715,8 +723,8 @@ class ScenarioRunner {
   /// run directory.
   ///
   /// Returns:
-  /// Artifact records for successful screenshot, Snapshot, and Logs captures.
-  /// Widget Tree is not requested by default.
+  /// Artifact records for successful screenshot, Widget Tree, and Logs
+  /// captures.
   Future<_FailureDiagnosticResult> _collectFailureArtifacts({
     required ScenarioStep step,
     required RunArtifactWriter runArtifactWriter,
@@ -725,8 +733,8 @@ class ScenarioRunner {
       step: step,
       runArtifactWriter: runArtifactWriter,
       screenshot: true,
-      snapshot: true,
-      widgetTree: false,
+      snapshot: false,
+      widgetTree: true,
       logs: true,
       purpose: ArtifactPurpose.failure,
     );
@@ -777,7 +785,7 @@ class ScenarioRunner {
   /// Args:
   /// `steps` are the executed Step reports.
   /// `artifacts` is the report artifact list that receives each Step-owned
-  /// screenshot and Snapshot path.
+  /// screenshot, Widget Tree, and Logs paths.
   void _addStepCaptureArtifacts(
     List<StepRunReport> steps,
     List<ArtifactReport> artifacts,

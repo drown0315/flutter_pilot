@@ -5,6 +5,8 @@ import 'package:file_testkit/file_testkit.dart';
 import 'package:flutter_pilot/flutter_pilot.dart';
 import 'package:test/test.dart';
 
+import 'support/fake_runtime_adapter.dart';
+
 /// Verifies HTML timeline output through public runner and report APIs.
 void main() {
   test(
@@ -62,7 +64,7 @@ void main() {
           html,
           contains('<img src="captures/0001_submit_screenshot.png"'),
         );
-        expect(html, contains('captures/0001_submit_snapshot.json'));
+        expect(html, contains('captures/0001_submit_widget_tree.json'));
         expect(html, contains('captures/0001_submit_logs.json'));
       });
     },

@@ -35,8 +35,8 @@ Labels must be unique inside a Scenario.
 
 ## Find widgets by visible UI
 
-Use `byText` for exact visible text and `byType` for semantic Snapshot node
-types exposed by `mcp_flutter`.
+Use `byText` for exact visible text and `byType` for semantic node types
+exposed by the runtime.
 
 ```yaml scenario
 steps:

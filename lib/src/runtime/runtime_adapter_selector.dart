@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:pilot_runtime/pilot_runtime_client.dart';
+import 'package:pilot_runtime/pilot_runtime.dart';
 
 import 'mcp_flutter_runtime_adapter.dart';
 import 'pilot_runtime_adapter.dart';

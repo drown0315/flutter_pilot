@@ -1,4 +1,4 @@
-import 'package:pilot_runtime/pilot_runtime_client.dart';
+import 'package:pilot_runtime/pilot_runtime.dart';
 import 'package:vm_service/vm_service.dart' as vm_service;
 import 'package:vm_service/vm_service_io.dart' as vm_service_io;
 

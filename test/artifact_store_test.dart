@@ -329,7 +329,7 @@ void main() {
     });
   });
 
-  test('writes screenshot, Snapshot, and Logs capture artifacts', () async {
+  test('writes screenshot, Widget Tree, and Logs capture artifacts', () async {
     await FileTestkit.runZoned(() async {
       final RunArtifactWriter writer = RunArtifactWriter(
         Directory('artifact_output/.runs/capture_run'),
@@ -347,12 +347,12 @@ void main() {
         bytes: screenshotBytes,
         mimeType: 'image/png',
       );
-      final ArtifactReport snapshotArtifact = writer.writeSnapshot(
+      final ArtifactReport widgetTreeArtifact = writer.writeWidgetTree(
         index: 1,
         label: 'checkpoint',
         data: <String, Object?>{
-          'route': '/login',
-          'visibleText': <String>['Email'],
+          'schema': 'flutter_pilot.widget_tree.v1',
+          'root': <String, Object?>{'widgetType': 'Scaffold'},
         },
       );
       final ArtifactReport logsArtifact = writer.writeLogs(
@@ -380,8 +380,11 @@ void main() {
         screenshotArtifact.path,
         'captures/0001_checkpoint_screenshot.png',
       );
-      expect(snapshotArtifact.type, ArtifactType.snapshot);
-      expect(snapshotArtifact.path, 'captures/0001_checkpoint_snapshot.json');
+      expect(widgetTreeArtifact.type, ArtifactType.widgetTree);
+      expect(
+        widgetTreeArtifact.path,
+        'captures/0001_checkpoint_widget_tree.json',
+      );
       expect(logsArtifact.type, ArtifactType.logs);
       expect(logsArtifact.path, 'captures/0001_checkpoint_logs.json');
       expect(failureLogsArtifact.purpose, ArtifactPurpose.failure);
@@ -396,14 +399,14 @@ void main() {
         ).readAsBytesSync(),
         screenshotBytes,
       );
-      final Map<String, Object?> snapshotJson =
+      final Map<String, Object?> widgetTreeJson =
           jsonDecode(
                 File(
-                  '${writer.runDirectory.path}/${snapshotArtifact.path}',
+                  '${writer.runDirectory.path}/${widgetTreeArtifact.path}',
                 ).readAsStringSync(),
               )
               as Map<String, Object?>;
-      expect(snapshotJson['route'], '/login');
+      expect(widgetTreeJson['schema'], 'flutter_pilot.widget_tree.v1');
       final Map<String, Object?> logsJson =
           jsonDecode(
                 File(

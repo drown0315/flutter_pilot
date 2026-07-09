@@ -6,6 +6,9 @@ import 'package:file_testkit/file_testkit.dart';
 import 'package:flutter_pilot/flutter_pilot.dart';
 import 'package:test/test.dart';
 
+import 'support/fake_recording_controller.dart';
+import 'support/fake_runtime_adapter.dart';
+
 /// Exercises Scenario execution through the public runner API.
 ///
 /// These tests use the fake Runtime Adapter so they can verify step execution
@@ -524,7 +527,7 @@ steps:
   - label: included_capture
     capture:
       screenshot: false
-      snapshot: false
+      widgetTree: false
       logs: false
 ''');
       final File scenarioFile = File('${scenarioDirectory.path}/entry.yaml')
@@ -535,7 +538,7 @@ steps:
   - label: root_capture
     capture:
       screenshot: false
-      snapshot: false
+      widgetTree: false
       logs: false
   - include: library.yaml
 ''');
@@ -634,7 +637,7 @@ steps:
   - label: included_capture
     capture:
       screenshot: false
-      snapshot: false
+      widgetTree: false
       logs: false
 ''');
         final File scenarioFile = File('${scenarioDirectory.path}/entry.yaml')
@@ -705,7 +708,7 @@ steps:
   });
 
   test(
-    'writes default capture screenshots, snapshots, and logs as Step artifacts',
+    'writes default capture screenshots, Widget Tree, and logs as Step artifacts',
     () async {
       await FileTestkit.runZoned(() async {
         final Directory outputDirectory = Directory('capture_output');
@@ -720,10 +723,10 @@ steps:
             bytes: screenshotBytes,
             mimeType: 'image/png',
           ),
-          snapshot: const SnapshotCapture(
+          widgetTree: const WidgetTreeCapture(
             data: <String, Object?>{
-              'route': '/login',
-              'visibleText': <String>['Email', 'Password'],
+              'schema': 'flutter_pilot.widget_tree.v1',
+              'root': <String, Object?>{'widgetType': 'Scaffold'},
             },
           ),
           logs: const LogsCapture(
@@ -745,8 +748,8 @@ steps:
               label: 'after_submit',
               action: CaptureAction(
                 screenshot: true,
-                snapshot: true,
-                widgetTree: false,
+                snapshot: false,
+                widgetTree: true,
                 logs: true,
               ),
             ),
@@ -765,7 +768,7 @@ steps:
           ),
           <ArtifactType>[
             ArtifactType.screenshot,
-            ArtifactType.snapshot,
+            ArtifactType.widgetTree,
             ArtifactType.logs,
           ],
         );
@@ -775,10 +778,10 @@ steps:
               (ArtifactReport artifact) =>
                   artifact.type == ArtifactType.screenshot,
             );
-        final ArtifactReport snapshotArtifact = report.steps.single.artifacts
+        final ArtifactReport widgetTreeArtifact = report.steps.single.artifacts
             .singleWhere(
               (ArtifactReport artifact) =>
-                  artifact.type == ArtifactType.snapshot,
+                  artifact.type == ArtifactType.widgetTree,
             );
         final ArtifactReport logsArtifact = report.steps.single.artifacts
             .singleWhere(
@@ -789,8 +792,8 @@ steps:
           'captures/0001_after_submit_screenshot.png',
         );
         expect(
-          snapshotArtifact.path,
-          'captures/0001_after_submit_snapshot.json',
+          widgetTreeArtifact.path,
+          'captures/0001_after_submit_widget_tree.json',
         );
         expect(logsArtifact.path, 'captures/0001_after_submit_logs.json');
         expect(
@@ -799,14 +802,14 @@ steps:
           ).readAsBytesSync(),
           screenshotBytes,
         );
-        final Map<String, Object?> snapshotJson =
+        final Map<String, Object?> widgetTreeJson =
             jsonDecode(
                   File(
-                    '${report.runDirectoryPath}/${snapshotArtifact.path}',
+                    '${report.runDirectoryPath}/${widgetTreeArtifact.path}',
                   ).readAsStringSync(),
                 )
                 as Map<String, Object?>;
-        expect(snapshotJson['route'], '/login');
+        expect(widgetTreeJson['schema'], 'flutter_pilot.widget_tree.v1');
         final Map<String, Object?> logsJson =
             jsonDecode(
                   File(
@@ -818,7 +821,7 @@ steps:
 
         final String reportJson = _runReportFile(report).readAsStringSync();
         expect(reportJson, contains('"type": "screenshot"'));
-        expect(reportJson, contains('"type": "snapshot"'));
+        expect(reportJson, contains('"type": "widgetTree"'));
         expect(reportJson, contains('"type": "logs"'));
         expect(reportJson, contains('"artifacts"'));
         expect(
@@ -826,7 +829,7 @@ steps:
           <RuntimeOperation>[
             RuntimeOperation.initialize,
             RuntimeOperation.captureScreenshot,
-            RuntimeOperation.captureSnapshot,
+            RuntimeOperation.captureWidgetTree,
             RuntimeOperation.collectLogs,
             RuntimeOperation.dispose,
           ],
@@ -852,9 +855,9 @@ steps:
             mimeType: 'image/png',
           ),
           failures: <RuntimeOperation, RuntimeOperationException>{
-            RuntimeOperation.captureSnapshot: const RuntimeOperationException(
-              operation: RuntimeOperation.captureSnapshot,
-              message: 'Snapshot RPC failed.',
+            RuntimeOperation.captureWidgetTree: const RuntimeOperationException(
+              operation: RuntimeOperation.captureWidgetTree,
+              message: 'Widget Tree RPC failed.',
             ),
           },
         );
@@ -866,8 +869,8 @@ steps:
               label: 'checkpoint',
               action: CaptureAction(
                 screenshot: true,
-                snapshot: true,
-                widgetTree: false,
+                snapshot: false,
+                widgetTree: true,
                 logs: true,
               ),
             ),
@@ -881,7 +884,7 @@ steps:
 
         expect(report.status, ScenarioRunStatus.failed);
         expect(report.steps.single.status, StepStatus.failed);
-        expect(report.steps.single.failureReason, 'Snapshot RPC failed.');
+        expect(report.steps.single.failureReason, 'Widget Tree RPC failed.');
         expect(
           report.steps.single.artifacts.map(
             (ArtifactReport artifact) => artifact.type,
@@ -919,7 +922,10 @@ steps:
 
         final String reportJson = _runReportFile(report).readAsStringSync();
         expect(reportJson, contains('"type": "screenshot"'));
-        expect(reportJson, contains('"failureReason": "Snapshot RPC failed."'));
+        expect(
+          reportJson,
+          contains('"failureReason": "Widget Tree RPC failed."'),
+        );
       });
     },
   );
@@ -928,8 +934,11 @@ steps:
     await FileTestkit.runZoned(() async {
       final Directory outputDirectory = Directory('logs_disabled_output');
       final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
-        snapshot: const SnapshotCapture(
-          data: <String, Object?>{'route': '/settings'},
+        widgetTree: const WidgetTreeCapture(
+          data: <String, Object?>{
+            'schema': 'flutter_pilot.widget_tree.v1',
+            'root': <String, Object?>{'widgetType': 'SettingsPage'},
+          },
         ),
       );
       final Scenario scenario = Scenario(
@@ -940,8 +949,8 @@ steps:
             label: 'checkpoint',
             action: CaptureAction(
               screenshot: false,
-              snapshot: true,
-              widgetTree: false,
+              snapshot: false,
+              widgetTree: true,
               logs: false,
             ),
           ),
@@ -958,13 +967,13 @@ steps:
         report.steps.single.artifacts.map(
           (ArtifactReport artifact) => artifact.type,
         ),
-        <ArtifactType>[ArtifactType.snapshot],
+        <ArtifactType>[ArtifactType.widgetTree],
       );
       expect(
         adapter.events.map((FakeRuntimeEvent event) => event.operation),
         <RuntimeOperation>[
           RuntimeOperation.initialize,
-          RuntimeOperation.captureSnapshot,
+          RuntimeOperation.captureWidgetTree,
           RuntimeOperation.dispose,
         ],
       );
@@ -1150,16 +1159,16 @@ steps:
               FinderMatch(id: 'second-match'),
             ],
           },
-          snapshot: const SnapshotCapture(
-            data: <String, Object?>{
-              'route': '/login',
-              'visibleText': <String>['Email', 'Password'],
-            },
-          ),
           widgetTree: const WidgetTreeCapture(
             data: <String, Object?>{
-              'root': 'MaterialApp',
-              'children': <String>['LoginPage'],
+              'schema': 'flutter_pilot.widget_tree.v1',
+              'root': <String, Object?>{
+                'widgetType': 'LoginPage',
+                'children': <Object?>[
+                  <String, Object?>{'widgetType': 'Text', 'text': 'Email'},
+                  <String, Object?>{'widgetType': 'Text', 'text': 'Password'},
+                ],
+              },
             },
           ),
           logs: const LogsCapture(
@@ -1195,7 +1204,6 @@ steps:
               stopPoint: const RunStopPoint.stepLabel('checkpoint'),
               printDiagnostics: const <PrintDiagnostic>{
                 PrintDiagnostic.errors,
-                PrintDiagnostic.snapshot,
                 PrintDiagnostic.widgetTree,
               },
             );
@@ -1205,21 +1213,17 @@ steps:
           report.printedDiagnostics.map(
             (PrintedDiagnostic diagnostic) => diagnostic.type,
           ),
-          <PrintDiagnostic>[
-            PrintDiagnostic.snapshot,
-            PrintDiagnostic.widgetTree,
-            PrintDiagnostic.errors,
-          ],
+          <PrintDiagnostic>[PrintDiagnostic.widgetTree, PrintDiagnostic.errors],
         );
-        expect(report.printedDiagnostics.first.data, <String, Object?>{
-          'route': '/login',
-          'visibleText': <String>['Email', 'Password'],
-        });
+        expect(
+          report.printedDiagnostics.first.type,
+          PrintDiagnostic.widgetTree,
+        );
         expect(report.diagnosticSummary?.toJson(), <String, Object?>{
           'visibleText': <Object?>['Email', 'Password'],
           'interactiveWidgets': <Object?>[],
-          'routes': <Object?>['/login'],
           'runtimeFailures': <Object?>['A RenderFlex overflowed.'],
+          'likelySuspects': <Object?>['LoginPage'],
         });
         final Map<String, Object?> reportJson =
             jsonDecode(
@@ -1231,8 +1235,8 @@ steps:
         expect(reportJson['diagnosticSummary'], <String, Object?>{
           'visibleText': <Object?>['Email', 'Password'],
           'interactiveWidgets': <Object?>[],
-          'routes': <Object?>['/login'],
           'runtimeFailures': <Object?>['A RenderFlex overflowed.'],
+          'likelySuspects': <Object?>['LoginPage'],
         });
         expect(
           adapter.events.map((FakeRuntimeEvent event) => event.operation),
@@ -1242,7 +1246,6 @@ steps:
             RuntimeOperation.performTap,
             RuntimeOperation.resolveFinder,
             RuntimeOperation.performTap,
-            RuntimeOperation.captureSnapshot,
             RuntimeOperation.captureWidgetTree,
             RuntimeOperation.collectLogs,
             RuntimeOperation.dispose,
@@ -1259,9 +1262,9 @@ steps:
         final Directory outputDirectory = Directory('print_failure_output');
         final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
           failures: <RuntimeOperation, RuntimeOperationException>{
-            RuntimeOperation.captureSnapshot: const RuntimeOperationException(
-              operation: RuntimeOperation.captureSnapshot,
-              message: 'Snapshot capture failed.',
+            RuntimeOperation.captureWidgetTree: const RuntimeOperationException(
+              operation: RuntimeOperation.captureWidgetTree,
+              message: 'Widget Tree capture failed.',
             ),
           },
         );
@@ -1289,12 +1292,12 @@ steps:
               scenario,
               stopPoint: const RunStopPoint.stepLabel('checkpoint'),
               printDiagnostics: const <PrintDiagnostic>{
-                PrintDiagnostic.snapshot,
+                PrintDiagnostic.widgetTree,
               },
             );
 
         expect(report.status, ScenarioRunStatus.failed);
-        expect(report.failureReason, 'Snapshot capture failed.');
+        expect(report.failureReason, 'Widget Tree capture failed.');
         expect(report.printedDiagnostics, isEmpty);
         expect(
           adapter.events.map((FakeRuntimeEvent event) => event.operation),
@@ -1387,7 +1390,7 @@ steps:
           RuntimeOperation.initialize,
           RuntimeOperation.resolveFinder,
           RuntimeOperation.captureScreenshot,
-          RuntimeOperation.captureSnapshot,
+          RuntimeOperation.captureWidgetTree,
           RuntimeOperation.collectLogs,
           RuntimeOperation.dispose,
         ],
@@ -1423,7 +1426,7 @@ steps:
           RuntimeOperation.initialize,
           RuntimeOperation.resolveFinder,
           RuntimeOperation.captureScreenshot,
-          RuntimeOperation.captureSnapshot,
+          RuntimeOperation.captureWidgetTree,
           RuntimeOperation.collectLogs,
           RuntimeOperation.dispose,
         ],
@@ -1452,8 +1455,11 @@ steps:
           bytes: screenshotBytes,
           mimeType: 'image/png',
         ),
-        snapshot: const SnapshotCapture(
-          data: <String, Object?>{'route': '/login'},
+        widgetTree: const WidgetTreeCapture(
+          data: <String, Object?>{
+            'schema': 'flutter_pilot.widget_tree.v1',
+            'root': <String, Object?>{'widgetType': 'Scaffold'},
+          },
         ),
         logs: const LogsCapture(
           data: <String, Object?>{
@@ -1478,7 +1484,7 @@ steps:
             index: 2,
             action: CaptureAction(
               screenshot: true,
-              snapshot: true,
+              snapshot: false,
               widgetTree: true,
               logs: true,
             ),
@@ -1501,7 +1507,7 @@ steps:
         ),
         <ArtifactType>[
           ArtifactType.screenshot,
-          ArtifactType.snapshot,
+          ArtifactType.widgetTree,
           ArtifactType.logs,
         ],
       );
@@ -1518,7 +1524,7 @@ steps:
           RuntimeOperation.initialize,
           RuntimeOperation.resolveFinder,
           RuntimeOperation.captureScreenshot,
-          RuntimeOperation.captureSnapshot,
+          RuntimeOperation.captureWidgetTree,
           RuntimeOperation.collectLogs,
           RuntimeOperation.dispose,
         ],
@@ -1538,7 +1544,7 @@ steps:
 
       final String reportJson = _runReportFile(report).readAsStringSync();
       expect(reportJson, contains('"purpose": "failure"'));
-      expect(reportJson, isNot(contains('"type": "widgetTree"')));
+      expect(reportJson, contains('"type": "widgetTree"'));
     });
   });
 
@@ -1550,8 +1556,11 @@ steps:
           'failure_diagnostic_failure_output',
         );
         final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
-          snapshot: const SnapshotCapture(
-            data: <String, Object?>{'route': '/login'},
+          widgetTree: const WidgetTreeCapture(
+            data: <String, Object?>{
+              'schema': 'flutter_pilot.widget_tree.v1',
+              'root': <String, Object?>{'widgetType': 'Scaffold'},
+            },
           ),
           logs: const LogsCapture(
             data: <String, Object?>{'entries': <Object?>[]},
@@ -1589,7 +1598,7 @@ steps:
           report.steps.single.artifacts.map(
             (ArtifactReport artifact) => artifact.type,
           ),
-          <ArtifactType>[ArtifactType.snapshot, ArtifactType.logs],
+          <ArtifactType>[ArtifactType.widgetTree, ArtifactType.logs],
         );
 
         final String reportJson = _runReportFile(report).readAsStringSync();
@@ -1610,9 +1619,9 @@ steps:
       final Directory outputDirectory = Directory('multiple_match_output');
       final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
         finderResults: <String, List<FinderMatch>>{
-          'login_button': const <FinderMatch>[
+          'TextButton': const <FinderMatch>[
             FinderMatch(id: 'first-match', debugLabel: 'TextButton("Log in")'),
-            FinderMatch(id: 'second-match', debugLabel: 'Text("Log in")'),
+            FinderMatch(id: 'second-match', debugLabel: 'TextButton("Help")'),
           ],
         },
       );
@@ -1621,7 +1630,7 @@ steps:
         steps: const <ScenarioStep>[
           ScenarioStep(
             index: 1,
-            action: TapAction(finder: Finder(byText: 'login_button')),
+            action: TapAction(finder: Finder(byWidget: 'TextButton')),
           ),
         ],
       );
@@ -1643,7 +1652,7 @@ steps:
           RuntimeOperation.initialize,
           RuntimeOperation.resolveFinder,
           RuntimeOperation.captureScreenshot,
-          RuntimeOperation.captureSnapshot,
+          RuntimeOperation.captureWidgetTree,
           RuntimeOperation.collectLogs,
           RuntimeOperation.dispose,
         ],
@@ -1756,8 +1765,8 @@ steps:
             index: 2,
             action: CaptureAction(
               screenshot: true,
-              snapshot: true,
-              widgetTree: false,
+              snapshot: false,
+              widgetTree: true,
               logs: true,
             ),
           ),
@@ -1789,7 +1798,7 @@ steps:
           RuntimeOperation.initialize,
           RuntimeOperation.resolveFinder,
           RuntimeOperation.captureScreenshot,
-          RuntimeOperation.captureSnapshot,
+          RuntimeOperation.captureWidgetTree,
           RuntimeOperation.collectLogs,
           RuntimeOperation.dispose,
         ],
@@ -1818,8 +1827,8 @@ steps:
             index: 1,
             action: CaptureAction(
               screenshot: true,
-              snapshot: true,
-              widgetTree: false,
+              snapshot: false,
+              widgetTree: true,
               logs: true,
             ),
           ),

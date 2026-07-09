@@ -132,6 +132,191 @@ class PilotRuntimeWidgetTreeCaptureException implements Exception {
   }
 }
 
+/// Runtime action failure category reported by `PilotRuntimeClient`.
+///
+/// These failures come from a structured `pilot_runtime` action response rather
+/// than from VM Service exception text.
+enum PilotRuntimeActionFailure {
+  /// A resolved Runtime Handle cannot receive the requested tap action.
+  notTappable,
+
+  /// The app-side runtime returned an action failure code this client does not
+  /// understand yet.
+  unknown,
+}
+
+/// Clear failure thrown when a runtime action cannot complete.
+///
+/// The exception preserves the structured app-side failure category and exposes
+/// a user-facing message suitable for Flutter Pilot Step failure reports.
+class PilotRuntimeActionException implements Exception {
+  /// Create a runtime action failure.
+  const PilotRuntimeActionException({
+    required this.failure,
+    required this.message,
+    this.cause,
+  });
+
+  /// Machine-readable action failure category.
+  final PilotRuntimeActionFailure failure;
+
+  /// Human-readable explanation of the action failure.
+  final String message;
+
+  /// Original structured response or lower-level error when available.
+  final Object? cause;
+
+  @override
+  String toString() {
+    return 'PilotRuntimeActionException: $message';
+  }
+}
+
+/// Logical-pixel rectangle reported for a resolved Finder Match.
+class PilotRuntimeBounds {
+  /// Create one visible target bounds rectangle.
+  const PilotRuntimeBounds({
+    required this.left,
+    required this.top,
+    required this.width,
+    required this.height,
+  });
+
+  /// Decode bounds from a runtime Finder Match.
+  factory PilotRuntimeBounds.fromJson(Map<String, Object?> json) {
+    return PilotRuntimeBounds(
+      left: _readDouble(json, 'left'),
+      top: _readDouble(json, 'top'),
+      width: _readDouble(json, 'width'),
+      height: _readDouble(json, 'height'),
+    );
+  }
+
+  /// Left edge in global logical pixels.
+  final double left;
+
+  /// Top edge in global logical pixels.
+  final double top;
+
+  /// Width in logical pixels.
+  final double width;
+
+  /// Height in logical pixels.
+  final double height;
+
+  /// Encode this rectangle for VM Service transport.
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'left': left,
+      'top': top,
+      'width': width,
+      'height': height,
+    };
+  }
+
+  static double _readDouble(Map<String, Object?> json, String field) {
+    final Object? value = json[field];
+    if (value is int) {
+      return value.toDouble();
+    }
+    if (value is double) {
+      return value;
+    }
+    throw FormatException('Finder Match bounds.$field must be a number.');
+  }
+}
+
+/// One visible Runtime Target match returned by `pilot_runtime`.
+///
+/// The `handle` is opaque to Flutter Pilot. Diagnostics describe why the match
+/// was selected without exposing Flutter internals as the public contract.
+class PilotRuntimeFinderMatch {
+  /// Create one decoded runtime Finder Match.
+  const PilotRuntimeFinderMatch({
+    required this.handle,
+    this.text,
+    this.semanticType,
+    this.key,
+    this.matchedWidgetType,
+    this.actionWidgetType,
+    this.bounds,
+  });
+
+  /// Opaque Runtime Handle for the matched target.
+  final String handle;
+
+  /// User-visible text evidence when available.
+  final String? text;
+
+  /// Semantic Node Type evidence when available.
+  final String? semanticType;
+
+  /// `ValueKey<String>` evidence when available.
+  final String? key;
+
+  /// Widget runtime type that satisfied the Finder constraints when available.
+  final String? matchedWidgetType;
+
+  /// Widget type expected to receive a later action when available.
+  final String? actionWidgetType;
+
+  /// Global logical-pixel bounds when available.
+  final PilotRuntimeBounds? bounds;
+
+  /// Decode a Finder Match from the app-side runtime extension.
+  factory PilotRuntimeFinderMatch.fromJson(Map<String, Object?> json) {
+    final Object? handleValue = json['handle'];
+    if (handleValue is! String || handleValue.isEmpty) {
+      throw const FormatException(
+        'Finder Match must include a non-empty opaque handle.',
+      );
+    }
+
+    final Object? boundsValue = json['bounds'];
+    PilotRuntimeBounds? bounds;
+    if (boundsValue != null) {
+      if (boundsValue is! Map<String, Object?>) {
+        throw const FormatException('Finder Match bounds must be an object.');
+      }
+      bounds = PilotRuntimeBounds.fromJson(boundsValue);
+    }
+
+    return PilotRuntimeFinderMatch(
+      handle: handleValue,
+      text: _readOptionalString(json, 'text'),
+      semanticType: _readOptionalString(json, 'semanticType'),
+      key: _readOptionalString(json, 'key'),
+      matchedWidgetType: _readOptionalString(json, 'matchedWidgetType'),
+      actionWidgetType: _readOptionalString(json, 'actionWidgetType'),
+      bounds: bounds,
+    );
+  }
+
+  /// Encode this match for VM Service transport.
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'handle': handle,
+      if (text != null) 'text': text,
+      if (semanticType != null) 'semanticType': semanticType,
+      if (key != null) 'key': key,
+      if (matchedWidgetType != null) 'matchedWidgetType': matchedWidgetType,
+      if (actionWidgetType != null) 'actionWidgetType': actionWidgetType,
+      if (bounds != null) 'bounds': bounds!.toJson(),
+    };
+  }
+
+  static String? _readOptionalString(Map<String, Object?> json, String field) {
+    final Object? value = json[field];
+    if (value == null) {
+      return null;
+    }
+    if (value is String) {
+      return value;
+    }
+    throw FormatException('Finder Match $field must be a string.');
+  }
+}
+
 /// Verified runtime session returned after a successful protocol handshake.
 ///
 /// The session records the accepted protocol version and the capabilities
@@ -262,6 +447,105 @@ class PilotRuntimeClient {
         cause: error,
       );
     }
+  }
+
+  /// Resolve one Finder through the app-side runtime extension.
+  ///
+  /// Args:
+  /// - `byText`: Exact visible text constraint from a Scenario Finder.
+  /// - `byType`: Semantic Node Type constraint from a Scenario Finder. It
+  ///   names roles such as `button`, `textField`, `text`, `scrollable`, or
+  ///   `header`; it is not a Dart widget runtime type.
+  /// - `byKey`: `ValueKey<String>` constraint from a Scenario Finder.
+  /// - `byWidget`: exact Dart widget runtime type display name constraint.
+  ///
+  /// Returns all visible Finder Matches. The Flutter Pilot runner applies the
+  /// zero, one, and multiple-match cardinality rules.
+  Future<List<PilotRuntimeFinderMatch>> resolveFinder({
+    String? byText,
+    String? byType,
+    String? byKey,
+    String? byWidget,
+  }) async {
+    final Map<String, Object?> parameters = <String, Object?>{};
+    if (byText != null) {
+      parameters['byText'] = byText;
+    }
+    if (byType != null) {
+      parameters['byType'] = byType;
+    }
+    if (byKey != null) {
+      parameters['byKey'] = byKey;
+    }
+    if (byWidget != null) {
+      parameters['byWidget'] = byWidget;
+    }
+
+    final Map<String, Object?> response = await _vmService.callServiceExtension(
+      PilotRuntimeProtocol.resolveFinderExtension,
+      parameters: parameters,
+    );
+    final Object? matchesValue = response['matches'];
+    if (matchesValue is! List<Object?>) {
+      throw const FormatException('resolveFinder must return a matches list.');
+    }
+    final List<PilotRuntimeFinderMatch> matches = <PilotRuntimeFinderMatch>[];
+    for (final Object? matchValue in matchesValue) {
+      if (matchValue is! Map<String, Object?>) {
+        throw const FormatException('Finder Match entries must be objects.');
+      }
+      matches.add(PilotRuntimeFinderMatch.fromJson(matchValue));
+    }
+    return List<PilotRuntimeFinderMatch>.unmodifiable(matches);
+  }
+
+  /// Tap one Runtime Handle returned by Finder resolution.
+  ///
+  /// Args:
+  /// - `handle`: Opaque Runtime Handle from a `PilotRuntimeFinderMatch`.
+  ///   Flutter Pilot passes it back unchanged for the immediately following
+  ///   action and does not parse or construct it.
+  ///
+  /// Returns when the app-side runtime completed the tap. Runtime action
+  /// failures are reported by the service extension and surface as VM Service
+  /// call failures.
+  Future<void> performTap({required String handle}) async {
+    final Map<String, Object?> response = await _vmService.callServiceExtension(
+      PilotRuntimeProtocol.tapExtension,
+      parameters: <String, Object?>{'handle': handle},
+    );
+    _checkActionResponse(response, actionName: 'tap');
+  }
+
+  void _checkActionResponse(
+    Map<String, Object?> response, {
+    required String actionName,
+  }) {
+    final Object? okValue = response['ok'];
+    if (okValue == null || okValue == true) {
+      return;
+    }
+    if (okValue != false) {
+      throw FormatException('$actionName response ok must be a boolean.');
+    }
+
+    final Object? messageValue = response['message'];
+    if (messageValue is! String || messageValue.isEmpty) {
+      throw FormatException(
+        '$actionName failure response must include a non-empty message.',
+      );
+    }
+
+    final Object? codeValue = response['code'];
+    final PilotRuntimeActionFailure failure = switch (codeValue) {
+      'notTappable' => PilotRuntimeActionFailure.notTappable,
+      _ => PilotRuntimeActionFailure.unknown,
+    };
+    throw PilotRuntimeActionException(
+      failure: failure,
+      message: messageValue,
+      cause: response,
+    );
   }
 
   Future<Map<String, Object?>> _callHandshake() async {
