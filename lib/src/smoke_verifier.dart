@@ -29,7 +29,7 @@ class SmokeVerifierExitCodes {
 /// - `errors`: every contract failure found in the report or artifacts
 ///
 /// Example:
-/// A passed report with screenshot, Snapshot, and Logs artifacts has an empty
+/// A passed report with screenshot, Widget Tree, and Logs artifacts has an empty
 /// `errors` list.
 class SmokeVerificationResult {
   const SmokeVerificationResult({
@@ -49,7 +49,7 @@ class SmokeVerificationResult {
 /// current real Finder integration contract:
 /// - the run status is `passed`
 /// - the Finder Steps in `examples/smoke_scenario.yaml` passed
-/// - the capture Step lists screenshot, Snapshot, and Logs artifacts
+/// - the capture Step lists screenshot, Widget Tree, and Logs artifacts
 /// - each required artifact path exists under the run directory
 class SmokeRunVerifier {
   SmokeRunVerifier._();
@@ -63,7 +63,7 @@ class SmokeRunVerifier {
   static const String _captureStepLabel = 'capture_runtime';
   static const Set<String> _requiredCaptureArtifactTypes = <String>{
     'screenshot',
-    'snapshot',
+    'widgetTree',
     'logs',
   };
 

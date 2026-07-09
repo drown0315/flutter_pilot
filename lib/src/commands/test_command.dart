@@ -39,7 +39,7 @@ class TestCommand extends Command<int> {
       )
       ..addMultiOption(
         'print',
-        allowed: ['snapshot', 'widget-tree', 'errors'],
+        allowed: ['widget-tree', 'errors'],
         help: 'Print diagnostics after --until.',
       )
       ..addFlag(
@@ -274,7 +274,6 @@ class TestCommand extends Command<int> {
     final Set<PrintDiagnostic> printDiagnostics = <PrintDiagnostic>{};
     for (final String printValue in printValues) {
       final PrintDiagnostic? printDiagnostic = switch (printValue) {
-        'snapshot' => PrintDiagnostic.snapshot,
         'widget-tree' => PrintDiagnostic.widgetTree,
         'errors' => PrintDiagnostic.errors,
         _ => null,

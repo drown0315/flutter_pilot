@@ -740,22 +740,20 @@ class ScenarioParser {
         : WaitForAction(finder: finder, timeoutMs: timeoutMs);
   }
 
-  /// Parse a capture action and apply the first-version diagnostic defaults.
+  /// Parse a capture action and apply the Widget Tree diagnostic defaults.
   static CaptureAction _parseCapture(
     YamlMap yaml,
     String path,
     List<ScenarioValidationError> errors,
   ) {
-    const keys = {'screenshot', 'snapshot', 'widgetTree', 'logs'};
+    const keys = {'screenshot', 'widgetTree', 'logs'};
     _rejectUnknownKeys(path, yaml, keys, errors);
     return CaptureAction(
       screenshot:
           _optionalBool(yaml, 'screenshot', '$path.screenshot', errors) ?? true,
-      snapshot:
-          _optionalBool(yaml, 'snapshot', '$path.snapshot', errors) ?? true,
+      snapshot: false,
       widgetTree:
-          _optionalBool(yaml, 'widgetTree', '$path.widgetTree', errors) ??
-          false,
+          _optionalBool(yaml, 'widgetTree', '$path.widgetTree', errors) ?? true,
       logs: _optionalBool(yaml, 'logs', '$path.logs', errors) ?? true,
     );
   }

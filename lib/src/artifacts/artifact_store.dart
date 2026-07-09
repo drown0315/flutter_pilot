@@ -396,6 +396,44 @@ class RunArtifactWriter {
     );
   }
 
+  /// Write one structured Widget Tree captured by a Step.
+  ///
+  /// Args:
+  /// `index` is the 1-based Step number.
+  /// `label` is the optional Step label used in the artifact file name.
+  /// `data` is the JSON-compatible Widget Tree payload returned by the Runtime
+  /// Adapter.
+  /// `purpose` explains whether this Widget Tree came from an explicit capture
+  /// Step or from an automatic failure bundle.
+  ///
+  /// Returns:
+  /// An artifact record with `type: widgetTree` and a path relative to the run
+  /// directory.
+  ArtifactReport writeWidgetTree({
+    required int index,
+    required String? label,
+    required Object data,
+    ArtifactPurpose purpose = ArtifactPurpose.capture,
+  }) {
+    final String relativePath = p.join(
+      'captures',
+      _captureFileName(
+        index: index,
+        label: label,
+        suffix: 'widget_tree',
+        extension: 'json',
+      ),
+    );
+    final File widgetTreeFile = File(p.join(runDirectory.path, relativePath));
+    widgetTreeFile.parent.createSync(recursive: true);
+    widgetTreeFile.writeAsStringSync(_artifactJsonEncoder.convert(data));
+    return ArtifactReport(
+      type: ArtifactType.widgetTree,
+      path: relativePath,
+      purpose: purpose,
+    );
+  }
+
   /// Write one structured Logs capture produced by a Step.
   ///
   /// Args:
@@ -595,14 +633,12 @@ class RunArtifactWriter {
         },
       CaptureAction(
         :final bool screenshot,
-        :final bool snapshot,
         :final bool widgetTree,
         :final bool logs,
       ) =>
         <String, Object?>{
           'capture': <String, Object?>{
             'screenshot': screenshot,
-            'snapshot': snapshot,
             'widgetTree': widgetTree,
             'logs': logs,
           },
@@ -637,6 +673,7 @@ enum ArtifactType {
   stepMetadata,
   screenshot,
   snapshot,
+  widgetTree,
   logs,
   deviceVideoRecording,
 }

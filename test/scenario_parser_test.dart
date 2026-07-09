@@ -41,8 +41,8 @@ steps:
 
       final CaptureAction capture = scenario.steps[2].action as CaptureAction;
       expect(capture.screenshot, isTrue);
-      expect(capture.snapshot, isTrue);
-      expect(capture.widgetTree, isFalse);
+      expect(capture.snapshot, isFalse);
+      expect(capture.widgetTree, isTrue);
       expect(capture.logs, isTrue);
     });
 
@@ -208,6 +208,16 @@ steps:
 ''');
 
       expect(paths, contains('steps[0].capture.errors'));
+    });
+
+    test('rejects snapshot as a capture field', () {
+      final List<String> paths = invalidPaths('''
+steps:
+  - capture:
+      snapshot: true
+''');
+
+      expect(paths, contains('steps[0].capture.snapshot'));
     });
 
     test('parseFile expands Step Library includes into a flat Step list', () {

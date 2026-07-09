@@ -39,9 +39,9 @@ void main() {
         'capture_runtime',
       );
       expect(capture.screenshot, isTrue);
-      expect(capture.snapshot, isTrue);
+      expect(capture.snapshot, isFalse);
       expect(capture.logs, isTrue);
-      expect(capture.widgetTree, isFalse);
+      expect(capture.widgetTree, isTrue);
     },
   );
 }

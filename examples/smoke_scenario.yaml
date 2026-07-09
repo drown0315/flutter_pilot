@@ -23,5 +23,5 @@ steps:
   - label: capture_runtime
     capture:
       screenshot: true
-      snapshot: true
+      widgetTree: true
       logs: true

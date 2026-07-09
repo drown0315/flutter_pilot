@@ -49,7 +49,7 @@ flutter_pilot test pilot/regression
 flutter_pilot test scenarios/login.yaml --device "iPhone 15"
 flutter_pilot test scenarios/login.yaml --flavor staging
 flutter_pilot test scenarios/login.yaml --target lib/main_staging.dart
-flutter_pilot test scenarios/login.yaml --until wait_for_error --print snapshot
+flutter_pilot test scenarios/login.yaml --until wait_for_error --print widget-tree
 flutter_pilot test scenarios/login.yaml --json
 ```
 

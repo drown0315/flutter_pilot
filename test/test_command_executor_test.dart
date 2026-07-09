@@ -274,7 +274,7 @@ steps:
       final int exitCode = await FlutterPilotCli().run(<String>[
         'test',
         '--print',
-        'snapshot',
+        'widget-tree',
       ]);
 
       expect(exitCode, 64);
@@ -309,7 +309,7 @@ steps:
             '--until',
             'submit',
             '--print',
-            'snapshot',
+            'widget-tree',
             '--json',
           ]);
 
@@ -320,7 +320,7 @@ steps:
       expect(executor.options.target, 'lib/main_staging.dart');
       expect(executor.options.stopPoint, isA<StepLabelStopPoint>());
       expect(executor.options.printDiagnostics, <PrintDiagnostic>{
-        PrintDiagnostic.snapshot,
+        PrintDiagnostic.widgetTree,
       });
       expect(executor.options.jsonOutput, isTrue);
       expect(executor.onProgress, isNull);

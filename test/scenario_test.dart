@@ -70,8 +70,8 @@ Scenario _scenario() {
         label: 'capture_error',
         action: CaptureAction(
           screenshot: true,
-          snapshot: true,
-          widgetTree: false,
+          snapshot: false,
+          widgetTree: true,
           logs: true,
         ),
       ),

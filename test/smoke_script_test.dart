@@ -143,8 +143,8 @@ File _writeSmokeReport({
       'purpose': 'capture',
     },
     <String, Object?>{
-      'type': 'snapshot',
-      'path': 'captures/0005_capture_runtime_snapshot.json',
+      'type': 'widgetTree',
+      'path': 'captures/0005_capture_runtime_widget_tree.json',
       'purpose': 'capture',
     },
     <String, Object?>{

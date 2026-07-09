@@ -212,8 +212,8 @@ class WaitForAction extends StepAction {
 ///
 /// Each boolean controls one artifact family:
 /// - `screenshot`: visual image artifact
-/// - `snapshot`: structured UI state for programs and agents
-/// - `widgetTree`: raw Flutter widget hierarchy
+/// - `snapshot`: legacy structured UI state, no longer accepted in Scenario YAML
+/// - `widgetTree`: structured Widget Tree for programs and agents
 /// - `logs`: structured runtime logs, including runtime errors when available
 class CaptureAction extends StepAction {
   const CaptureAction({
