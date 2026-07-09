@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'finder_resolver.dart';
 import 'pilot_runtime_protocol.dart';
 import 'tap_performer.dart';
+import 'text_performer.dart';
 
 /// Handles one app-side Flutter Pilot service extension request.
 ///
@@ -63,6 +64,8 @@ class PilotRuntimeBinding {
       _handleResolveFinder,
     );
     registrar(PilotRuntimeProtocol.tapExtension, _handleTap);
+    registrar(PilotRuntimeProtocol.clearTextExtension, _handleClearText);
+    registrar(PilotRuntimeProtocol.enterTextExtension, _handleEnterText);
     _initialized = true;
   }
 
@@ -97,6 +100,23 @@ class PilotRuntimeBinding {
   ) async {
     return PilotRuntimeTapPerformer.tap(
       handle: _requiredString(parameters, 'handle', 'tap'),
+    );
+  }
+
+  static Future<Map<String, Object?>> _handleClearText(
+    Map<String, Object?> parameters,
+  ) async {
+    return PilotRuntimeTextPerformer.clearText(
+      handle: _requiredString(parameters, 'handle', 'clearText'),
+    );
+  }
+
+  static Future<Map<String, Object?>> _handleEnterText(
+    Map<String, Object?> parameters,
+  ) async {
+    return PilotRuntimeTextPerformer.enterText(
+      handle: _requiredString(parameters, 'handle', 'enterText'),
+      text: _requiredString(parameters, 'text', 'enterText'),
     );
   }
 

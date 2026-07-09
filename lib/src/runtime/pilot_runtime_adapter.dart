@@ -7,7 +7,7 @@ import 'runtime_contract.dart';
 ///
 /// This first adapter slice verifies the app-side runtime handshake and exposes
 /// Widget Tree capture through Flutter Pilot's existing Runtime Adapter
-/// contract. User actions are implemented in later runtime slices.
+/// contract.
 class PilotRuntimeAdapter implements RuntimeAdapter {
   /// Create an adapter backed by a checked `pilot_runtime` client.
   const PilotRuntimeAdapter({
@@ -88,8 +88,41 @@ class PilotRuntimeAdapter implements RuntimeAdapter {
   }
 
   @override
-  Future<void> replaceText(FinderMatch match, String text) {
-    throw _notImplemented(RuntimeOperation.replaceText);
+  Future<void> clearText(FinderMatch match) async {
+    try {
+      await _client.clearText(handle: match.id);
+    } on PilotRuntimeActionException catch (error) {
+      throw RuntimeOperationException(
+        operation: RuntimeOperation.clearText,
+        message: error.message,
+        cause: error,
+      );
+    } catch (error) {
+      throw RuntimeOperationException(
+        operation: RuntimeOperation.clearText,
+        message: error.toString(),
+        cause: error,
+      );
+    }
+  }
+
+  @override
+  Future<void> enterText(FinderMatch match, String text) async {
+    try {
+      await _client.enterText(handle: match.id, text: text);
+    } on PilotRuntimeActionException catch (error) {
+      throw RuntimeOperationException(
+        operation: RuntimeOperation.enterText,
+        message: error.message,
+        cause: error,
+      );
+    } catch (error) {
+      throw RuntimeOperationException(
+        operation: RuntimeOperation.enterText,
+        message: error.toString(),
+        cause: error,
+      );
+    }
   }
 
   @override

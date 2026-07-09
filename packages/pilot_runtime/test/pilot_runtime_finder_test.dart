@@ -94,6 +94,40 @@ void main() {
       expect(match['text'], 'Submit');
     });
 
+    testWidgets('resolves one textField match for a Material TextField', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      final TextEditingController controller = TextEditingController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: TextField(
+              controller: controller,
+              decoration: const InputDecoration(labelText: 'Email'),
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byType: 'textField',
+      );
+
+      expect(response['matches'], hasLength(1));
+      final Map<String, Object?> match = _singleMatch(response);
+      expect(match['semanticType'], 'textField');
+
+      final Map<String, Object?> clearResponse = await _clearText(
+        extensions,
+        handle: match['handle']! as String,
+      );
+      expect(clearResponse['ok'], isTrue);
+    });
+
     testWidgets('excludes offstage hidden zero-size and transparent targets', (
       WidgetTester tester,
     ) async {
@@ -415,6 +449,80 @@ void main() {
       expect(tapResponse['code'], 'notTappable');
       expect(tapResponse['message'], contains('cannot be tapped'));
     });
+
+    testWidgets('clears and appends editable text through a resolved handle', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      final TextEditingController controller = TextEditingController(
+        text: 'old',
+      );
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: TextField(
+              key: const ValueKey<String>('email_input'),
+              controller: controller,
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byKey: 'email_input',
+        byType: 'textField',
+      );
+      final Map<String, Object?> match = _singleMatch(response);
+
+      final Map<String, Object?> clearResponse = await _clearText(
+        extensions,
+        handle: match['handle']! as String,
+      );
+      final Map<String, Object?> firstEntryResponse = await _enterText(
+        extensions,
+        handle: match['handle']! as String,
+        text: 'a',
+      );
+      final Map<String, Object?> secondEntryResponse = await _enterText(
+        extensions,
+        handle: match['handle']! as String,
+        text: 'b',
+      );
+      await tester.pump();
+
+      expect(clearResponse['ok'], true);
+      expect(firstEntryResponse['ok'], true);
+      expect(secondEntryResponse['ok'], true);
+      expect(controller.text, 'ab');
+    });
+
+    testWidgets('type fails clearly for a non-editable resolved handle', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: Text('Read only'))),
+      );
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byText: 'Read only',
+      );
+      final Map<String, Object?> match = _singleMatch(response);
+
+      final Map<String, Object?> typeResponse = await _clearText(
+        extensions,
+        handle: match['handle']! as String,
+      );
+
+      expect(typeResponse['ok'], false);
+      expect(typeResponse['code'], 'notEditableText');
+      expect(typeResponse['message'], contains('editable text'));
+    });
   });
 }
 
@@ -460,6 +568,26 @@ Future<Map<String, Object?>> _tap(
 }) {
   return extensions[PilotRuntimeProtocol.tapExtension]!(<String, Object?>{
     'handle': handle,
+  });
+}
+
+Future<Map<String, Object?>> _clearText(
+  Map<String, PilotRuntimeExtensionHandler> extensions, {
+  required String handle,
+}) {
+  return extensions[PilotRuntimeProtocol.clearTextExtension]!(<String, Object?>{
+    'handle': handle,
+  });
+}
+
+Future<Map<String, Object?>> _enterText(
+  Map<String, PilotRuntimeExtensionHandler> extensions, {
+  required String handle,
+  required String text,
+}) {
+  return extensions[PilotRuntimeProtocol.enterTextExtension]!(<String, Object?>{
+    'handle': handle,
+    'text': text,
   });
 }
 

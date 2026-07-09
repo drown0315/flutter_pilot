@@ -3,7 +3,7 @@ import 'package:test/test.dart';
 
 /// Verifies hidden Runtime Adapter selection without launching a Flutter app.
 void main() {
-  test('uses mcp_flutter adapter when hidden runtime switch is omitted', () {
+  test('uses PilotRuntimeAdapter when hidden runtime switch is omitted', () {
     final RuntimeAdapter adapter = RuntimeAdapterSelector.select(
       target: RuntimeTarget(
         vmServiceUri: Uri.parse('ws://127.0.0.1:1234/example=/ws'),
@@ -11,7 +11,7 @@ void main() {
       environment: const <String, String>{},
     );
 
-    expect(adapter, isA<McpFlutterRuntimeAdapter>());
+    expect(adapter, isA<PilotRuntimeAdapter>());
   });
 
   test('uses PilotRuntimeAdapter when hidden runtime switch selects it', () {
@@ -42,6 +42,26 @@ void main() {
           (RuntimeAdapterSelectionException error) => error.message,
           'message',
           contains('FLUTTER_PILOT_RUNTIME'),
+        ),
+      ),
+    );
+  });
+
+  test('rejects retired mcp_flutter hidden runtime switch value', () {
+    expect(
+      () => RuntimeAdapterSelector.select(
+        target: RuntimeTarget(
+          vmServiceUri: Uri.parse('ws://127.0.0.1:1234/example=/ws'),
+        ),
+        environment: const <String, String>{
+          RuntimeAdapterSelector.environmentKey: 'mcp_flutter',
+        },
+      ),
+      throwsA(
+        isA<RuntimeAdapterSelectionException>().having(
+          (RuntimeAdapterSelectionException error) => error.message,
+          'message',
+          contains('pilot_runtime'),
         ),
       ),
     );

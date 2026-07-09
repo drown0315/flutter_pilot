@@ -9,6 +9,8 @@ void main() {
         handshakeResponse: <String, Object?>{
           'protocolVersion': 1,
           'capabilities': <Object?>[
+            'runtime.action.clearText',
+            'runtime.action.enterText',
             'runtime.action.tap',
             'runtime.finder.resolve',
             'runtime.handshake',
@@ -23,6 +25,8 @@ void main() {
       expect(session.capabilities, contains('runtime.handshake'));
       expect(session.capabilities, contains('runtime.finder.resolve'));
       expect(session.capabilities, contains('runtime.action.tap'));
+      expect(session.capabilities, contains('runtime.action.clearText'));
+      expect(session.capabilities, contains('runtime.action.enterText'));
       expect(vmService.calledExtensions, <String>[
         PilotRuntimeProtocol.handshakeExtension,
       ]);
@@ -84,6 +88,8 @@ void main() {
         handshakeResponse: <String, Object?>{
           'protocolVersion': 2,
           'capabilities': <Object?>[
+            'runtime.action.clearText',
+            'runtime.action.enterText',
             'runtime.action.tap',
             'runtime.finder.resolve',
             'runtime.handshake',
@@ -214,6 +220,64 @@ void main() {
                 (PilotRuntimeActionException error) => error.message,
                 'message',
                 'Runtime Handle element-1 cannot be tapped.',
+              ),
+        ),
+      );
+    });
+  });
+
+  group('PilotRuntimeClient text entry', () {
+    test('passes opaque Runtime Handle to text extensions', () async {
+      final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
+        extensionResponses: <String, Map<String, Object?>>{
+          PilotRuntimeProtocol.clearTextExtension: <String, Object?>{
+            'ok': true,
+          },
+          PilotRuntimeProtocol.enterTextExtension: <String, Object?>{
+            'ok': true,
+          },
+        },
+      );
+      final PilotRuntimeClient client = PilotRuntimeClient(vmService);
+
+      await client.clearText(handle: 'runtime-match-1');
+      await client.enterText(handle: 'runtime-match-1', text: 'a');
+
+      expect(vmService.calledExtensions, <String>[
+        PilotRuntimeProtocol.clearTextExtension,
+        PilotRuntimeProtocol.enterTextExtension,
+      ]);
+      expect(vmService.calledParameters, <Map<String, Object?>>[
+        <String, Object?>{'handle': 'runtime-match-1'},
+        <String, Object?>{'handle': 'runtime-match-1', 'text': 'a'},
+      ]);
+    });
+
+    test('throws typed action failure from structured text response', () async {
+      final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
+        extensionResponses: <String, Map<String, Object?>>{
+          PilotRuntimeProtocol.clearTextExtension: <String, Object?>{
+            'ok': false,
+            'code': 'notEditableText',
+            'message': 'Runtime Handle element-1 is not editable text.',
+          },
+        },
+      );
+      final PilotRuntimeClient client = PilotRuntimeClient(vmService);
+
+      await expectLater(
+        client.clearText(handle: 'element-1'),
+        throwsA(
+          isA<PilotRuntimeActionException>()
+              .having(
+                (PilotRuntimeActionException error) => error.failure,
+                'failure',
+                PilotRuntimeActionFailure.notEditableText,
+              )
+              .having(
+                (PilotRuntimeActionException error) => error.message,
+                'message',
+                'Runtime Handle element-1 is not editable text.',
               ),
         ),
       );

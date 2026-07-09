@@ -7,8 +7,8 @@ import 'support/fake_runtime_adapter.dart';
 
 /// Exercises the Runtime Adapter contract through the public package export.
 ///
-/// These tests use a local fake implementation because Issue 1 defines the
-/// runner-facing contract before any real `mcp_flutter` integration exists.
+/// These tests use a local fake implementation so the runner-facing contract
+/// stays independent of a live Runtime Target.
 void main() {
   group('RuntimeAdapter contract', () {
     test('represents the VM service URI Runtime Target', () {
@@ -77,19 +77,22 @@ void main() {
       final FakeRuntimeAdapter adapter = FakeRuntimeAdapter();
 
       await adapter.performTap(match);
-      await adapter.replaceText(match, 'bad@example.com');
+      await adapter.clearText(match);
+      await adapter.enterText(match, 'b');
       await adapter.performScroll(match: match, deltaX: 0, deltaY: -500);
 
-      expect(adapter.events, hasLength(3));
+      expect(adapter.events, hasLength(4));
       expect(adapter.events[0].operation, RuntimeOperation.performTap);
       expect(adapter.events[0].match, same(match));
-      expect(adapter.events[1].operation, RuntimeOperation.replaceText);
+      expect(adapter.events[1].operation, RuntimeOperation.clearText);
       expect(adapter.events[1].match, same(match));
-      expect(adapter.events[1].text, 'bad@example.com');
-      expect(adapter.events[2].operation, RuntimeOperation.performScroll);
+      expect(adapter.events[2].operation, RuntimeOperation.enterText);
       expect(adapter.events[2].match, same(match));
-      expect(adapter.events[2].deltaX, 0.0);
-      expect(adapter.events[2].deltaY, -500.0);
+      expect(adapter.events[2].text, 'b');
+      expect(adapter.events[3].operation, RuntimeOperation.performScroll);
+      expect(adapter.events[3].match, same(match));
+      expect(adapter.events[3].deltaX, 0.0);
+      expect(adapter.events[3].deltaY, -500.0);
     });
 
     test('returns configured capture artifacts', () async {

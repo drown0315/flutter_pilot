@@ -191,12 +191,61 @@ void main() {
       ),
     );
   });
+
+  test(
+    'passes opaque Runtime Handle to pilot_runtime text capabilities',
+    () async {
+      final _FakePilotRuntimeClient client = _FakePilotRuntimeClient();
+      final PilotRuntimeAdapter adapter = PilotRuntimeAdapter(
+        client: client,
+        projectRoot: '/target/app',
+      );
+
+      await adapter.clearText(const FinderMatch(id: 'runtime-match-1'));
+      await adapter.enterText(const FinderMatch(id: 'runtime-match-1'), 'a');
+
+      expect(client.clearTextHandles, <String>['runtime-match-1']);
+      expect(client.enterTextRequests, <({String handle, String text})>[
+        (handle: 'runtime-match-1', text: 'a'),
+      ]);
+    },
+  );
+
+  test('maps pilot_runtime text failures to action failures', () async {
+    final PilotRuntimeAdapter adapter = PilotRuntimeAdapter(
+      client: _FakePilotRuntimeClient(
+        clearTextFailure: const PilotRuntimeActionException(
+          failure: PilotRuntimeActionFailure.notEditableText,
+          message: 'Runtime Handle element-1 is not editable text.',
+        ),
+      ),
+      projectRoot: '/target/app',
+    );
+
+    await expectLater(
+      adapter.clearText(const FinderMatch(id: 'runtime-match-1')),
+      throwsA(
+        isA<RuntimeOperationException>()
+            .having(
+              (RuntimeOperationException error) => error.operation,
+              'operation',
+              RuntimeOperation.clearText,
+            )
+            .having(
+              (RuntimeOperationException error) => error.message,
+              'message',
+              'Runtime Handle element-1 is not editable text.',
+            ),
+      ),
+    );
+  });
 }
 
 class _FakePilotRuntimeClient implements PilotRuntimeClient {
   _FakePilotRuntimeClient({
     this.initializeFailure,
     this.tapFailure,
+    this.clearTextFailure,
     Map<String, Object?>? widgetTree,
     List<PilotRuntimeFinderMatch>? finderMatches,
   }) : widgetTree = widgetTree ?? <String, Object?>{},
@@ -204,6 +253,7 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
 
   final PilotRuntimeInitializationException? initializeFailure;
   final Object? tapFailure;
+  final Object? clearTextFailure;
   final Map<String, Object?> widgetTree;
   final List<PilotRuntimeFinderMatch> finderMatches;
   final List<String> projectRoots = <String>[];
@@ -213,6 +263,9 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
   finderRequests =
       <({String? byText, String? byType, String? byKey, String? byWidget})>[];
   final List<String> tapHandles = <String>[];
+  final List<String> clearTextHandles = <String>[];
+  final List<({String handle, String text})> enterTextRequests =
+      <({String handle, String text})>[];
 
   @override
   Future<PilotRuntimeSession> initialize() async {
@@ -223,6 +276,8 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
     return const PilotRuntimeSession(
       protocolVersion: 1,
       capabilities: <String>{
+        'runtime.action.clearText',
+        'runtime.action.enterText',
         'runtime.action.tap',
         'runtime.finder.resolve',
         'runtime.handshake',
@@ -261,5 +316,19 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
       throw failure;
     }
     tapHandles.add(handle);
+  }
+
+  @override
+  Future<void> clearText({required String handle}) async {
+    final Object? failure = clearTextFailure;
+    if (failure != null) {
+      throw failure;
+    }
+    clearTextHandles.add(handle);
+  }
+
+  @override
+  Future<void> enterText({required String handle, required String text}) async {
+    enterTextRequests.add((handle: handle, text: text));
   }
 }

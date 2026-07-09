@@ -5,30 +5,30 @@ import 'package:yaml/yaml.dart';
 /// Setup state for the current Target App Package.
 ///
 /// It records whether the current package is a Flutter package, whether
-/// `mcp_toolkit` is available as a runtime dependency, and whether the app
-/// entrypoint appears to call `bootstrapFlutter`.
+/// `pilot_runtime` is available as a runtime dependency, and whether the app
+/// entrypoint appears to initialize `PilotRuntimeBinding`.
 class AppSetupStatus {
   const AppSetupStatus({
     required this.isFlutterPackage,
-    required this.hasMcpToolkitDependency,
-    required this.hasBootstrapFlutter,
+    required this.hasPilotRuntimeDependency,
+    required this.hasPilotRuntimeBinding,
   });
 
   /// Whether `pubspec.yaml` declares `dependencies.flutter.sdk: flutter`.
   final bool isFlutterPackage;
 
-  /// Whether `mcp_toolkit` is declared under runtime `dependencies`.
-  final bool hasMcpToolkitDependency;
+  /// Whether `pilot_runtime` is declared under runtime `dependencies`.
+  final bool hasPilotRuntimeDependency;
 
-  /// Whether `lib/main.dart` contains the MCP Toolkit bootstrap call.
-  final bool hasBootstrapFlutter;
+  /// Whether `lib/main.dart` contains the pilot runtime binding call.
+  final bool hasPilotRuntimeBinding;
 
   /// Whether all required Flutter Pilot app setup was found.
   bool get isComplete =>
-      isFlutterPackage && hasMcpToolkitDependency && hasBootstrapFlutter;
+      isFlutterPackage && hasPilotRuntimeDependency && hasPilotRuntimeBinding;
 }
 
-/// Result of trying to add `mcp_toolkit` to a Target App Package.
+/// Result of trying to add `pilot_runtime` to a Target App Package.
 class AppSetupInstallResult {
   const AppSetupInstallResult.success() : exitCode = 0, stderr = '';
 
@@ -51,14 +51,14 @@ class AppSetupInstallResult {
 class AppSetupInitResult {
   const AppSetupInitResult({
     required this.status,
-    required this.addedMcpToolkitDependency,
+    required this.addedPilotRuntimeDependency,
   });
 
   /// Setup status observed before any dependency installation.
   final AppSetupStatus status;
 
-  /// Whether initialization successfully ran `flutter pub add mcp_toolkit`.
-  final bool addedMcpToolkitDependency;
+  /// Whether initialization successfully ran `flutter pub add pilot_runtime`.
+  final bool addedPilotRuntimeDependency;
 }
 
 /// Adds the safe Flutter Pilot dependency setup when it is missing.
@@ -69,38 +69,40 @@ typedef AppSetupDependencyInstaller =
 class AppSetupInitializer {
   AppSetupInitializer._();
 
-  /// Add `mcp_toolkit` when the current package lacks the runtime dependency.
+  /// Add `pilot_runtime` when the current package lacks the runtime dependency.
   ///
   /// Args:
   /// `packageDirectory` is the Target App Package root.
-  /// `addMcpToolkitDependency` runs the dependency tool. Production code uses
-  /// `flutter pub add mcp_toolkit`; tests can pass a fake installer.
+  /// `addPilotRuntimeDependency` runs the dependency tool. Production code uses
+  /// `flutter pub add pilot_runtime`; tests can pass a fake installer.
   ///
   /// Returns:
   /// Whether the dependency install was run and the setup status observed
   /// before the install. The Dart entrypoint is never modified.
   static Future<AppSetupInitResult> initialize(
     Directory packageDirectory, {
-    required AppSetupDependencyInstaller addMcpToolkitDependency,
+    required AppSetupDependencyInstaller addPilotRuntimeDependency,
   }) async {
     final AppSetupStatus status = AppSetupChecker.check(packageDirectory);
-    if (!status.hasMcpToolkitDependency) {
-      final AppSetupInstallResult installResult = await addMcpToolkitDependency(
-        packageDirectory,
-      );
+    if (!status.hasPilotRuntimeDependency) {
+      final AppSetupInstallResult installResult =
+          await addPilotRuntimeDependency(packageDirectory);
       if (!installResult.succeeded) {
         throw AppSetupInstallException(installResult);
       }
       return AppSetupInitResult(
         status: status,
-        addedMcpToolkitDependency: true,
+        addedPilotRuntimeDependency: true,
       );
     }
-    return AppSetupInitResult(status: status, addedMcpToolkitDependency: false);
+    return AppSetupInitResult(
+      status: status,
+      addedPilotRuntimeDependency: false,
+    );
   }
 }
 
-/// Failure returned when `flutter pub add mcp_toolkit` does not succeed.
+/// Failure returned when `flutter pub add pilot_runtime` does not succeed.
 class AppSetupInstallException implements Exception {
   const AppSetupInstallException(this.result);
 
@@ -112,8 +114,7 @@ class AppSetupInstallException implements Exception {
 class AppSetupChecker {
   AppSetupChecker._();
 
-  static const String bootstrapCall =
-      'MCPToolkitBinding.instance.bootstrapFlutter';
+  static const String bindingCall = 'PilotRuntimeBinding.ensureInitialized';
 
   /// Inspect `packageDirectory` without modifying files.
   ///
@@ -129,22 +130,22 @@ class AppSetupChecker {
     if (!pubspecFile.existsSync()) {
       return const AppSetupStatus(
         isFlutterPackage: false,
-        hasMcpToolkitDependency: false,
-        hasBootstrapFlutter: false,
+        hasPilotRuntimeDependency: false,
+        hasPilotRuntimeBinding: false,
       );
     }
     final Object? pubspec = loadYaml(pubspecFile.readAsStringSync());
     final bool isFlutterPackage = _isDeclaresFlutterSdk(pubspec);
-    final bool hasMcpToolkitDependency = _hasRuntimeMcpToolkit(pubspec);
+    final bool hasPilotRuntimeDependency = _hasRuntimePilotRuntime(pubspec);
     final File mainFile = File('${packageDirectory.path}/lib/main.dart');
-    final bool hasBootstrapFlutter =
+    final bool hasPilotRuntimeBinding =
         mainFile.existsSync() &&
-        mainFile.readAsStringSync().contains(bootstrapCall);
+        mainFile.readAsStringSync().contains(bindingCall);
 
     return AppSetupStatus(
       isFlutterPackage: isFlutterPackage,
-      hasMcpToolkitDependency: hasMcpToolkitDependency,
-      hasBootstrapFlutter: hasBootstrapFlutter,
+      hasPilotRuntimeDependency: hasPilotRuntimeDependency,
+      hasPilotRuntimeBinding: hasPilotRuntimeBinding,
     );
   }
 
@@ -156,9 +157,9 @@ class AppSetupChecker {
     return false;
   }
 
-  /// Return whether the pubspec declares `mcp_toolkit` as a runtime dependency.
-  static bool _hasRuntimeMcpToolkit(Object? pubspec) {
-    if (pubspec case {'dependencies': {'mcp_toolkit': Object()}}) {
+  /// Return whether the pubspec declares `pilot_runtime` as a runtime dependency.
+  static bool _hasRuntimePilotRuntime(Object? pubspec) {
+    if (pubspec case {'dependencies': {'pilot_runtime': Object()}}) {
       return true;
     }
     return false;

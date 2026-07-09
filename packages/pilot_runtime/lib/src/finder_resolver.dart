@@ -182,7 +182,13 @@ class PilotRuntimeFinderResolver {
 
   static String? _semanticTypeFor(Element element) {
     final Widget widget = element.widget;
-    if (widget is EditableText || widget is TextField) {
+    if (widget is TextField) {
+      return 'textField';
+    }
+    if (widget is EditableText) {
+      if (_hasAncestorWidget<TextField>(element)) {
+        return null;
+      }
       return 'textField';
     }
     if (widget is ButtonStyleButton ||
