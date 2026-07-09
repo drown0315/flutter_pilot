@@ -239,6 +239,60 @@ void main() {
       ),
     );
   });
+
+  test(
+    'passes scroll handle and logical-pixel deltas to pilot_runtime',
+    () async {
+      final _FakePilotRuntimeClient client = _FakePilotRuntimeClient();
+      final PilotRuntimeAdapter adapter = PilotRuntimeAdapter(
+        client: client,
+        projectRoot: '/target/app',
+      );
+
+      await adapter.performScroll(
+        match: const FinderMatch(id: 'runtime-match-1'),
+        deltaX: 12.5,
+        deltaY: -500,
+      );
+
+      expect(client.scrollRequests, <({String? handle, double dx, double dy})>[
+        (handle: 'runtime-match-1', dx: 12.5, dy: -500),
+      ]);
+    },
+  );
+
+  test('maps pilot_runtime scroll failures to action failures', () async {
+    final PilotRuntimeAdapter adapter = PilotRuntimeAdapter(
+      client: _FakePilotRuntimeClient(
+        scrollFailure: const PilotRuntimeActionException(
+          failure: PilotRuntimeActionFailure.notScrollable,
+          message: 'Runtime Handle element-1 does not identify a scrollable.',
+        ),
+      ),
+      projectRoot: '/target/app',
+    );
+
+    await expectLater(
+      adapter.performScroll(
+        match: const FinderMatch(id: 'runtime-match-1'),
+        deltaX: 0,
+        deltaY: -120,
+      ),
+      throwsA(
+        isA<RuntimeOperationException>()
+            .having(
+              (RuntimeOperationException error) => error.operation,
+              'operation',
+              RuntimeOperation.performScroll,
+            )
+            .having(
+              (RuntimeOperationException error) => error.message,
+              'message',
+              'Runtime Handle element-1 does not identify a scrollable.',
+            ),
+      ),
+    );
+  });
 }
 
 class _FakePilotRuntimeClient implements PilotRuntimeClient {
@@ -246,6 +300,7 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
     this.initializeFailure,
     this.tapFailure,
     this.clearTextFailure,
+    this.scrollFailure,
     Map<String, Object?>? widgetTree,
     List<PilotRuntimeFinderMatch>? finderMatches,
   }) : widgetTree = widgetTree ?? <String, Object?>{},
@@ -254,6 +309,7 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
   final PilotRuntimeInitializationException? initializeFailure;
   final Object? tapFailure;
   final Object? clearTextFailure;
+  final Object? scrollFailure;
   final Map<String, Object?> widgetTree;
   final List<PilotRuntimeFinderMatch> finderMatches;
   final List<String> projectRoots = <String>[];
@@ -266,6 +322,8 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
   final List<String> clearTextHandles = <String>[];
   final List<({String handle, String text})> enterTextRequests =
       <({String handle, String text})>[];
+  final List<({String? handle, double dx, double dy})> scrollRequests =
+      <({String? handle, double dx, double dy})>[];
 
   @override
   Future<PilotRuntimeSession> initialize() async {
@@ -278,6 +336,7 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
       capabilities: <String>{
         'runtime.action.clearText',
         'runtime.action.enterText',
+        'runtime.action.scroll',
         'runtime.action.tap',
         'runtime.finder.resolve',
         'runtime.handshake',
@@ -330,5 +389,18 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
   @override
   Future<void> enterText({required String handle, required String text}) async {
     enterTextRequests.add((handle: handle, text: text));
+  }
+
+  @override
+  Future<void> performScroll({
+    String? handle,
+    required double deltaX,
+    required double deltaY,
+  }) async {
+    final Object? failure = scrollFailure;
+    if (failure != null) {
+      throw failure;
+    }
+    scrollRequests.add((handle: handle, dx: deltaX, dy: deltaY));
   }
 }

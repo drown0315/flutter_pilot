@@ -1,7 +1,7 @@
 /// Protocol constants shared by the app-side hook and VM Service client.
 ///
-/// Version 1 exposes runtime handshake, visible Finder resolution, tap, and
-/// editable text entry.
+/// Version 1 exposes runtime handshake, visible Finder resolution, tap,
+/// editable text entry, and scroll replay.
 class PilotRuntimeProtocol {
   PilotRuntimeProtocol._();
 
@@ -27,6 +27,9 @@ class PilotRuntimeProtocol {
   static const String enterTextExtension =
       'ext.flutter_pilot.runtime.enterText';
 
+  /// VM Service extension used to drag one scrollable Runtime Handle.
+  static const String scrollExtension = 'ext.flutter_pilot.runtime.scroll';
+
   /// Capability name reported when the handshake extension is available.
   static const String handshakeCapability = 'runtime.handshake';
 
@@ -42,6 +45,9 @@ class PilotRuntimeProtocol {
   /// Capability name reported when editable text can receive entered text.
   static const String enterTextCapability = 'runtime.action.enterText';
 
+  /// Capability name reported when scroll replay is available.
+  static const String scrollCapability = 'runtime.action.scroll';
+
   /// Capabilities that this client requires before Scenario execution.
   static const Set<String> requiredCapabilities = <String>{
     handshakeCapability,
@@ -49,6 +55,7 @@ class PilotRuntimeProtocol {
     tapCapability,
     clearTextCapability,
     enterTextCapability,
+    scrollCapability,
   };
 }
 

@@ -523,6 +523,148 @@ void main() {
       expect(typeResponse['code'], 'notEditableText');
       expect(typeResponse['message'], contains('editable text'));
     });
+
+    testWidgets('scroll drags a targeted scrollable by logical-pixel deltas', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      final ScrollController controller = ScrollController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 200,
+              child: ListView.builder(
+                key: const ValueKey<String>('target_list'),
+                controller: controller,
+                itemCount: 30,
+                itemBuilder: (BuildContext context, int index) {
+                  return SizedBox(height: 48, child: Text('Item $index'));
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byKey: 'target_list',
+      );
+      final Map<String, Object?> match = _singleMatch(response);
+
+      final Map<String, Object?> scrollResponse = await _scroll(
+        extensions,
+        handle: match['handle']! as String,
+        deltaX: 0,
+        deltaY: -120,
+      );
+      await tester.pumpAndSettle();
+
+      expect(scrollResponse['ok'], true);
+      expect(controller.offset, greaterThan(0));
+    });
+
+    testWidgets('scroll fails clearly for a non-scrollable resolved handle', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: Text('Read only'))),
+      );
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byText: 'Read only',
+      );
+      final Map<String, Object?> match = _singleMatch(response);
+
+      final Map<String, Object?> scrollResponse = await _scroll(
+        extensions,
+        handle: match['handle']! as String,
+        deltaX: 0,
+        deltaY: -120,
+      );
+
+      expect(scrollResponse['ok'], false);
+      expect(scrollResponse['code'], 'notScrollable');
+      expect(scrollResponse['message'], contains('scrollable'));
+    });
+
+    testWidgets('scroll drags the primary scrollable when no handle is given', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      final ScrollController controller = ScrollController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 200,
+              child: ListView.builder(
+                controller: controller,
+                itemCount: 30,
+                itemBuilder: (BuildContext context, int index) {
+                  return SizedBox(height: 48, child: Text('Item $index'));
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> scrollResponse = await _scroll(
+        extensions,
+        deltaX: 0,
+        deltaY: -120,
+      );
+      await tester.pumpAndSettle();
+
+      expect(scrollResponse['ok'], true);
+      expect(controller.offset, greaterThan(0));
+    });
+
+    testWidgets('scroll fails when primary scrollable is ambiguous', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Row(
+              children: <Widget>[
+                Expanded(
+                  child: ListView(
+                    children: const <Widget>[Text('Left'), Text('Left 2')],
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    children: const <Widget>[Text('Right'), Text('Right 2')],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> scrollResponse = await _scroll(
+        extensions,
+        deltaX: 0,
+        deltaY: -120,
+      );
+
+      expect(scrollResponse['ok'], false);
+      expect(scrollResponse['code'], 'primaryScrollableUnavailable');
+      expect(scrollResponse['message'], contains('ambiguous'));
+    });
   });
 }
 
@@ -589,6 +731,22 @@ Future<Map<String, Object?>> _enterText(
     'handle': handle,
     'text': text,
   });
+}
+
+Future<Map<String, Object?>> _scroll(
+  Map<String, PilotRuntimeExtensionHandler> extensions, {
+  String? handle,
+  required double deltaX,
+  required double deltaY,
+}) {
+  final Map<String, Object?> parameters = <String, Object?>{
+    'deltaX': deltaX,
+    'deltaY': deltaY,
+  };
+  if (handle != null) {
+    parameters['handle'] = handle;
+  }
+  return extensions[PilotRuntimeProtocol.scrollExtension]!(parameters);
 }
 
 Map<String, Object?> _singleMatch(Map<String, Object?> response) {

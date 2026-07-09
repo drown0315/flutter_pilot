@@ -11,6 +11,7 @@ void main() {
           'capabilities': <Object?>[
             'runtime.action.clearText',
             'runtime.action.enterText',
+            'runtime.action.scroll',
             'runtime.action.tap',
             'runtime.finder.resolve',
             'runtime.handshake',
@@ -27,6 +28,7 @@ void main() {
       expect(session.capabilities, contains('runtime.action.tap'));
       expect(session.capabilities, contains('runtime.action.clearText'));
       expect(session.capabilities, contains('runtime.action.enterText'));
+      expect(session.capabilities, contains('runtime.action.scroll'));
       expect(vmService.calledExtensions, <String>[
         PilotRuntimeProtocol.handshakeExtension,
       ]);
@@ -282,6 +284,40 @@ void main() {
         ),
       );
     });
+  });
+
+  group('PilotRuntimeClient scroll', () {
+    test(
+      'passes optional handle and logical-pixel deltas to scroll extension',
+      () async {
+        final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
+          extensionResponses: <String, Map<String, Object?>>{
+            PilotRuntimeProtocol.scrollExtension: <String, Object?>{'ok': true},
+          },
+        );
+        final PilotRuntimeClient client = PilotRuntimeClient(vmService);
+
+        await client.performScroll(
+          handle: 'runtime-match-1',
+          deltaX: 12.5,
+          deltaY: -500,
+        );
+        await client.performScroll(deltaX: 0, deltaY: 300);
+
+        expect(vmService.calledExtensions, <String>[
+          PilotRuntimeProtocol.scrollExtension,
+          PilotRuntimeProtocol.scrollExtension,
+        ]);
+        expect(vmService.calledParameters, <Map<String, Object?>>[
+          <String, Object?>{
+            'deltaX': 12.5,
+            'deltaY': -500.0,
+            'handle': 'runtime-match-1',
+          },
+          <String, Object?>{'deltaX': 0.0, 'deltaY': 300.0},
+        ]);
+      },
+    );
   });
 }
 

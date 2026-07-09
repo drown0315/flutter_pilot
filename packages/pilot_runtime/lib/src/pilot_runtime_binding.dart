@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import 'finder_resolver.dart';
 import 'pilot_runtime_protocol.dart';
+import 'scroll_performer.dart';
 import 'tap_performer.dart';
 import 'text_performer.dart';
 
@@ -66,6 +67,7 @@ class PilotRuntimeBinding {
     registrar(PilotRuntimeProtocol.tapExtension, _handleTap);
     registrar(PilotRuntimeProtocol.clearTextExtension, _handleClearText);
     registrar(PilotRuntimeProtocol.enterTextExtension, _handleEnterText);
+    registrar(PilotRuntimeProtocol.scrollExtension, _handleScroll);
     _initialized = true;
   }
 
@@ -120,6 +122,16 @@ class PilotRuntimeBinding {
     );
   }
 
+  static Future<Map<String, Object?>> _handleScroll(
+    Map<String, Object?> parameters,
+  ) async {
+    return PilotRuntimeScrollPerformer.scroll(
+      handle: _optionalString(parameters, 'handle'),
+      deltaX: _requiredDouble(parameters, 'deltaX', 'scroll'),
+      deltaY: _requiredDouble(parameters, 'deltaY', 'scroll'),
+    );
+  }
+
   static String? _optionalString(
     Map<String, Object?> parameters,
     String field,
@@ -144,6 +156,21 @@ class PilotRuntimeBinding {
       return value;
     }
     throw FormatException('$operation parameter $field must be a string.');
+  }
+
+  static double _requiredDouble(
+    Map<String, Object?> parameters,
+    String field,
+    String operation,
+  ) {
+    final Object? value = parameters[field];
+    if (value is int) {
+      return value.toDouble();
+    }
+    if (value is double) {
+      return value;
+    }
+    throw FormatException('$operation parameter $field must be a number.');
   }
 
   static void _registerVmServiceExtension(

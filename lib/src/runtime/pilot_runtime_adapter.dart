@@ -130,8 +130,26 @@ class PilotRuntimeAdapter implements RuntimeAdapter {
     FinderMatch? match,
     required double deltaX,
     required double deltaY,
-  }) {
-    throw _notImplemented(RuntimeOperation.performScroll);
+  }) async {
+    try {
+      await _client.performScroll(
+        handle: match?.id,
+        deltaX: deltaX,
+        deltaY: deltaY,
+      );
+    } on PilotRuntimeActionException catch (error) {
+      throw RuntimeOperationException(
+        operation: RuntimeOperation.performScroll,
+        message: error.message,
+        cause: error,
+      );
+    } catch (error) {
+      throw RuntimeOperationException(
+        operation: RuntimeOperation.performScroll,
+        message: error.toString(),
+        cause: error,
+      );
+    }
   }
 
   @override

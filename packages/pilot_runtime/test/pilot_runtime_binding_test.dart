@@ -26,6 +26,7 @@ void main() {
         PilotRuntimeProtocol.tapExtension,
         PilotRuntimeProtocol.clearTextExtension,
         PilotRuntimeProtocol.enterTextExtension,
+        PilotRuntimeProtocol.scrollExtension,
       ]);
       expect(
         await registeredHandlers[PilotRuntimeProtocol.handshakeExtension]!(
@@ -36,6 +37,7 @@ void main() {
           'capabilities': <Object?>[
             'runtime.action.clearText',
             'runtime.action.enterText',
+            'runtime.action.scroll',
             'runtime.action.tap',
             'runtime.finder.resolve',
             'runtime.handshake',

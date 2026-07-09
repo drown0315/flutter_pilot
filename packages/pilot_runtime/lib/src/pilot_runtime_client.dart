@@ -143,6 +143,12 @@ enum PilotRuntimeActionFailure {
   /// A resolved Runtime Handle cannot receive editable text actions.
   notEditableText,
 
+  /// A resolved Runtime Handle cannot receive scroll drag gestures.
+  notScrollable,
+
+  /// The primary scrollable is missing or ambiguous for untargeted scroll.
+  primaryScrollableUnavailable,
+
   /// The app-side runtime returned an action failure code this client does not
   /// understand yet.
   unknown,
@@ -549,6 +555,32 @@ class PilotRuntimeClient {
     _checkActionResponse(response, actionName: 'enterText');
   }
 
+  /// Scroll a Runtime Handle or the primary scrollable by drag deltas.
+  ///
+  /// Args:
+  /// - `handle`: Optional opaque Runtime Handle from a Finder Match. When
+  ///   omitted, the app-side runtime resolves the primary scrollable.
+  /// - `deltaX`: Horizontal drag distance in logical pixels.
+  /// - `deltaY`: Vertical drag distance in logical pixels.
+  Future<void> performScroll({
+    String? handle,
+    required double deltaX,
+    required double deltaY,
+  }) async {
+    final Map<String, Object?> parameters = <String, Object?>{
+      'deltaX': deltaX,
+      'deltaY': deltaY,
+    };
+    if (handle != null) {
+      parameters['handle'] = handle;
+    }
+    final Map<String, Object?> response = await _vmService.callServiceExtension(
+      PilotRuntimeProtocol.scrollExtension,
+      parameters: parameters,
+    );
+    _checkActionResponse(response, actionName: 'scroll');
+  }
+
   void _checkActionResponse(
     Map<String, Object?> response, {
     required String actionName,
@@ -572,6 +604,9 @@ class PilotRuntimeClient {
     final PilotRuntimeActionFailure failure = switch (codeValue) {
       'notTappable' => PilotRuntimeActionFailure.notTappable,
       'notEditableText' => PilotRuntimeActionFailure.notEditableText,
+      'notScrollable' => PilotRuntimeActionFailure.notScrollable,
+      'primaryScrollableUnavailable' =>
+        PilotRuntimeActionFailure.primaryScrollableUnavailable,
       _ => PilotRuntimeActionFailure.unknown,
     };
     throw PilotRuntimeActionException(
