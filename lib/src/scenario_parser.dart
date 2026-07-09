@@ -42,7 +42,7 @@ class ScenarioValidationException implements Exception {
 /// - Step Includes that reference Step Library files
 /// - optional `scenario.recording` metadata
 /// - one action per step
-/// - Finder fields `byText` and `byType`
+/// - Finder fields `byText`, `byType`, `byKey`, and `byWidget`
 ///
 /// Example:
 /// `ScenarioParser.parseFile('examples/login_error.yaml')` returns a
@@ -52,7 +52,7 @@ class ScenarioParser {
 
   static final RegExp _slugPattern = RegExp(r'^[a-zA-Z0-9][a-zA-Z0-9_-]*$');
   static const _actionKeys = {'tap', 'type', 'scroll', 'waitFor', 'capture'};
-  static const _finderKeys = {'byText', 'byType'};
+  static const _finderKeys = {'byText', 'byType', 'byKey', 'byWidget'};
 
   /// Read a Scenario YAML file and return the parsed Scenario.
   ///
@@ -761,7 +761,7 @@ class ScenarioParser {
   /// Parse Finder fields from an action map.
   ///
   /// Args:
-  /// `yaml` is the action map that may contain `byText` and `byType`.
+  /// `yaml` is the action map that may contain Finder fields.
   /// `path` is the action path used when reporting invalid Finder fields.
   /// `required` controls whether an empty Finder is accepted. `scroll` passes
   /// `false`; `tap`, `type`, and `waitFor` pass `true`.
@@ -778,6 +778,8 @@ class ScenarioParser {
   }) {
     String? byText;
     String? byType;
+    String? byKey;
+    String? byWidget;
     for (final String key in _finderKeys) {
       if (!yaml.containsKey(key)) {
         continue;
@@ -792,10 +794,19 @@ class ScenarioParser {
           byText = value;
         case 'byType':
           byType = value;
+        case 'byKey':
+          byKey = value;
+        case 'byWidget':
+          byWidget = value;
       }
     }
 
-    final Finder finder = Finder(byText: byText, byType: byType);
+    final Finder finder = Finder(
+      byText: byText,
+      byType: byType,
+      byKey: byKey,
+      byWidget: byWidget,
+    );
     if (required && finder.isEmpty) {
       errors.add(
         ScenarioValidationError(path, 'Expected at least one Finder.'),

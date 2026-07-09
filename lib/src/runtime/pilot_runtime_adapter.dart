@@ -45,6 +45,8 @@ class PilotRuntimeAdapter implements RuntimeAdapter {
     final List<PilotRuntimeFinderMatch> matches = await _client.resolveFinder(
       byText: finder.byText,
       byType: finder.byType,
+      byKey: finder.byKey,
+      byWidget: finder.byWidget,
     );
     return <FinderMatch>[
       for (final PilotRuntimeFinderMatch match in matches)
@@ -52,6 +54,7 @@ class PilotRuntimeAdapter implements RuntimeAdapter {
           id: match.handle,
           debugLabel: _debugLabelFor(match),
           text: match.text,
+          key: match.key,
           type: match.semanticType,
           bounds: match.bounds == null
               ? null
@@ -124,8 +127,11 @@ class PilotRuntimeAdapter implements RuntimeAdapter {
 
   String? _debugLabelFor(PilotRuntimeFinderMatch match) {
     final List<String> parts = <String>[
+      if (match.matchedWidgetType != null)
+        'matchedWidgetType=${match.matchedWidgetType}',
       if (match.actionWidgetType != null) match.actionWidgetType!,
       if (match.semanticType != null) 'semanticType=${match.semanticType}',
+      if (match.key != null) 'key="${match.key}"',
       if (match.text != null) 'text="${match.text}"',
     ];
     if (parts.isEmpty) {

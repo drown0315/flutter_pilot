@@ -196,6 +196,8 @@ class PilotRuntimeFinderMatch {
     required this.handle,
     this.text,
     this.semanticType,
+    this.key,
+    this.matchedWidgetType,
     this.actionWidgetType,
     this.bounds,
   });
@@ -208,6 +210,12 @@ class PilotRuntimeFinderMatch {
 
   /// Semantic Node Type evidence when available.
   final String? semanticType;
+
+  /// `ValueKey<String>` evidence when available.
+  final String? key;
+
+  /// Widget runtime type that satisfied the Finder constraints when available.
+  final String? matchedWidgetType;
 
   /// Widget type expected to receive a later action when available.
   final String? actionWidgetType;
@@ -237,6 +245,8 @@ class PilotRuntimeFinderMatch {
       handle: handleValue,
       text: _readOptionalString(json, 'text'),
       semanticType: _readOptionalString(json, 'semanticType'),
+      key: _readOptionalString(json, 'key'),
+      matchedWidgetType: _readOptionalString(json, 'matchedWidgetType'),
       actionWidgetType: _readOptionalString(json, 'actionWidgetType'),
       bounds: bounds,
     );
@@ -248,6 +258,8 @@ class PilotRuntimeFinderMatch {
       'handle': handle,
       if (text != null) 'text': text,
       if (semanticType != null) 'semanticType': semanticType,
+      if (key != null) 'key': key,
+      if (matchedWidgetType != null) 'matchedWidgetType': matchedWidgetType,
       if (actionWidgetType != null) 'actionWidgetType': actionWidgetType,
       if (bounds != null) 'bounds': bounds!.toJson(),
     };
@@ -404,12 +416,16 @@ class PilotRuntimeClient {
   /// - `byType`: Semantic Node Type constraint from a Scenario Finder. It
   ///   names roles such as `button`, `textField`, `text`, `scrollable`, or
   ///   `header`; it is not a Dart widget runtime type.
+  /// - `byKey`: `ValueKey<String>` constraint from a Scenario Finder.
+  /// - `byWidget`: exact Dart widget runtime type display name constraint.
   ///
   /// Returns all visible Finder Matches. The Flutter Pilot runner applies the
   /// zero, one, and multiple-match cardinality rules.
   Future<List<PilotRuntimeFinderMatch>> resolveFinder({
     String? byText,
     String? byType,
+    String? byKey,
+    String? byWidget,
   }) async {
     final Map<String, Object?> parameters = <String, Object?>{};
     if (byText != null) {
@@ -417,6 +433,12 @@ class PilotRuntimeClient {
     }
     if (byType != null) {
       parameters['byType'] = byType;
+    }
+    if (byKey != null) {
+      parameters['byKey'] = byKey;
+    }
+    if (byWidget != null) {
+      parameters['byWidget'] = byWidget;
     }
 
     final Map<String, Object?> response = await _vmService.callServiceExtension(

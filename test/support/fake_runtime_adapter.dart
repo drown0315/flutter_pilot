@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
-import '../scenario.dart';
-import 'runtime_contract.dart';
+import 'package:flutter_pilot/flutter_pilot.dart';
 
 /// In-memory Runtime Adapter for runner and contract tests.
 ///
@@ -167,6 +166,8 @@ class FakeRuntimeAdapter implements RuntimeAdapter {
     final List<String> parts = <String>[
       if (finder.byText != null) 'byText=${finder.byText}',
       if (finder.byType != null) 'byType=${finder.byType}',
+      if (finder.byKey != null) 'byKey=${finder.byKey}',
+      if (finder.byWidget != null) 'byWidget=${finder.byWidget}',
     ];
     if (parts.length == 1) {
       return parts.single.split('=').last;

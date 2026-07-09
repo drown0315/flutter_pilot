@@ -17,10 +17,16 @@ class PilotRuntimeFinderResolver {
   /// - `byText`: Exact visible text constraint.
   /// - `byType`: Semantic Node Type constraint. Multiple constraints use AND
   ///   semantics.
+  /// - `byKey`: `ValueKey<String>` constraint.
   ///
   /// Returns a VM Service response object with a `matches` list. Each match
   /// contains an opaque Runtime Handle and available diagnostics.
-  static Map<String, Object?> resolve({String? byText, String? byType}) {
+  static Map<String, Object?> resolve({
+    String? byText,
+    String? byType,
+    String? byKey,
+    String? byWidget,
+  }) {
     final Element? rootElement = WidgetsBinding.instance.rootElement;
     if (rootElement == null) {
       return <String, Object?>{'matches': <Object?>[]};
@@ -32,6 +38,8 @@ class PilotRuntimeFinderResolver {
       if (!_matchesRequest(
         byText: byText,
         byType: byType,
+        byKey: byKey,
+        byWidget: byWidget,
         evidence: evidence,
       )) {
         return;
@@ -41,6 +49,8 @@ class PilotRuntimeFinderResolver {
           handle: 'element-${identityHashCode(element)}',
           text: evidence.textForDiagnostics,
           semanticType: evidence.semanticType,
+          key: evidence.valueKey,
+          matchedWidgetType: evidence.widgetType,
           actionWidgetType: element.widget.runtimeType.toString(),
           bounds: _boundsFor(element),
         ),
@@ -71,18 +81,31 @@ class PilotRuntimeFinderResolver {
   static bool _matchesRequest({
     required String? byText,
     required String? byType,
+    required String? byKey,
+    required String? byWidget,
     required _FinderEvidence evidence,
   }) {
-    final String? comparableText = byType == null
-        ? evidence.ownText
-        : evidence.textForDiagnostics;
+    final bool hasStructuralConstraint =
+        byType != null || byKey != null || byWidget != null;
+    final String? comparableText = hasStructuralConstraint
+        ? evidence.textForDiagnostics
+        : evidence.ownText;
     if (byText != null && comparableText != byText) {
       return false;
     }
     if (byType != null && evidence.semanticType != byType) {
       return false;
     }
-    return byText != null || byType != null;
+    if (byKey != null && evidence.valueKey != byKey) {
+      return false;
+    }
+    if (byWidget != null && evidence.widgetType != byWidget) {
+      return false;
+    }
+    return byText != null ||
+        byType != null ||
+        byKey != null ||
+        byWidget != null;
   }
 
   static _FinderEvidence _evidenceFor(Element element) {
@@ -93,7 +116,17 @@ class PilotRuntimeFinderResolver {
       ownText: ownText,
       descendantText: descendantText,
       semanticType: semanticType,
+      valueKey: _valueKeyFor(element),
+      widgetType: element.widget.runtimeType.toString(),
     );
+  }
+
+  static String? _valueKeyFor(Element element) {
+    final Key? key = element.widget.key;
+    if (key is ValueKey<String>) {
+      return key.value;
+    }
+    return null;
   }
 
   static String? _ownTextFor(Element element) {
@@ -220,11 +253,19 @@ class PilotRuntimeFinderResolver {
 }
 
 class _FinderEvidence {
-  const _FinderEvidence({this.ownText, this.descendantText, this.semanticType});
+  const _FinderEvidence({
+    this.ownText,
+    this.descendantText,
+    this.semanticType,
+    this.valueKey,
+    this.widgetType,
+  });
 
   final String? ownText;
   final String? descendantText;
   final String? semanticType;
+  final String? valueKey;
+  final String? widgetType;
 
   String? get textForDiagnostics => ownText ?? descendantText;
 }

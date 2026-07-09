@@ -118,6 +118,8 @@ void main() {
                 'handle': 'runtime-match-1',
                 'text': 'Log in',
                 'semanticType': 'button',
+                'key': 'login_button',
+                'matchedWidgetType': 'Text',
                 'actionWidgetType': 'ElevatedButton',
                 'bounds': <String, Object?>{
                   'left': 10.0,
@@ -135,6 +137,8 @@ void main() {
       final List<PilotRuntimeFinderMatch> matches = await client.resolveFinder(
         byText: 'Log in',
         byType: 'button',
+        byKey: 'login_button',
+        byWidget: 'Text',
       );
 
       expect(vmService.calledExtensions, <String>[
@@ -143,11 +147,15 @@ void main() {
       expect(vmService.calledParameters.single, <String, Object?>{
         'byText': 'Log in',
         'byType': 'button',
+        'byKey': 'login_button',
+        'byWidget': 'Text',
       });
       expect(matches, hasLength(1));
       expect(matches.single.handle, 'runtime-match-1');
       expect(matches.single.text, 'Log in');
       expect(matches.single.semanticType, 'button');
+      expect(matches.single.key, 'login_button');
+      expect(matches.single.matchedWidgetType, 'Text');
       expect(matches.single.actionWidgetType, 'ElevatedButton');
       expect(matches.single.bounds?.left, 10.0);
       expect(matches.single.bounds?.top, 20.0);

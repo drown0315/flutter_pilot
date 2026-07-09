@@ -85,6 +85,8 @@ class PilotRuntimeBinding {
     return PilotRuntimeFinderResolver.resolve(
       byText: _optionalString(parameters, 'byText'),
       byType: _optionalString(parameters, 'byType'),
+      byKey: _optionalString(parameters, 'byKey'),
+      byWidget: _optionalString(parameters, 'byWidget'),
     );
   }
 

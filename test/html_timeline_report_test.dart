@@ -5,6 +5,8 @@ import 'package:file_testkit/file_testkit.dart';
 import 'package:flutter_pilot/flutter_pilot.dart';
 import 'package:test/test.dart';
 
+import 'support/fake_runtime_adapter.dart';
+
 /// Verifies HTML timeline output through public runner and report APIs.
 void main() {
   test(

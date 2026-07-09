@@ -6,6 +6,9 @@ import 'package:file_testkit/file_testkit.dart';
 import 'package:flutter_pilot/flutter_pilot.dart';
 import 'package:test/test.dart';
 
+import 'support/fake_recording_controller.dart';
+import 'support/fake_runtime_adapter.dart';
+
 /// Exercises Scenario execution through the public runner API.
 ///
 /// These tests use the fake Runtime Adapter so they can verify step execution
@@ -1616,9 +1619,9 @@ steps:
       final Directory outputDirectory = Directory('multiple_match_output');
       final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
         finderResults: <String, List<FinderMatch>>{
-          'login_button': const <FinderMatch>[
+          'TextButton': const <FinderMatch>[
             FinderMatch(id: 'first-match', debugLabel: 'TextButton("Log in")'),
-            FinderMatch(id: 'second-match', debugLabel: 'Text("Log in")'),
+            FinderMatch(id: 'second-match', debugLabel: 'TextButton("Help")'),
           ],
         },
       );
@@ -1627,7 +1630,7 @@ steps:
         steps: const <ScenarioStep>[
           ScenarioStep(
             index: 1,
-            action: TapAction(finder: Finder(byText: 'login_button')),
+            action: TapAction(finder: Finder(byWidget: 'TextButton')),
           ),
         ],
       );

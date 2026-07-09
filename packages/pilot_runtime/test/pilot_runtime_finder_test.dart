@@ -150,6 +150,144 @@ void main() {
 
       expect(response['matches'], hasLength(2));
     });
+
+    testWidgets('resolves visible ValueKey<String> matches only', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: <Widget>[
+                Text('Login', key: ValueKey<String>('login_label')),
+                Text('Count', key: ValueKey<int>(1)),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> stringKeyResponse = await _resolveFinder(
+        extensions,
+        byKey: 'login_label',
+      );
+      final Map<String, Object?> intKeyResponse = await _resolveFinder(
+        extensions,
+        byKey: '1',
+      );
+
+      expect(stringKeyResponse['matches'], hasLength(1));
+      final Map<String, Object?> match = _singleMatch(stringKeyResponse);
+      expect(match['key'], 'login_label');
+      expect(match['matchedWidgetType'], 'Text');
+      expect(intKeyResponse['matches'], isEmpty);
+    });
+
+    testWidgets('resolves exact byWidget runtime type display names', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: <Widget>[
+                ElevatedButton(onPressed: () {}, child: const Text('Submit')),
+                const Text('ElevatedButton'),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> widgetResponse = await _resolveFinder(
+        extensions,
+        byWidget: 'ElevatedButton',
+      );
+      final Map<String, Object?> semanticResponse = await _resolveFinder(
+        extensions,
+        byType: 'ElevatedButton',
+      );
+
+      expect(widgetResponse['matches'], hasLength(1));
+      final Map<String, Object?> match = _singleMatch(widgetResponse);
+      expect(match['matchedWidgetType'], 'ElevatedButton');
+      expect(match['semanticType'], 'button');
+      expect(semanticResponse['matches'], isEmpty);
+    });
+
+    testWidgets(
+      'combines text key widget and semantic evidence into one match',
+      (WidgetTester tester) async {
+        final Map<String, PilotRuntimeExtensionHandler> extensions =
+            _registerRuntimeExtensions();
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Column(
+                children: <Widget>[
+                  ElevatedButton(
+                    key: const ValueKey<String>('submit_button'),
+                    onPressed: () {},
+                    child: const Text('Submit'),
+                  ),
+                  const Text('Submit'),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        final Map<String, Object?> response = await _resolveFinder(
+          extensions,
+          byText: 'Submit',
+          byType: 'button',
+          byKey: 'submit_button',
+          byWidget: 'ElevatedButton',
+        );
+
+        expect(response['matches'], hasLength(1));
+        final Map<String, Object?> match = _singleMatch(response);
+        expect(match['text'], 'Submit');
+        expect(match['semanticType'], 'button');
+        expect(match['key'], 'submit_button');
+        expect(match['matchedWidgetType'], 'ElevatedButton');
+        expect(match['actionWidgetType'], 'ElevatedButton');
+      },
+    );
+
+    testWidgets('combines wrapper key and child text without byType', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Padding(
+              key: ValueKey<String>('message_wrapper'),
+              padding: EdgeInsets.all(8),
+              child: Text('Saved'),
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byText: 'Saved',
+        byKey: 'message_wrapper',
+      );
+
+      expect(response['matches'], hasLength(1));
+      final Map<String, Object?> match = _singleMatch(response);
+      expect(match['text'], 'Saved');
+      expect(match['key'], 'message_wrapper');
+      expect(match['matchedWidgetType'], 'Padding');
+    });
   });
 }
 
@@ -170,6 +308,8 @@ Future<Map<String, Object?>> _resolveFinder(
   Map<String, PilotRuntimeExtensionHandler> extensions, {
   String? byText,
   String? byType,
+  String? byKey,
+  String? byWidget,
 }) {
   final Map<String, Object?> parameters = <String, Object?>{};
   if (byText != null) {
@@ -177,6 +317,12 @@ Future<Map<String, Object?>> _resolveFinder(
   }
   if (byType != null) {
     parameters['byType'] = byType;
+  }
+  if (byKey != null) {
+    parameters['byKey'] = byKey;
+  }
+  if (byWidget != null) {
+    parameters['byWidget'] = byWidget;
   }
   return extensions[PilotRuntimeProtocol.resolveFinderExtension]!(parameters);
 }

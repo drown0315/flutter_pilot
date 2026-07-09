@@ -37,8 +37,8 @@ abstract interface class RuntimeAdapter {
   /// Return all widgets that satisfy a Flutter Pilot Finder.
   ///
   /// Args:
-  /// `finder` contains the `byText` and `byType` constraints from a Scenario
-  /// action. When several fields are present, all constraints must match.
+  /// `finder` contains the Finder constraints from a Scenario action. When
+  /// several fields are present, all constraints must match.
   ///
   /// Returns:
   /// A complete list of Finder Matches. The runner applies cardinality rules:

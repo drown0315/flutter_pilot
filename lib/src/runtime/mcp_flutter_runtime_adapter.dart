@@ -315,7 +315,9 @@ class McpFlutterRuntimeAdapter implements RuntimeAdapter {
   /// Return whether one semantic snapshot node satisfies a Finder.
   bool _matchesFinder(Map<String, Object?> node, Finder finder) {
     return _matchesOptional(finder.byText, _nodeText(node)) &&
-        _matchesOptional(finder.byType, _nodeType(node));
+        _matchesOptional(finder.byType, _nodeType(node)) &&
+        _matchesOptional(finder.byKey, _nodeKey(node)) &&
+        _matchesOptional(finder.byWidget, _nodeWidgetType(node));
   }
 
   /// Convert one semantic snapshot node to a Flutter Pilot Finder Match.
@@ -357,6 +359,15 @@ class McpFlutterRuntimeAdapter implements RuntimeAdapter {
 
   String? _nodeKey(Map<String, Object?> node) {
     return _stringField(node, const <String>['key', 'valueKey']);
+  }
+
+  /// Return the Dart widget runtime type display name when exposed by snapshot.
+  String? _nodeWidgetType(Map<String, Object?> node) {
+    return _stringField(node, const <String>[
+      'widgetType',
+      'runtimeType',
+      'widget',
+    ]);
   }
 
   /// Return the `mcp_flutter` semantic node type used by Finder `byType`.

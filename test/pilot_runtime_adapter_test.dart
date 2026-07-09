@@ -104,6 +104,8 @@ void main() {
             handle: 'runtime-match-1',
             text: 'Submit',
             semanticType: 'button',
+            key: 'submit_label',
+            matchedWidgetType: 'Text',
             actionWidgetType: 'ElevatedButton',
             bounds: PilotRuntimeBounds(
               left: 10,
@@ -120,15 +122,24 @@ void main() {
       );
 
       final List<FinderMatch> matches = await adapter.resolveFinder(
-        const Finder(byText: 'Submit', byType: 'button'),
+        const Finder(
+          byText: 'Submit',
+          byType: 'button',
+          byKey: 'submit_label',
+          byWidget: 'Text',
+        ),
       );
 
       expect(client.finderRequests.single.byText, 'Submit');
       expect(client.finderRequests.single.byType, 'button');
+      expect(client.finderRequests.single.byKey, 'submit_label');
+      expect(client.finderRequests.single.byWidget, 'Text');
       expect(matches, hasLength(1));
       expect(matches.single.id, 'runtime-match-1');
       expect(matches.single.text, 'Submit');
+      expect(matches.single.key, 'submit_label');
       expect(matches.single.type, 'button');
+      expect(matches.single.debugLabel, contains('matchedWidgetType=Text'));
       expect(matches.single.debugLabel, contains('ElevatedButton'));
       expect(matches.single.bounds?.left, 10);
       expect(matches.single.bounds?.top, 20);
@@ -150,8 +161,11 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
   final Map<String, Object?> widgetTree;
   final List<PilotRuntimeFinderMatch> finderMatches;
   final List<String> projectRoots = <String>[];
-  final List<({String? byText, String? byType})> finderRequests =
-      <({String? byText, String? byType})>[];
+  final List<
+    ({String? byText, String? byType, String? byKey, String? byWidget})
+  >
+  finderRequests =
+      <({String? byText, String? byType, String? byKey, String? byWidget})>[];
 
   @override
   Future<PilotRuntimeSession> initialize() async {
@@ -177,8 +191,15 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
   Future<List<PilotRuntimeFinderMatch>> resolveFinder({
     String? byText,
     String? byType,
+    String? byKey,
+    String? byWidget,
   }) async {
-    finderRequests.add((byText: byText, byType: byType));
+    finderRequests.add((
+      byText: byText,
+      byType: byType,
+      byKey: byKey,
+      byWidget: byWidget,
+    ));
     return finderMatches;
   }
 }

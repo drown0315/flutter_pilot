@@ -36,6 +36,16 @@ steps:
       expect(tap.finder.byText, 'Log in');
       expect(tap.finder.byType, 'button');
 
+      final Scenario keyedScenario = parseScenario('''
+steps:
+  - tap:
+      byKey: login_button
+      byWidget: ElevatedButton
+''');
+      final TapAction keyedTap = keyedScenario.steps.single.action as TapAction;
+      expect(keyedTap.finder.byKey, 'login_button');
+      expect(keyedTap.finder.byWidget, 'ElevatedButton');
+
       final WaitForAction waitFor = scenario.steps[1].action as WaitForAction;
       expect(waitFor.timeoutMs, 3000);
 
@@ -129,9 +139,19 @@ steps:
   - tap:
       byText:
         - Log in
+      byKey:
+        value: login_button
+      byWidget: 1
 ''');
 
-      expect(paths, contains('steps[0].tap.byText'));
+      expect(
+        paths,
+        containsAll([
+          'steps[0].tap.byText',
+          'steps[0].tap.byKey',
+          'steps[0].tap.byWidget',
+        ]),
+      );
     });
 
     test('rejects duplicate labels and invalid slugs', () {

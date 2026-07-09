@@ -159,17 +159,22 @@ class StepSource {
 ///
 /// It can contain any combination of:
 /// - `byText`: exact visible text
-/// - `byType`: semantic Snapshot node type from `mcp_flutter`
+/// - `byType`: Semantic Node Type from the Runtime Target
+/// - `byKey`: `ValueKey<String>` value
+/// - `byWidget`: exact Dart widget runtime type display name
 ///
 /// Example:
 /// `Finder(byText: 'Log in', byType: 'button')` means both rules must match.
 class Finder {
-  const Finder({this.byText, this.byType});
+  const Finder({this.byText, this.byType, this.byKey, this.byWidget});
 
   final String? byText;
   final String? byType;
+  final String? byKey;
+  final String? byWidget;
 
-  bool get isEmpty => byText == null && byType == null;
+  bool get isEmpty =>
+      byText == null && byType == null && byKey == null && byWidget == null;
 }
 
 /// Tap action targeting exactly one widget matched by its Finder.
