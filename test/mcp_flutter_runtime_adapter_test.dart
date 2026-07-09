@@ -54,6 +54,42 @@ void main() {
     },
   );
 
+  test('captures screenshots from tolerant toolkit response shapes', () async {
+    final List<Object?> screenshotData = <Object?>[
+      <String, Object?>{'base64': 'iVBORw=='},
+      <String, Object?>{'png': 'iVBORw=='},
+      <String, Object?>{
+        'screenshot': <String, Object?>{'image': 'iVBORw=='},
+      },
+      <String, Object?>{
+        'images': <Object?>[
+          <String, Object?>{'ignored': true},
+          <String, Object?>{'base64': 'iVBORw=='},
+        ],
+      },
+      <String, Object?>{
+        'screenshots': <Object?>[
+          <String, Object?>{'png': 'iVBORw=='},
+        ],
+      },
+    ];
+
+    for (final Object? data in screenshotData) {
+      final McpFlutterRuntimeAdapter adapter = McpFlutterRuntimeAdapter(
+        target: RuntimeTarget(
+          vmServiceUri: Uri.parse('ws://127.0.0.1:1234/example=/ws'),
+        ),
+        commandRunner: (McpFlutterCommandCall call) async {
+          return <String, Object?>{'ok': true, 'data': data};
+        },
+      );
+
+      final ScreenshotCapture screenshot = await adapter.captureScreenshot();
+
+      expect(screenshot.bytes, <int>[137, 80, 78, 71]);
+    }
+  });
+
   test(
     'enters cumulative text for character-by-character runner calls',
     () async {

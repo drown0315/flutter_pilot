@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:pilot_runtime/pilot_runtime.dart';
+import 'package:mcp_toolkit/mcp_toolkit.dart';
 
-/// Start the Flutter Pilot smoke app with pilot_runtime extensions enabled.
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  PilotRuntimeBinding.ensureInitialized();
-  runApp(const SmokeApp());
+/// Start the Flutter Pilot smoke app with MCP Toolkit extensions enabled.
+Future<void> main() async {
+  await MCPToolkitBinding.instance.bootstrapFlutter(
+    runApp: () => runApp(const SmokeApp()),
+  );
 }
 
-/// Minimal Flutter app used by the real `pilot_runtime` smoke Scenario.
+/// Minimal Flutter app used by the real `mcp_flutter` smoke Scenario.
 class SmokeApp extends StatelessWidget {
   const SmokeApp({super.key});
 

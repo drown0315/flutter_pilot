@@ -413,19 +413,45 @@ class McpFlutterRuntimeAdapter implements RuntimeAdapter {
   }
 
   static String? _firstScreenshotImage(Object? data) {
-    if (data is Map<String, Object?>) {
-      final Object? images = data['images'];
-      if (images is List<Object?> && images.isNotEmpty) {
-        final Object? image = images.first;
-        return image is String ? image : null;
+    if (data is! Map<String, Object?>) {
+      return null;
+    }
+    final String? directImage = _stringField(data, const <String>[
+      'image',
+      'base64',
+      'png',
+      'screenshot',
+    ]);
+    if (directImage != null) {
+      return directImage;
+    }
+    final Object? screenshot = data['screenshot'];
+    if (screenshot is Map<String, Object?>) {
+      final String? screenshotImage = _firstScreenshotImage(screenshot);
+      if (screenshotImage != null) {
+        return screenshotImage;
       }
-      final Object? image = data['image'];
+    }
+    final String? imageFromImages = _firstImageFromList(data['images']);
+    if (imageFromImages != null) {
+      return imageFromImages;
+    }
+    return _firstImageFromList(data['screenshots']);
+  }
+
+  static String? _firstImageFromList(Object? images) {
+    if (images is! List<Object?>) {
+      return null;
+    }
+    for (final Object? image in images) {
       if (image is String) {
         return image;
       }
-      final Object? screenshot = data['screenshot'];
-      if (screenshot is String) {
-        return screenshot;
+      if (image is Map<String, Object?>) {
+        final String? nestedImage = _firstScreenshotImage(image);
+        if (nestedImage != null) {
+          return nestedImage;
+        }
       }
     }
     return null;
