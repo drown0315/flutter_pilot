@@ -219,6 +219,37 @@ void main() {
       expect(intKeyResponse['matches'], isEmpty);
     });
 
+    testWidgets('combines a keyed ListView with its internal scrollable role', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ListView.builder(
+              key: const ValueKey<String>('target_scroll_list'),
+              itemCount: 20,
+              itemBuilder: (BuildContext context, int index) {
+                return SizedBox(height: 48, child: Text('Item $index'));
+              },
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byKey: 'target_scroll_list',
+        byType: 'scrollable',
+      );
+
+      expect(response['matches'], hasLength(1));
+      final Map<String, Object?> match = _singleMatch(response);
+      expect(match['key'], 'target_scroll_list');
+      expect(match['semanticType'], 'scrollable');
+    });
+
     testWidgets('resolves exact byWidget runtime type display names', (
       WidgetTester tester,
     ) async {

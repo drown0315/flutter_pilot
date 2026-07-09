@@ -48,7 +48,7 @@ class PilotRuntimeFinderResolver {
         PilotRuntimeFinderMatch(
           handle: handleForElement(element),
           text: evidence.textForDiagnostics,
-          semanticType: evidence.semanticType,
+          semanticType: evidence.semanticTypeForDiagnostics,
           key: evidence.valueKey,
           matchedWidgetType: evidence.widgetType,
           actionWidgetType: element.widget.runtimeType.toString(),
@@ -125,13 +125,17 @@ class PilotRuntimeFinderResolver {
   }) {
     final bool hasStructuralConstraint =
         byType != null || byKey != null || byWidget != null;
+    final bool hasWrapperConstraint = byKey != null || byWidget != null;
     final String? comparableText = hasStructuralConstraint
         ? evidence.textForDiagnostics
         : evidence.ownText;
+    final String? comparableSemanticType = hasWrapperConstraint
+        ? evidence.semanticType ?? evidence.descendantSemanticType
+        : evidence.semanticType;
     if (byText != null && comparableText != byText) {
       return false;
     }
-    if (byType != null && evidence.semanticType != byType) {
+    if (byType != null && comparableSemanticType != byType) {
       return false;
     }
     if (byKey != null && evidence.valueKey != byKey) {
@@ -154,6 +158,7 @@ class PilotRuntimeFinderResolver {
       ownText: ownText,
       descendantText: descendantText,
       semanticType: semanticType,
+      descendantSemanticType: _descendantSemanticTypeFor(element),
       valueKey: _valueKeyFor(element),
       widgetType: element.widget.runtimeType.toString(),
     );
@@ -191,6 +196,15 @@ class PilotRuntimeFinderResolver {
       matchedText ??= _descendantTextFor(child);
     });
     return matchedText;
+  }
+
+  static String? _descendantSemanticTypeFor(Element element) {
+    String? matchedType;
+    element.visitChildren((Element child) {
+      matchedType ??= _semanticTypeFor(child);
+      matchedType ??= _descendantSemanticTypeFor(child);
+    });
+    return matchedType;
   }
 
   static String? _semanticTypeFor(Element element) {
@@ -301,6 +315,7 @@ class _FinderEvidence {
     this.ownText,
     this.descendantText,
     this.semanticType,
+    this.descendantSemanticType,
     this.valueKey,
     this.widgetType,
   });
@@ -308,8 +323,12 @@ class _FinderEvidence {
   final String? ownText;
   final String? descendantText;
   final String? semanticType;
+  final String? descendantSemanticType;
   final String? valueKey;
   final String? widgetType;
 
   String? get textForDiagnostics => ownText ?? descendantText;
+
+  String? get semanticTypeForDiagnostics =>
+      semanticType ?? descendantSemanticType;
 }
