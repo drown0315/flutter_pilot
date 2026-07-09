@@ -7,6 +7,9 @@
 /// A YAML step with `tap:` becomes `TapAction`.
 sealed class StepAction {
   const StepAction();
+
+  /// Convert this action to the JSON shape stored in Scenario artifacts.
+  Map<String, Object?> toJson();
 }
 
 /// Typed representation of one Scenario YAML file.
@@ -71,6 +74,20 @@ class Scenario {
     }
     return sliceThroughStepNumber(stepIndex + 1);
   }
+
+  /// Convert this Scenario to the JSON shape stored in Scenario artifacts.
+  ///
+  /// Returns:
+  /// A JSON-compatible map with Scenario name, optional description, optional
+  /// recording metadata, and ordered Step records.
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'name': name,
+      if (description != null) 'description': description,
+      if (recording != null) 'recording': recording!.toJson(),
+      'steps': <Object?>[for (final ScenarioStep step in steps) step.toJson()],
+    };
+  }
 }
 
 /// Scenario-level device video recording configuration.
@@ -82,6 +99,11 @@ class ScenarioRecording {
   const ScenarioRecording({required this.enabled});
 
   final bool enabled;
+
+  /// Convert this Scenario Recording metadata to JSON.
+  Map<String, Object?> toJson() {
+    return <String, Object?>{'enabled': enabled};
+  }
 }
 
 /// One ordered Scenario step.
@@ -106,6 +128,16 @@ class ScenarioStep {
   final String? label;
   final StepSource? source;
   final StepAction action;
+
+  /// Convert this Step to the JSON shape stored in Scenario artifacts.
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'index': index,
+      if (label != null) 'label': label,
+      if (source != null) 'source': source!.toJson(),
+      'action': action.toJson(),
+    };
+  }
 }
 
 /// One Step Include edge that contributed an expanded Step.
@@ -128,6 +160,15 @@ class IncludeSource {
   final String fileIdentity;
   final String displayPath;
   final String includePath;
+
+  /// Convert this Include Source metadata to JSON.
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'fileIdentity': fileIdentity,
+      'displayPath': displayPath,
+      'includePath': includePath,
+    };
+  }
 }
 
 /// File origin metadata for an expanded Scenario Step.
@@ -153,6 +194,18 @@ class StepSource {
   final String displayPath;
   final String yamlPath;
   final List<IncludeSource> includeChain;
+
+  /// Convert this Step Source metadata to JSON.
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'fileIdentity': fileIdentity,
+      'displayPath': displayPath,
+      'yamlPath': yamlPath,
+      'includeChain': <Object?>[
+        for (final IncludeSource include in includeChain) include.toJson(),
+      ],
+    };
+  }
 }
 
 /// Rule set for finding widgets before an action runs.
@@ -175,6 +228,19 @@ class Finder {
 
   bool get isEmpty =>
       byText == null && byType == null && byKey == null && byWidget == null;
+
+  /// Convert this Finder to JSON constraints.
+  ///
+  /// Returns:
+  /// A map containing only the Finder fields that are present.
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      if (byText != null) 'byText': byText,
+      if (byType != null) 'byType': byType,
+      if (byKey != null) 'byKey': byKey,
+      if (byWidget != null) 'byWidget': byWidget,
+    };
+  }
 }
 
 /// Tap action targeting exactly one widget matched by its Finder.
@@ -182,6 +248,11 @@ class TapAction extends StepAction {
   const TapAction({required this.finder});
 
   final Finder finder;
+
+  @override
+  Map<String, Object?> toJson() {
+    return <String, Object?>{'tap': finder.toJson()};
+  }
 }
 
 /// Text-entry action that replaces the target widget's existing text.
@@ -190,6 +261,13 @@ class TypeAction extends StepAction {
 
   final Finder finder;
   final String text;
+
+  @override
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'type': <String, Object?>{...finder.toJson(), 'text': text},
+    };
+  }
 }
 
 /// Drag gesture action using Flutter gesture delta semantics.
@@ -203,6 +281,17 @@ class ScrollAction extends StepAction {
   final Finder? finder;
   final double deltaX;
   final double deltaY;
+
+  @override
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'scroll': <String, Object?>{
+        if (finder != null) ...finder!.toJson(),
+        'deltaX': deltaX,
+        'deltaY': deltaY,
+      },
+    };
+  }
 }
 
 /// Wait action that succeeds when its Finder has one unique match.
@@ -211,6 +300,13 @@ class WaitForAction extends StepAction {
 
   final Finder finder;
   final int timeoutMs;
+
+  @override
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'waitFor': <String, Object?>{...finder.toJson(), 'timeoutMs': timeoutMs},
+    };
+  }
 }
 
 /// Diagnostic capture action.
@@ -232,4 +328,15 @@ class CaptureAction extends StepAction {
   final bool snapshot;
   final bool widgetTree;
   final bool logs;
+
+  @override
+  Map<String, Object?> toJson() {
+    return <String, Object?>{
+      'capture': <String, Object?>{
+        'screenshot': screenshot,
+        'widgetTree': widgetTree,
+        'logs': logs,
+      },
+    };
+  }
 }
