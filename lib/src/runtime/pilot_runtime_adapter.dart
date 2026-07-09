@@ -72,10 +72,16 @@ class PilotRuntimeAdapter implements RuntimeAdapter {
   Future<void> performTap(FinderMatch match) async {
     try {
       await _client.performTap(handle: match.id);
+    } on PilotRuntimeActionException catch (error) {
+      throw RuntimeOperationException(
+        operation: RuntimeOperation.performTap,
+        message: error.message,
+        cause: error,
+      );
     } catch (error) {
       throw RuntimeOperationException(
         operation: RuntimeOperation.performTap,
-        message: _tapFailureMessage(error),
+        message: error.toString(),
         cause: error,
       );
     }
@@ -131,25 +137,6 @@ class PilotRuntimeAdapter implements RuntimeAdapter {
       operation: operation,
       message: '${operation.name} is not implemented for pilot_runtime yet.',
     );
-  }
-
-  String _tapFailureMessage(Object error) {
-    final String message = error.toString();
-    const String badStatePrefix = 'Bad state: ';
-    final int badStateIndex = message.indexOf(badStatePrefix);
-    if (badStateIndex == -1) {
-      return message;
-    }
-
-    final String userMessage = message
-        .substring(badStateIndex + badStatePrefix.length)
-        .split('\n')
-        .first
-        .trim();
-    if (userMessage.isEmpty) {
-      return message;
-    }
-    return userMessage;
   }
 
   String? _debugLabelFor(PilotRuntimeFinderMatch match) {

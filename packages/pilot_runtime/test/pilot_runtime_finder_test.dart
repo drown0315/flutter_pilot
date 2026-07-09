@@ -406,16 +406,14 @@ void main() {
       );
       final Map<String, Object?> match = _singleMatch(response);
 
-      await expectLater(
-        _tap(extensions, handle: match['handle']! as String),
-        throwsA(
-          isA<StateError>().having(
-            (StateError error) => error.message,
-            'message',
-            contains('cannot be tapped'),
-          ),
-        ),
+      final Map<String, Object?> tapResponse = await _tap(
+        extensions,
+        handle: match['handle']! as String,
       );
+
+      expect(tapResponse['ok'], false);
+      expect(tapResponse['code'], 'notTappable');
+      expect(tapResponse['message'], contains('cannot be tapped'));
     });
   });
 }

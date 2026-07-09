@@ -172,7 +172,7 @@ void main() {
       final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
         extensionResponses: <String, Map<String, Object?>>{
           PilotRuntimeProtocol.tapExtension: <String, Object?>{
-            'status': 'ok',
+            'ok': true,
             'method': 'semantic',
           },
         },
@@ -187,6 +187,36 @@ void main() {
       expect(vmService.calledParameters.single, <String, Object?>{
         'handle': 'runtime-match-1',
       });
+    });
+
+    test('throws typed action failure from structured tap response', () async {
+      final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
+        extensionResponses: <String, Map<String, Object?>>{
+          PilotRuntimeProtocol.tapExtension: <String, Object?>{
+            'ok': false,
+            'code': 'notTappable',
+            'message': 'Runtime Handle element-1 cannot be tapped.',
+          },
+        },
+      );
+      final PilotRuntimeClient client = PilotRuntimeClient(vmService);
+
+      await expectLater(
+        client.performTap(handle: 'element-1'),
+        throwsA(
+          isA<PilotRuntimeActionException>()
+              .having(
+                (PilotRuntimeActionException error) => error.failure,
+                'failure',
+                PilotRuntimeActionFailure.notTappable,
+              )
+              .having(
+                (PilotRuntimeActionException error) => error.message,
+                'message',
+                'Runtime Handle element-1 cannot be tapped.',
+              ),
+        ),
+      );
     });
   });
 }

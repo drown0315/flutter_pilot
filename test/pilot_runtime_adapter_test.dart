@@ -165,7 +165,12 @@ void main() {
 
   test('maps pilot_runtime tap failures to action failures', () async {
     final PilotRuntimeAdapter adapter = PilotRuntimeAdapter(
-      client: _FakePilotRuntimeClient(tapFailure: StateError('cannot tap')),
+      client: _FakePilotRuntimeClient(
+        tapFailure: const PilotRuntimeActionException(
+          failure: PilotRuntimeActionFailure.notTappable,
+          message: 'Runtime Handle element-1 cannot be tapped.',
+        ),
+      ),
       projectRoot: '/target/app',
     );
 
@@ -181,44 +186,11 @@ void main() {
             .having(
               (RuntimeOperationException error) => error.message,
               'message',
-              contains('cannot tap'),
+              'Runtime Handle element-1 cannot be tapped.',
             ),
       ),
     );
   });
-
-  test('cleans VM Service wrapper text from tap action failures', () async {
-    final PilotRuntimeAdapter adapter = PilotRuntimeAdapter(
-      client: _FakePilotRuntimeClient(
-        tapFailure: const _StringFailure(
-          'ext.flutter_pilot.runtime.tap: (-32000) Server error\n'
-          'Bad state: Runtime Handle element-1 cannot be tapped.\n'
-          '#0      PilotRuntimeTapPerformer.tap',
-        ),
-      ),
-      projectRoot: '/target/app',
-    );
-
-    await expectLater(
-      adapter.performTap(const FinderMatch(id: 'runtime-match-1')),
-      throwsA(
-        isA<RuntimeOperationException>().having(
-          (RuntimeOperationException error) => error.message,
-          'message',
-          'Runtime Handle element-1 cannot be tapped.',
-        ),
-      ),
-    );
-  });
-}
-
-class _StringFailure implements Exception {
-  const _StringFailure(this.message);
-
-  final String message;
-
-  @override
-  String toString() => message;
 }
 
 class _FakePilotRuntimeClient implements PilotRuntimeClient {

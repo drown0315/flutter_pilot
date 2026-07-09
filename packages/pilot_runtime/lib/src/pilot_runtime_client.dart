@@ -132,6 +132,46 @@ class PilotRuntimeWidgetTreeCaptureException implements Exception {
   }
 }
 
+/// Runtime action failure category reported by `PilotRuntimeClient`.
+///
+/// These failures come from a structured `pilot_runtime` action response rather
+/// than from VM Service exception text.
+enum PilotRuntimeActionFailure {
+  /// A resolved Runtime Handle cannot receive the requested tap action.
+  notTappable,
+
+  /// The app-side runtime returned an action failure code this client does not
+  /// understand yet.
+  unknown,
+}
+
+/// Clear failure thrown when a runtime action cannot complete.
+///
+/// The exception preserves the structured app-side failure category and exposes
+/// a user-facing message suitable for Flutter Pilot Step failure reports.
+class PilotRuntimeActionException implements Exception {
+  /// Create a runtime action failure.
+  const PilotRuntimeActionException({
+    required this.failure,
+    required this.message,
+    this.cause,
+  });
+
+  /// Machine-readable action failure category.
+  final PilotRuntimeActionFailure failure;
+
+  /// Human-readable explanation of the action failure.
+  final String message;
+
+  /// Original structured response or lower-level error when available.
+  final Object? cause;
+
+  @override
+  String toString() {
+    return 'PilotRuntimeActionException: $message';
+  }
+}
+
 /// Logical-pixel rectangle reported for a resolved Finder Match.
 class PilotRuntimeBounds {
   /// Create one visible target bounds rectangle.
@@ -470,9 +510,41 @@ class PilotRuntimeClient {
   /// failures are reported by the service extension and surface as VM Service
   /// call failures.
   Future<void> performTap({required String handle}) async {
-    await _vmService.callServiceExtension(
+    final Map<String, Object?> response = await _vmService.callServiceExtension(
       PilotRuntimeProtocol.tapExtension,
       parameters: <String, Object?>{'handle': handle},
+    );
+    _checkActionResponse(response, actionName: 'tap');
+  }
+
+  void _checkActionResponse(
+    Map<String, Object?> response, {
+    required String actionName,
+  }) {
+    final Object? okValue = response['ok'];
+    if (okValue == null || okValue == true) {
+      return;
+    }
+    if (okValue != false) {
+      throw FormatException('$actionName response ok must be a boolean.');
+    }
+
+    final Object? messageValue = response['message'];
+    if (messageValue is! String || messageValue.isEmpty) {
+      throw FormatException(
+        '$actionName failure response must include a non-empty message.',
+      );
+    }
+
+    final Object? codeValue = response['code'];
+    final PilotRuntimeActionFailure failure = switch (codeValue) {
+      'notTappable' => PilotRuntimeActionFailure.notTappable,
+      _ => PilotRuntimeActionFailure.unknown,
+    };
+    throw PilotRuntimeActionException(
+      failure: failure,
+      message: messageValue,
+      cause: response,
     );
   }
 

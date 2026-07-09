@@ -8,7 +8,9 @@ import 'finder_resolver.dart';
 ///
 /// The performer prefers Flutter semantics when a target exposes
 /// `SemanticsAction.tap`. When no semantic tap action is available, it falls
-/// back to a pointer tap at the target's global bounds center.
+/// back to a pointer tap at the target's global bounds center. Expected action
+/// failures are returned as structured protocol payloads instead of VM Service
+/// exceptions.
 class PilotRuntimeTapPerformer {
   PilotRuntimeTapPerformer._();
 
@@ -17,16 +19,17 @@ class PilotRuntimeTapPerformer {
   /// Args:
   /// - `handle`: Opaque Runtime Handle returned by Finder resolution.
   ///
-  /// Returns a VM Service response describing which tap path was used. Throws
-  /// `StateError` when the handle is stale, malformed, or does not identify a
-  /// tappable target.
+  /// Returns a VM Service response describing either the tap path used or a
+  /// structured failure with `ok`, `code`, and `message` fields.
   static Future<Map<String, Object?>> tap({required String handle}) async {
     final Element? element = PilotRuntimeFinderResolver.elementForHandle(
       handle,
     );
     if (element == null) {
-      throw StateError(
-        'Runtime Handle $handle does not identify a visible tap target.',
+      return _failure(
+        code: 'notTappable',
+        message:
+            'Runtime Handle $handle does not identify a visible tap target.',
       );
     }
 
@@ -34,17 +37,22 @@ class PilotRuntimeTapPerformer {
     if (semanticsNode != null &&
         semanticsNode.getSemanticsData().hasAction(SemanticsAction.tap)) {
       semanticsNode.owner?.performAction(semanticsNode.id, SemanticsAction.tap);
-      return <String, Object?>{'status': 'ok', 'method': 'semantic'};
+      return <String, Object?>{'ok': true, 'method': 'semantic'};
     }
 
     final Offset? center = _centerFor(element);
     if (center == null) {
-      throw StateError(
-        'Runtime Handle $handle does not have usable bounds for pointer tap.',
+      return _failure(
+        code: 'notTappable',
+        message:
+            'Runtime Handle $handle does not have usable bounds for pointer tap.',
       );
     }
     if (!_canReceivePointerTap(element)) {
-      throw StateError('Runtime Handle $handle cannot be tapped.');
+      return _failure(
+        code: 'notTappable',
+        message: 'Runtime Handle $handle cannot be tapped.',
+      );
     }
 
     final int pointer = DateTime.now().microsecondsSinceEpoch;
@@ -58,7 +66,14 @@ class PilotRuntimeTapPerformer {
     GestureBinding.instance.handlePointerEvent(
       PointerUpEvent(pointer: pointer, position: center),
     );
-    return <String, Object?>{'status': 'ok', 'method': 'pointer'};
+    return <String, Object?>{'ok': true, 'method': 'pointer'};
+  }
+
+  static Map<String, Object?> _failure({
+    required String code,
+    required String message,
+  }) {
+    return <String, Object?>{'ok': false, 'code': code, 'message': message};
   }
 
   static Offset? _centerFor(Element element) {
