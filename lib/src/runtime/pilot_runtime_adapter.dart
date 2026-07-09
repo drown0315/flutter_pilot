@@ -75,7 +75,7 @@ class PilotRuntimeAdapter implements RuntimeAdapter {
     } catch (error) {
       throw RuntimeOperationException(
         operation: RuntimeOperation.performTap,
-        message: error.toString(),
+        message: _tapFailureMessage(error),
         cause: error,
       );
     }
@@ -131,6 +131,25 @@ class PilotRuntimeAdapter implements RuntimeAdapter {
       operation: operation,
       message: '${operation.name} is not implemented for pilot_runtime yet.',
     );
+  }
+
+  String _tapFailureMessage(Object error) {
+    final String message = error.toString();
+    const String badStatePrefix = 'Bad state: ';
+    final int badStateIndex = message.indexOf(badStatePrefix);
+    if (badStateIndex == -1) {
+      return message;
+    }
+
+    final String userMessage = message
+        .substring(badStateIndex + badStatePrefix.length)
+        .split('\n')
+        .first
+        .trim();
+    if (userMessage.isEmpty) {
+      return message;
+    }
+    return userMessage;
   }
 
   String? _debugLabelFor(PilotRuntimeFinderMatch match) {
