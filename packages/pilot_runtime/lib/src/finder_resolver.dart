@@ -191,6 +191,9 @@ class PilotRuntimeFinderResolver {
   static List<String> _descendantTextsFor(Element element) {
     final List<String> texts = <String>[];
     element.visitChildren((Element child) {
+      if (!_isVisible(child)) {
+        return;
+      }
       final String? text = _ownTextFor(child);
       if (text != null) {
         texts.add(text);
@@ -203,6 +206,9 @@ class PilotRuntimeFinderResolver {
   static List<String> _descendantSemanticTypesFor(Element element) {
     final List<String> semanticTypes = <String>[];
     element.visitChildren((Element child) {
+      if (!_isVisible(child)) {
+        return;
+      }
       final String? semanticType = _semanticTypeFor(child);
       if (semanticType != null) {
         semanticTypes.add(semanticType);

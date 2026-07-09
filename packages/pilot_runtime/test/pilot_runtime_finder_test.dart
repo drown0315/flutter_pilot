@@ -592,6 +592,85 @@ void main() {
       expect(typeResponse['message'], contains('editable text'));
     });
 
+    testWidgets('type fails clearly for a read-only text field', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      final TextEditingController controller = TextEditingController(
+        text: 'locked',
+      );
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: TextField(
+              key: const ValueKey<String>('read_only_input'),
+              controller: controller,
+              readOnly: true,
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byKey: 'read_only_input',
+        byType: 'textField',
+      );
+      final Map<String, Object?> match = _singleMatch(response);
+
+      final Map<String, Object?> clearResponse = await _clearText(
+        extensions,
+        handle: match['handle']! as String,
+      );
+      final Map<String, Object?> enterResponse = await _enterText(
+        extensions,
+        handle: match['handle']! as String,
+        text: 'a',
+      );
+
+      expect(clearResponse['ok'], false);
+      expect(clearResponse['code'], 'notEditableText');
+      expect(enterResponse['ok'], false);
+      expect(enterResponse['code'], 'notEditableText');
+      expect(controller.text, 'locked');
+    });
+
+    testWidgets('wrapper evidence ignores hidden descendant text and types', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Padding(
+              key: const ValueKey<String>('message_wrapper'),
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                children: <Widget>[
+                  Offstage(
+                    child: Semantics(header: true, child: Text('Hidden')),
+                  ),
+                  Text('Visible'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byText: 'Hidden',
+        byType: 'header',
+        byKey: 'message_wrapper',
+      );
+
+      expect(response['matches'], isEmpty);
+    });
+
     testWidgets('scroll drags a targeted scrollable by logical-pixel deltas', (
       WidgetTester tester,
     ) async {

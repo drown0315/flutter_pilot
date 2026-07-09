@@ -61,18 +61,30 @@ class PilotRuntimeTextPerformer {
     element.visitChildren((Element child) {
       state ??= _editableStateFromElement(child);
     });
-    return state;
+    final EditableTextState? editableState = state;
+    if (editableState == null || !_isEditable(editableState)) {
+      return null;
+    }
+    return editableState;
   }
 
   static EditableTextState? _editableStateFromElement(Element element) {
     if (element is StatefulElement && element.state is EditableTextState) {
-      return element.state as EditableTextState;
+      final EditableTextState state = element.state as EditableTextState;
+      if (_isEditable(state)) {
+        return state;
+      }
+      return null;
     }
     EditableTextState? state;
     element.visitChildren((Element child) {
       state ??= _editableStateFromElement(child);
     });
     return state;
+  }
+
+  static bool _isEditable(EditableTextState state) {
+    return !state.widget.readOnly;
   }
 
   static Map<String, Object?> _failure(String handle) {

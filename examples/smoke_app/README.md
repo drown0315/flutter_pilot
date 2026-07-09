@@ -40,7 +40,8 @@ Stop that manual run before executing Flutter Pilot. From `examples/smoke_app`,
 run the passing Scenario; Flutter Pilot will launch the app itself:
 
 ```bash
-dart run ../../bin/flutter_pilot.dart test pilot/pilot_runtime_tap.yaml \
+FLUTTER_PILOT_RUNTIME=pilot_runtime \
+  dart run ../../bin/flutter_pilot.dart test pilot/pilot_runtime_tap.yaml \
   --target lib/pilot_runtime_tap_demo.dart \
   --device macos
 ```
@@ -55,7 +56,8 @@ Expected result:
 To verify the failure path, run:
 
 ```bash
-dart run ../../bin/flutter_pilot.dart test pilot/pilot_runtime_non_tappable.yaml \
+FLUTTER_PILOT_RUNTIME=pilot_runtime \
+  dart run ../../bin/flutter_pilot.dart test pilot/pilot_runtime_non_tappable.yaml \
   --target lib/pilot_runtime_tap_demo.dart \
   --device macos
 ```
@@ -81,7 +83,8 @@ Stop that manual run before executing Flutter Pilot. From `examples/smoke_app`,
 run the passing Scenario; Flutter Pilot will launch the app itself:
 
 ```bash
-dart run ../../bin/flutter_pilot.dart test pilot/pilot_runtime_scroll.yaml \
+FLUTTER_PILOT_RUNTIME=pilot_runtime \
+  dart run ../../bin/flutter_pilot.dart test pilot/pilot_runtime_scroll.yaml \
   --target lib/pilot_runtime_scroll_demo.dart \
   --device macos
 ```
@@ -95,7 +98,8 @@ Expected result:
 To verify the failure path, run:
 
 ```bash
-dart run ../../bin/flutter_pilot.dart test pilot/pilot_runtime_scroll_non_scrollable.yaml \
+FLUTTER_PILOT_RUNTIME=pilot_runtime \
+  dart run ../../bin/flutter_pilot.dart test pilot/pilot_runtime_scroll_non_scrollable.yaml \
   --target lib/pilot_runtime_scroll_demo.dart \
   --device macos
 ```
