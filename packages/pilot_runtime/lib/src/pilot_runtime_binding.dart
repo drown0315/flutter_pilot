@@ -170,6 +170,12 @@ class PilotRuntimeBinding {
     if (value is double) {
       return value;
     }
+    if (value is String) {
+      final double? parsed = double.tryParse(value);
+      if (parsed != null) {
+        return parsed;
+      }
+    }
     throw FormatException('$operation parameter $field must be a number.');
   }
 

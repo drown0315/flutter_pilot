@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pilot_runtime/pilot_runtime.dart';
 
@@ -58,6 +59,34 @@ void main() {
       );
 
       expect(registeredExtensions, isEmpty);
+    });
+
+    testWidgets('parses numeric service extension parameters', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> registeredHandlers =
+          <String, PilotRuntimeExtensionHandler>{};
+
+      await tester.pumpWidget(
+        const Directionality(
+          textDirection: TextDirection.ltr,
+          child: SingleChildScrollView(child: SizedBox(height: 1000)),
+        ),
+      );
+      PilotRuntimeBinding.ensureInitialized(
+        debugMode: true,
+        registerExtension:
+            (String extensionName, PilotRuntimeExtensionHandler handler) {
+              registeredHandlers[extensionName] = handler;
+            },
+      );
+
+      final Map<String, Object?> response =
+          await registeredHandlers[PilotRuntimeProtocol.scrollExtension]!(
+            <String, Object?>{'deltaX': '0.0', 'deltaY': '-120.5'},
+          );
+
+      expect(response['ok'], true);
     });
   });
 }
