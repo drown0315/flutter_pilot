@@ -58,6 +58,9 @@ class TargetAppLaunch {
   final _TargetAppLaunchState _state;
   final TargetAppProcess _process;
 
+  /// Target Device id reported by Flutter for the launched app, when known.
+  String? get deviceId => _state.deviceId;
+
   /// Broadcast stream of Flutter machine stdout lines after launch succeeds.
   final Stream<String> stdoutLines;
   int _nextRequestId = 0;
@@ -229,7 +232,8 @@ class TargetAppLauncher {
     final StreamController<String> stdoutLinesController =
         StreamController<String>.broadcast();
     final _LastLinesBuffer stderrBuffer = _LastLinesBuffer(limit: 40);
-    final _TargetAppLaunchState state = _TargetAppLaunchState();
+    final _TargetAppLaunchState state = _TargetAppLaunchState()
+      ..deviceId = command.deviceId;
     final StreamSubscription<String> stderrSub = process.stderr
         .transform(utf8.decoder)
         .transform(const LineSplitter())
@@ -248,6 +252,7 @@ class TargetAppLauncher {
           (String line) {
             stdoutLinesController.add(line);
             state.appId ??= _appIdFromMachineLine(line);
+            state.deviceId ??= _deviceIdFromMachineLine(line);
             final Uri? runtimeTargetUri = _runtimeTargetUriFromMachineLine(
               line,
             );
@@ -336,6 +341,27 @@ class TargetAppLauncher {
     return null;
   }
 
+  /// Extract the launched Target Device id from one Flutter machine stdout line.
+  static String? _deviceIdFromMachineLine(String line) {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(line);
+    } on FormatException {
+      return null;
+    }
+    for (final Map<String, Object?> event in _machineEvents(decoded)) {
+      final Object? params = event['params'];
+      if (params is! Map<String, Object?>) {
+        continue;
+      }
+      final Object? deviceId = params['deviceId'];
+      if (deviceId is String && deviceId.isNotEmpty) {
+        return deviceId;
+      }
+    }
+    return null;
+  }
+
   /// Extract a daemon command response for [requestId] from stdout.
   static _MachineCommandResponse? _machineCommandResponseFromLine(
     String line,
@@ -387,6 +413,7 @@ class TargetAppLauncher {
 
 class _TargetAppLaunchState {
   String? appId;
+  String? deviceId;
 }
 
 class _MachineCommandResponse {

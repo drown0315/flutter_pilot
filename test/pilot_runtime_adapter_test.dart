@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter_pilot/flutter_pilot.dart';
 import 'package:pilot_runtime/pilot_runtime.dart';
 import 'package:test/test.dart';
@@ -293,6 +296,150 @@ void main() {
       ),
     );
   });
+
+  test(
+    'captures Flutter device screenshot bytes for the selected device',
+    () async {
+      final _FakeFlutterScreenshotCapturer screenshotCapturer =
+          _FakeFlutterScreenshotCapturer(
+            bytes: Uint8List.fromList(<int>[137, 80, 78, 71]),
+          );
+      final PilotRuntimeAdapter adapter = PilotRuntimeAdapter(
+        client: _FakePilotRuntimeClient(),
+        projectRoot: '/target/app',
+        targetDeviceId: 'pixel-8',
+        screenshotCapturer: screenshotCapturer,
+      );
+
+      final ScreenshotCapture capture = await adapter.captureScreenshot();
+
+      expect(screenshotCapturer.deviceIds, <String>['pixel-8']);
+      expect(capture.mimeType, 'image/png');
+      expect(capture.bytes, <int>[137, 80, 78, 71]);
+    },
+  );
+
+  test('maps Flutter screenshot failures to capture failures', () async {
+    final PilotRuntimeAdapter adapter = PilotRuntimeAdapter(
+      client: _FakePilotRuntimeClient(),
+      projectRoot: '/target/app',
+      targetDeviceId: 'pixel-8',
+      screenshotCapturer: _FakeFlutterScreenshotCapturer(
+        failure: const FlutterScreenshotException(
+          message: 'Flutter screenshot failed.',
+          exitCode: 1,
+          stderr: 'No device found.',
+        ),
+      ),
+    );
+
+    await expectLater(
+      adapter.captureScreenshot(),
+      throwsA(
+        isA<RuntimeOperationException>()
+            .having(
+              (RuntimeOperationException error) => error.operation,
+              'operation',
+              RuntimeOperation.captureScreenshot,
+            )
+            .having(
+              (RuntimeOperationException error) => error.message,
+              'message',
+              contains('Flutter screenshot failed.'),
+            )
+            .having(
+              (RuntimeOperationException error) => error.rawOutput,
+              'rawOutput',
+              contains('No device found.'),
+            ),
+      ),
+    );
+  });
+
+  test('requires a selected Target Device for Flutter screenshots', () async {
+    final PilotRuntimeAdapter adapter = PilotRuntimeAdapter(
+      client: _FakePilotRuntimeClient(),
+      projectRoot: '/target/app',
+    );
+
+    await expectLater(
+      adapter.captureScreenshot(),
+      throwsA(
+        isA<RuntimeOperationException>()
+            .having(
+              (RuntimeOperationException error) => error.operation,
+              'operation',
+              RuntimeOperation.captureScreenshot,
+            )
+            .having(
+              (RuntimeOperationException error) => error.message,
+              'message',
+              contains('Pass --device'),
+            ),
+      ),
+    );
+  });
+
+  test('runs flutter screenshot for the selected device', () async {
+    final _FakeFlutterScreenshotProcessRunner processRunner =
+        _FakeFlutterScreenshotProcessRunner();
+    final FlutterCliScreenshotCapturer capturer = FlutterCliScreenshotCapturer(
+      processRunner: processRunner,
+    );
+
+    final Uint8List bytes = await capturer.captureDeviceScreenshot(
+      deviceId: 'pixel-8',
+    );
+
+    expect(processRunner.executable, 'flutter');
+    expect(processRunner.arguments.take(3), <String>[
+      'screenshot',
+      '-d',
+      'pixel-8',
+    ]);
+    expect(processRunner.arguments, contains('--out'));
+    expect(bytes, <int>[137, 80, 78, 71]);
+  });
+}
+
+class _FakeFlutterScreenshotCapturer implements FlutterScreenshotCapturer {
+  _FakeFlutterScreenshotCapturer({Uint8List? bytes, this.failure})
+    : bytes = bytes ?? Uint8List(0);
+
+  final Uint8List bytes;
+  final FlutterScreenshotException? failure;
+  final List<String> deviceIds = <String>[];
+
+  @override
+  Future<Uint8List> captureDeviceScreenshot({required String deviceId}) async {
+    deviceIds.add(deviceId);
+    final FlutterScreenshotException? currentFailure = failure;
+    if (currentFailure != null) {
+      throw currentFailure;
+    }
+    return bytes;
+  }
+}
+
+class _FakeFlutterScreenshotProcessRunner
+    implements FlutterScreenshotProcessRunner {
+  String? executable;
+  List<String> arguments = <String>[];
+
+  @override
+  Future<FlutterScreenshotProcessResult> run(
+    String executable,
+    List<String> arguments,
+  ) async {
+    this.executable = executable;
+    this.arguments = arguments;
+    final int outputIndex = arguments.indexOf('--out') + 1;
+    final String outputPath = arguments[outputIndex];
+    File(outputPath)
+      ..parent.createSync(recursive: true)
+      ..writeAsBytesSync(<int>[137, 80, 78, 71]);
+    return const FlutterScreenshotProcessResult(exitCode: 0);
+  }
 }
 
 class _FakePilotRuntimeClient implements PilotRuntimeClient {

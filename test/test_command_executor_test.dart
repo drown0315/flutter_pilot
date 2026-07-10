@@ -742,6 +742,12 @@ steps:
       );
       process.emitStdout(
         jsonEncode(<String, Object?>{
+          'event': 'app.started',
+          'params': <String, Object?>{'appId': 'app-1', 'deviceId': 'pixel-8'},
+        }),
+      );
+      process.emitStdout(
+        jsonEncode(<String, Object?>{
           'event': 'app.debugPort',
           'params': <String, Object?>{'wsUri': 'ws://127.0.0.1:1234/token=/ws'},
         }),
@@ -763,6 +769,7 @@ steps:
         runner.runtimeTarget.vmServiceUri.toString(),
         'ws://127.0.0.1:1234/token=/ws',
       );
+      expect(runner.runtimeTarget.deviceId, 'pixel-8');
       expect(runner.scenario.name, 'launched');
       expect(process.stdinWrites, <String>['q\n']);
     });

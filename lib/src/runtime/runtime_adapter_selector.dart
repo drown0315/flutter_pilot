@@ -36,6 +36,7 @@ class RuntimeAdapterSelector {
       return PilotRuntimeAdapter(
         client: PilotRuntimeClient(vmService),
         projectRoot: projectRoot ?? Directory.current.path,
+        targetDeviceId: target.deviceId,
         disposeClient: vmService.dispose,
       );
     }

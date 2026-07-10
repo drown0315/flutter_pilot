@@ -157,7 +157,10 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
       final TestScenarioRunner runner;
       try {
         runner = runnerFactory.create(
-          runtimeTarget: RuntimeTarget(vmServiceUri: launch.runtimeTargetUri),
+          runtimeTarget: RuntimeTarget(
+            vmServiceUri: launch.runtimeTargetUri,
+            deviceId: targetDevice?.id ?? launch.deviceId,
+          ),
           targetDevice: targetDevice,
           recordingController: recordingRequired
               ? ScreenRecorderRecordingController(

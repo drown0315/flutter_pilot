@@ -45,6 +45,12 @@ void main() {
 
       process.emitStdout(
         jsonEncode(<String, Object?>{
+          'event': 'app.started',
+          'params': <String, Object?>{'appId': 'app-1', 'deviceId': 'pixel-8'},
+        }),
+      );
+      process.emitStdout(
+        jsonEncode(<String, Object?>{
           'event': 'app.debugPort',
           'params': <String, Object?>{
             'appId': 'app-1',
@@ -59,6 +65,7 @@ void main() {
         launch.runtimeTargetUri.toString(),
         'ws://127.0.0.1:1234/token=/ws',
       );
+      expect(launch.deviceId, 'pixel-8');
       expect(starter.startedArguments, <String>['run', '--machine']);
       expect(starter.forwardedStdout, isEmpty);
     });
