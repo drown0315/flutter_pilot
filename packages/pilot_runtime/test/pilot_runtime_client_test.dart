@@ -15,6 +15,7 @@ void main() {
             'runtime.action.tap',
             'runtime.finder.resolve',
             'runtime.handshake',
+            'runtime.logs.collect',
           ],
         },
       );
@@ -29,6 +30,7 @@ void main() {
       expect(session.capabilities, contains('runtime.action.clearText'));
       expect(session.capabilities, contains('runtime.action.enterText'));
       expect(session.capabilities, contains('runtime.action.scroll'));
+      expect(session.capabilities, contains('runtime.logs.collect'));
       expect(vmService.calledExtensions, <String>[
         PilotRuntimeProtocol.handshakeExtension,
       ]);
@@ -318,6 +320,40 @@ void main() {
         ]);
       },
     );
+  });
+
+  group('PilotRuntimeClient logs', () {
+    test('returns structured runtime logs from the logs extension', () async {
+      final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
+        extensionResponses: <String, Map<String, Object?>>{
+          PilotRuntimeProtocol.collectLogsExtension: <String, Object?>{
+            'schema': 'pilot_runtime.logs.v1',
+            'entries': <Object?>[
+              <String, Object?>{
+                'level': 'info',
+                'message': 'Submitting checkout form',
+              },
+            ],
+          },
+        },
+      );
+      final PilotRuntimeClient client = PilotRuntimeClient(vmService);
+
+      final Map<String, Object?> logs = await client.collectLogs();
+
+      expect(vmService.calledExtensions, <String>[
+        PilotRuntimeProtocol.collectLogsExtension,
+      ]);
+      expect(logs, <String, Object?>{
+        'schema': 'pilot_runtime.logs.v1',
+        'entries': <Object?>[
+          <String, Object?>{
+            'level': 'info',
+            'message': 'Submitting checkout form',
+          },
+        ],
+      });
+    });
   });
 }
 

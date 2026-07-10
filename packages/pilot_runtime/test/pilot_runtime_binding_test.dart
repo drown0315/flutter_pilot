@@ -28,6 +28,7 @@ void main() {
         PilotRuntimeProtocol.clearTextExtension,
         PilotRuntimeProtocol.enterTextExtension,
         PilotRuntimeProtocol.scrollExtension,
+        PilotRuntimeProtocol.collectLogsExtension,
       ]);
       expect(
         await registeredHandlers[PilotRuntimeProtocol.handshakeExtension]!(
@@ -42,6 +43,7 @@ void main() {
             'runtime.action.tap',
             'runtime.finder.resolve',
             'runtime.handshake',
+            'runtime.logs.collect',
           ],
         },
       );
@@ -73,6 +75,7 @@ void main() {
           child: SingleChildScrollView(child: SizedBox(height: 1000)),
         ),
       );
+      addTearDown(PilotRuntimeBinding.debugResetForTesting);
       PilotRuntimeBinding.ensureInitialized(
         debugMode: true,
         registerExtension:
@@ -85,8 +88,81 @@ void main() {
           await registeredHandlers[PilotRuntimeProtocol.scrollExtension]!(
             <String, Object?>{'deltaX': '0.0', 'deltaY': '-120.5'},
           );
+      PilotRuntimeBinding.debugResetForTesting();
 
       expect(response['ok'], true);
+    });
+
+    testWidgets('captures debug prints and Flutter errors as runtime logs', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> registeredHandlers =
+          <String, PilotRuntimeExtensionHandler>{};
+      final void Function(FlutterErrorDetails)? originalFlutterErrorHandler =
+          FlutterError.onError;
+
+      FlutterError.onError = (FlutterErrorDetails details) {};
+      addTearDown(PilotRuntimeBinding.debugResetForTesting);
+      PilotRuntimeBinding.ensureInitialized(
+        debugMode: true,
+        captureLogs: true,
+        registerExtension:
+            (String extensionName, PilotRuntimeExtensionHandler handler) {
+              registeredHandlers[extensionName] = handler;
+            },
+      );
+
+      debugPrint('Submitting checkout form');
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: StateError('Checkout failed'),
+          stack: StackTrace.current,
+          library: 'flutter_pilot_test',
+          context: ErrorDescription('while submitting checkout'),
+        ),
+      );
+
+      final Map<String, Object?> response =
+          await registeredHandlers[PilotRuntimeProtocol.collectLogsExtension]!(
+            const <String, Object?>{},
+          );
+      PilotRuntimeBinding.debugResetForTesting();
+      FlutterError.onError = originalFlutterErrorHandler;
+
+      expect(response['schema'], 'pilot_runtime.logs.v1');
+      final List<Object?> entries = response['entries']! as List<Object?>;
+      expect(
+        entries,
+        contains(
+          isA<Map<String, Object?>>()
+              .having(
+                (Map<String, Object?> entry) => entry['level'],
+                'level',
+                'info',
+              )
+              .having(
+                (Map<String, Object?> entry) => entry['message'],
+                'message',
+                'Submitting checkout form',
+              ),
+        ),
+      );
+      expect(
+        entries,
+        contains(
+          isA<Map<String, Object?>>()
+              .having(
+                (Map<String, Object?> entry) => entry['level'],
+                'level',
+                'error',
+              )
+              .having(
+                (Map<String, Object?> entry) => entry['message'],
+                'message',
+                contains('Checkout failed'),
+              ),
+        ),
+      );
     });
   });
 }

@@ -65,7 +65,7 @@ void main() {
           contains('<img src="captures/0001_submit_screenshot.png"'),
         );
         expect(html, contains('captures/0001_submit_widget_tree.json'));
-        expect(html, contains('captures/0001_submit_logs.json'));
+        expect(html, contains('captures/0001_submit_logs.log'));
       });
     },
   );

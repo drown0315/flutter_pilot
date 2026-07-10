@@ -71,7 +71,7 @@ void main() {
         );
         writeJsonArtifact(
           runs.beforeRun,
-          'captures/before_logs.json',
+          'captures/before_logs.log',
           <String, Object?>{
             'entries': <Object?>[
               <String, Object?>{
@@ -93,7 +93,7 @@ void main() {
         );
         writeJsonArtifact(
           runs.afterRun,
-          'captures/after_logs.json',
+          'captures/after_logs.log',
           <String, Object?>{
             'entries': <Object?>[
               <String, Object?>{
@@ -110,7 +110,7 @@ void main() {
               type: 'snapshot',
               path: 'captures/before_snapshot.json',
             ),
-            artifactReport(type: 'logs', path: 'captures/before_logs.json'),
+            artifactReport(type: 'logs', path: 'captures/before_logs.log'),
           ],
         );
         writeRunReport(
@@ -120,7 +120,7 @@ void main() {
               type: 'snapshot',
               path: 'captures/after_snapshot.json',
             ),
-            artifactReport(type: 'logs', path: 'captures/after_logs.json'),
+            artifactReport(type: 'logs', path: 'captures/after_logs.log'),
           ],
         );
 
@@ -154,7 +154,7 @@ void main() {
             type: 'snapshot',
             path: 'captures/missing_snapshot.json',
           ),
-          artifactReport(type: 'logs', path: 'captures/missing_logs.json'),
+          artifactReport(type: 'logs', path: 'captures/missing_logs.log'),
         ],
       );
       writeRunReport(runs.afterRun);
@@ -171,7 +171,7 @@ void main() {
       expect(output, contains('Missing snapshot artifact'));
       expect(output, contains('captures/missing_snapshot.json'));
       expect(output, contains('Missing logs artifact'));
-      expect(output, contains('captures/missing_logs.json'));
+      expect(output, contains('captures/missing_logs.log'));
       expect(json['outcome'], 'changed');
       expect(json['warnings'], contains(contains('Missing snapshot artifact')));
       expect(json['warnings'], contains(contains('Missing logs artifact')));

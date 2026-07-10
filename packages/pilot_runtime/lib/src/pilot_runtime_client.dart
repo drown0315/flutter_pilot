@@ -581,6 +581,17 @@ class PilotRuntimeClient {
     _checkActionResponse(response, actionName: 'scroll');
   }
 
+  /// Collect buffered runtime logs from the app-side runtime hook.
+  ///
+  /// Returns the structured Logs payload exposed by the Runtime Target. The
+  /// payload includes debug print messages and Flutter runtime errors captured
+  /// since `PilotRuntimeBinding.ensureInitialized()` was called.
+  Future<Map<String, Object?>> collectLogs() async {
+    return _vmService.callServiceExtension(
+      PilotRuntimeProtocol.collectLogsExtension,
+    );
+  }
+
   void _checkActionResponse(
     Map<String, Object?> response, {
     required String actionName,

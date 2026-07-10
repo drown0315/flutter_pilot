@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:logging/logging.dart';
 import 'package:pilot_runtime/pilot_runtime.dart';
+
+final Logger _log = Logger('pilot_runtime_scroll_demo');
 
 /// Start the scroll replay demo with the real `pilot_runtime` binding installed.
 ///
@@ -9,7 +12,21 @@ import 'package:pilot_runtime/pilot_runtime.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   PilotRuntimeBinding.ensureInitialized();
+  _configureLogging();
+  _log.info('Pilot Runtime scroll demo started.');
   runApp(const PilotRuntimeScrollDemoApp());
+}
+
+/// Route package logging records through Flutter debug output.
+///
+/// Flutter Pilot captures `debugPrint` through `PilotRuntimeBinding`, so this
+/// keeps the smoke app on the public `logging` API while still producing a
+/// runtime Logs artifact during Scenario capture.
+void _configureLogging() {
+  Logger.root.level = Level.ALL;
+  Logger.root.onRecord.listen((LogRecord record) {
+    debugPrint('${record.level.name} ${record.loggerName}: ${record.message}');
+  });
 }
 
 /// Demo app used to verify scroll replay through `PilotRuntimeAdapter`.

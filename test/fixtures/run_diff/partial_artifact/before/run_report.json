@@ -13,7 +13,7 @@
     },
     {
       "type": "logs",
-      "path": "captures/missing_logs.json"
+      "path": "captures/missing_logs.log"
     }
   ],
   "steps": [

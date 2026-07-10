@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 
@@ -36,6 +37,12 @@ class PilotRuntimeBinding {
   PilotRuntimeBinding._();
 
   static bool _initialized = false;
+  static const int _maxLogEntries = 200;
+  static final List<Map<String, Object?>> _logEntries =
+      <Map<String, Object?>>[];
+  static DebugPrintCallback? _previousDebugPrint;
+  static FlutterExceptionHandler? _previousFlutterErrorHandler;
+  static ui.ErrorCallback? _previousPlatformErrorHandler;
 
   /// Register the Flutter Pilot debug runtime hook when debug mode is enabled.
   ///
@@ -45,12 +52,16 @@ class PilotRuntimeBinding {
   ///   `dart:developer.registerExtension`.
   /// - `debugMode`: Optional debug-mode override used by tests. When omitted,
   ///   Flutter's `kDebugMode` decides whether registration should happen.
+  /// - `captureLogs`: Optional log-capture override used by tests. When
+  ///   omitted, log capture is installed only for the production VM Service
+  ///   registrar so fake registrar tests do not mutate Flutter debug globals.
   ///
   /// Returns without registering anything when debug mode is false. Repeated
   /// calls in the same isolate are idempotent.
   static void ensureInitialized({
     PilotRuntimeExtensionRegistrar? registerExtension,
     bool? debugMode,
+    bool? captureLogs,
   }) {
     final bool shouldRegister = debugMode ?? kDebugMode;
     if (!shouldRegister || _initialized) {
@@ -68,6 +79,11 @@ class PilotRuntimeBinding {
     registrar(PilotRuntimeProtocol.clearTextExtension, _handleClearText);
     registrar(PilotRuntimeProtocol.enterTextExtension, _handleEnterText);
     registrar(PilotRuntimeProtocol.scrollExtension, _handleScroll);
+    registrar(PilotRuntimeProtocol.collectLogsExtension, _handleCollectLogs);
+    final bool shouldCaptureLogs = captureLogs ?? registerExtension == null;
+    if (shouldCaptureLogs) {
+      _installLogCapture();
+    }
     _initialized = true;
   }
 
@@ -77,6 +93,15 @@ class PilotRuntimeBinding {
   /// fake registrar when they need repeated isolated assertions.
   @visibleForTesting
   static void debugResetForTesting() {
+    if (_previousDebugPrint != null) {
+      debugPrint = _previousDebugPrint!;
+    }
+    FlutterError.onError = _previousFlutterErrorHandler;
+    ui.PlatformDispatcher.instance.onError = _previousPlatformErrorHandler;
+    _previousDebugPrint = null;
+    _previousFlutterErrorHandler = null;
+    _previousPlatformErrorHandler = null;
+    _logEntries.clear();
     _initialized = false;
   }
 
@@ -130,6 +155,76 @@ class PilotRuntimeBinding {
       deltaX: _requiredDouble(parameters, 'deltaX', 'scroll'),
       deltaY: _requiredDouble(parameters, 'deltaY', 'scroll'),
     );
+  }
+
+  static Future<Map<String, Object?>> _handleCollectLogs(
+    Map<String, Object?> parameters,
+  ) async {
+    return <String, Object?>{
+      'schema': 'pilot_runtime.logs.v1',
+      'entries': <Object?>[
+        for (final Map<String, Object?> entry in _logEntries)
+          Map<String, Object?>.from(entry),
+      ],
+    };
+  }
+
+  static void _installLogCapture() {
+    _previousDebugPrint = debugPrint;
+    debugPrint = (String? message, {int? wrapWidth}) {
+      final String? text = message;
+      if (text != null && text.isNotEmpty) {
+        _appendLogEntry(level: 'info', message: text, source: 'debugPrint');
+      }
+      _previousDebugPrint?.call(message, wrapWidth: wrapWidth);
+    };
+
+    _previousFlutterErrorHandler = FlutterError.onError;
+    FlutterError.onError = (FlutterErrorDetails details) {
+      _appendLogEntry(
+        level: 'error',
+        message: details.exceptionAsString(),
+        error: details.context?.toDescription(),
+        stackTrace: details.stack?.toString(),
+        source: 'FlutterError',
+      );
+      _previousFlutterErrorHandler?.call(details);
+    };
+
+    _previousPlatformErrorHandler = ui.PlatformDispatcher.instance.onError;
+    ui.PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+      _appendLogEntry(
+        level: 'error',
+        message: error.toString(),
+        stackTrace: stack.toString(),
+        source: 'PlatformDispatcher',
+      );
+      final ui.ErrorCallback? previousHandler = _previousPlatformErrorHandler;
+      if (previousHandler != null) {
+        return previousHandler(error, stack);
+      }
+      return false;
+    };
+  }
+
+  static void _appendLogEntry({
+    required String level,
+    required String message,
+    required String source,
+    String? error,
+    String? stackTrace,
+  }) {
+    _logEntries.add(<String, Object?>{
+      'timestamp': DateTime.now().toUtc().toIso8601String(),
+      'level': level,
+      'message': message,
+      'source': source,
+      if (error != null && error.isNotEmpty) 'error': error,
+      if (stackTrace != null && stackTrace.isNotEmpty) 'stackTrace': stackTrace,
+    });
+    if (_logEntries.length > _maxLogEntries) {
+      _logEntries.removeRange(0, _logEntries.length - _maxLogEntries);
+    }
   }
 
   static String? _optionalString(

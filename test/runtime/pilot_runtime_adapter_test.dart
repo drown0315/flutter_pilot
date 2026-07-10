@@ -98,6 +98,37 @@ void main() {
     });
   });
 
+  test('returns Logs capture data from pilot_runtime', () async {
+    final _FakePilotRuntimeClient client = _FakePilotRuntimeClient(
+      logs: <String, Object?>{
+        'schema': 'pilot_runtime.logs.v1',
+        'entries': <Object?>[
+          <String, Object?>{
+            'level': 'info',
+            'message': 'Submitting checkout form',
+          },
+        ],
+      },
+    );
+    final PilotRuntimeAdapter adapter = PilotRuntimeAdapter(
+      client: client,
+      projectRoot: '/target/app',
+    );
+
+    final LogsCapture capture = await adapter.collectLogs();
+
+    expect(client.collectedLogs, isTrue);
+    expect(capture.data, <String, Object?>{
+      'schema': 'pilot_runtime.logs.v1',
+      'entries': <Object?>[
+        <String, Object?>{
+          'level': 'info',
+          'message': 'Submitting checkout form',
+        },
+      ],
+    });
+  });
+
   test(
     'maps pilot_runtime Finder Matches to Runtime Adapter matches',
     () async {
@@ -449,8 +480,10 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
     this.clearTextFailure,
     this.scrollFailure,
     Map<String, Object?>? widgetTree,
+    Map<String, Object?>? logs,
     List<PilotRuntimeFinderMatch>? finderMatches,
   }) : widgetTree = widgetTree ?? <String, Object?>{},
+       logs = logs ?? <String, Object?>{},
        finderMatches = finderMatches ?? const <PilotRuntimeFinderMatch>[];
 
   final PilotRuntimeInitializationException? initializeFailure;
@@ -458,8 +491,10 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
   final Object? clearTextFailure;
   final Object? scrollFailure;
   final Map<String, Object?> widgetTree;
+  final Map<String, Object?> logs;
   final List<PilotRuntimeFinderMatch> finderMatches;
   final List<String> projectRoots = <String>[];
+  bool collectedLogs = false;
   final List<
     ({String? byText, String? byType, String? byKey, String? byWidget})
   >
@@ -487,6 +522,7 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
         'runtime.action.tap',
         'runtime.finder.resolve',
         'runtime.handshake',
+        'runtime.logs.collect',
       },
     );
   }
@@ -497,6 +533,12 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
   }) async {
     projectRoots.add(projectRoot);
     return widgetTree;
+  }
+
+  @override
+  Future<Map<String, Object?>> collectLogs() async {
+    collectedLogs = true;
+    return logs;
   }
 
   @override
