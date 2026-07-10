@@ -371,8 +371,7 @@ class PilotRuntimeClient {
     if (handshake.protocolVersion != PilotRuntimeProtocol.version) {
       throw PilotRuntimeInitializationException(
         failure: PilotRuntimeInitializationFailure.protocolVersionMismatch,
-        message:
-            'pilot_runtime protocol version '
+        message: 'pilot_runtime protocol version '
             '${handshake.protocolVersion} is incompatible with client '
             'version ${PilotRuntimeProtocol.version}.',
       );
@@ -384,8 +383,7 @@ class PilotRuntimeClient {
     if (missingCapabilities.isNotEmpty) {
       throw PilotRuntimeInitializationException(
         failure: PilotRuntimeInitializationFailure.missingCapability,
-        message:
-            'pilot_runtime handshake is missing required capabilities: '
+        message: 'pilot_runtime handshake is missing required capabilities: '
             '${missingCapabilities.join(', ')}.',
       );
     }
@@ -422,8 +420,7 @@ class PilotRuntimeClient {
       throw PilotRuntimeWidgetTreeCaptureException(
         failure:
             PilotRuntimeWidgetTreeCaptureFailure.setPubRootDirectoriesFailed,
-        message:
-            'Flutter Inspector could not set pub root directories for '
+        message: 'Flutter Inspector could not set pub root directories for '
             'Widget Tree capture: $error',
         cause: error,
       );
@@ -438,8 +435,7 @@ class PilotRuntimeClient {
     } catch (error) {
       throw PilotRuntimeWidgetTreeCaptureException(
         failure: PilotRuntimeWidgetTreeCaptureFailure.getRootWidgetTreeFailed,
-        message:
-            'Flutter Inspector could not return the root summary '
+        message: 'Flutter Inspector could not return the root summary '
             'Widget Tree: $error',
         cause: error,
       );
@@ -450,8 +446,7 @@ class PilotRuntimeClient {
     } on FormatException catch (error) {
       throw PilotRuntimeWidgetTreeCaptureException(
         failure: PilotRuntimeWidgetTreeCaptureFailure.invalidResponse,
-        message:
-            'Flutter Inspector returned an invalid Widget Tree: '
+        message: 'Flutter Inspector returned an invalid Widget Tree: '
             '${error.message}',
         cause: error,
       );
@@ -624,8 +619,7 @@ class PilotRuntimeClient {
     } on PilotRuntimeServiceExtensionMissingException catch (error) {
       throw PilotRuntimeInitializationException(
         failure: PilotRuntimeInitializationFailure.missingHook,
-        message:
-            'PilotRuntimeBinding.ensureInitialized() is not registered '
+        message: 'PilotRuntimeBinding.ensureInitialized() is not registered '
             'on the debug Runtime Target.',
         cause: error,
       );

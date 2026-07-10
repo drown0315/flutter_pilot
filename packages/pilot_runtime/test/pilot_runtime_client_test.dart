@@ -328,7 +328,7 @@ class FakePilotRuntimeVmService implements PilotRuntimeVmService {
     this.missingExtension = false,
     Map<String, Map<String, Object?>>? extensionResponses,
   }) : extensionResponses =
-           extensionResponses ?? const <String, Map<String, Object?>>{};
+            extensionResponses ?? const <String, Map<String, Object?>>{};
 
   final Map<String, Object?> handshakeResponse;
   final bool missingExtension;

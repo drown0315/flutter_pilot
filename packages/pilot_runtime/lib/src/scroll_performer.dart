@@ -28,15 +28,13 @@ class PilotRuntimeScrollPerformer {
     required double deltaX,
     required double deltaY,
   }) async {
-    final Element? scrollableElement = handle == null
-        ? _primaryScrollable()
-        : _scrollableForHandle(handle);
+    final Element? scrollableElement =
+        handle == null ? _primaryScrollable() : _scrollableForHandle(handle);
     if (scrollableElement == null) {
       return handle == null
           ? _failure(
               code: 'primaryScrollableUnavailable',
-              message:
-                  'Primary scrollable is missing or ambiguous for '
+              message: 'Primary scrollable is missing or ambiguous for '
                   'untargeted scroll.',
             )
           : _failure(
