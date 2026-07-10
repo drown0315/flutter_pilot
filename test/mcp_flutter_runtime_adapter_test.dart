@@ -119,6 +119,30 @@ void main() {
     },
   );
 
+  test('rounds scroll distance for toolkit command compatibility', () async {
+    final List<McpFlutterCommandCall> calls = <McpFlutterCommandCall>[];
+    final McpFlutterRuntimeAdapter adapter = McpFlutterRuntimeAdapter(
+      target: RuntimeTarget(
+        vmServiceUri: Uri.parse('ws://127.0.0.1:1234/example=/ws'),
+      ),
+      commandRunner: (McpFlutterCommandCall call) async {
+        calls.add(call);
+        return <String, Object?>{'ok': true, 'data': <String, Object?>{}};
+      },
+    );
+
+    await adapter.performScroll(
+      match: const FinderMatch(id: 'scrollable-1'),
+      deltaX: 0,
+      deltaY: -250.7,
+    );
+
+    expect(calls.single.name, 'scroll');
+    expect(calls.single.arguments['direction'], 'down');
+    expect(calls.single.arguments['distance'], 251);
+    expect(calls.single.arguments['ref'], 'scrollable-1');
+  });
+
   test('matches alternate semantic snapshot response shapes', () async {
     final McpFlutterRuntimeAdapter adapter = McpFlutterRuntimeAdapter(
       target: RuntimeTarget(

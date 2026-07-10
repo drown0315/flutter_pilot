@@ -405,11 +405,11 @@ class McpFlutterRuntimeAdapter implements RuntimeAdapter {
     return deltaX < 0 ? 'right' : 'left';
   }
 
-  static double _scrollDistance({
-    required double deltaX,
-    required double deltaY,
-  }) {
-    return deltaY.abs() >= deltaX.abs() ? deltaY.abs() : deltaX.abs();
+  static int _scrollDistance({required double deltaX, required double deltaY}) {
+    final double distance = deltaY.abs() >= deltaX.abs()
+        ? deltaY.abs()
+        : deltaX.abs();
+    return distance.round();
   }
 
   static String? _firstScreenshotImage(Object? data) {

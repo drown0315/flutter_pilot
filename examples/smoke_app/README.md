@@ -1,6 +1,6 @@
 # Flutter Pilot Smoke App
 
-This is the minimal Flutter app used by the real `pilot_runtime` smoke path.
+This is the minimal Flutter app used by the real `mcp_flutter` smoke path.
 
 Run it in debug mode:
 
