@@ -16,9 +16,9 @@ void main() {
         debugMode: true,
         registerExtension:
             (String extensionName, PilotRuntimeExtensionHandler handler) {
-          registeredExtensions.add(extensionName);
-          registeredHandlers[extensionName] = handler;
-        },
+              registeredExtensions.add(extensionName);
+              registeredHandlers[extensionName] = handler;
+            },
       );
 
       expect(registeredExtensions, <String>[
@@ -54,8 +54,8 @@ void main() {
         debugMode: false,
         registerExtension:
             (String extensionName, PilotRuntimeExtensionHandler handler) {
-          registeredExtensions.add(extensionName);
-        },
+              registeredExtensions.add(extensionName);
+            },
       );
 
       expect(registeredExtensions, isEmpty);
@@ -70,8 +70,8 @@ void main() {
         debugMode: true,
         registerExtension:
             (String extensionName, PilotRuntimeExtensionHandler handler) {
-          registeredHandlers[extensionName] = handler;
-        },
+              registeredHandlers[extensionName] = handler;
+            },
       );
       await tester.pumpWidget(
         MaterialApp(
@@ -87,8 +87,8 @@ void main() {
 
       final Map<String, Object?> response =
           await registeredHandlers[PilotRuntimeProtocol.scrollExtension]!(
-        const <String, Object?>{'deltaX': '0', 'deltaY': '-120.5'},
-      );
+            const <String, Object?>{'deltaX': '0', 'deltaY': '-120.5'},
+          );
 
       expect(response['ok'], isTrue);
       expect(response['method'], 'pointer');

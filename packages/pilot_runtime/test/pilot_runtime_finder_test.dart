@@ -1019,8 +1019,8 @@ Map<String, PilotRuntimeExtensionHandler> _registerRuntimeExtensions() {
     debugMode: true,
     registerExtension:
         (String extensionName, PilotRuntimeExtensionHandler handler) {
-      extensions[extensionName] = handler;
-    },
+          extensions[extensionName] = handler;
+        },
   );
   return extensions;
 }

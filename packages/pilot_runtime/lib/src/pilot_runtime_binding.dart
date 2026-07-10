@@ -15,16 +15,16 @@ import 'text_performer.dart';
 /// The first runtime slice only needs a zero-argument handshake request. Later
 /// capabilities can add their own typed request handlers without changing the
 /// handshake registration contract.
-typedef PilotRuntimeExtensionHandler = Future<Map<String, Object?>> Function(
-    Map<String, Object?> parameters);
+typedef PilotRuntimeExtensionHandler =
+    Future<Map<String, Object?>> Function(Map<String, Object?> parameters);
 
 /// Registers one Flutter Pilot service extension with the debug VM Service.
 ///
 /// Tests can provide a fake registrar to inspect the extension name and invoke
 /// the handler without launching a Flutter app. Production callers omit the
 /// registrar so the binding registers through `dart:developer`.
-typedef PilotRuntimeExtensionRegistrar = void Function(
-    String extensionName, PilotRuntimeExtensionHandler handler);
+typedef PilotRuntimeExtensionRegistrar =
+    void Function(String extensionName, PilotRuntimeExtensionHandler handler);
 
 /// App-side hook that exposes Flutter Pilot runtime service extensions.
 ///
