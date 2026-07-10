@@ -1,0 +1,11 @@
+scenario:
+  name: pilot_runtime_scroll_non_scrollable
+  description: |
+    Verifies that PilotRuntimeAdapter fails clearly for non-scrollable matches.
+
+steps:
+  - label: scroll_read_only_text
+    scroll:
+      byText: Read only scroll target
+      byType: text
+      deltaY: -300

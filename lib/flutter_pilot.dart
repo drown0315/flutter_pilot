@@ -15,7 +15,6 @@ export 'src/recording/recording_contract.dart';
 export 'src/recording/screen_recorder_recording_controller.dart';
 export 'src/project_scenario_discovery.dart';
 export 'src/project_run_report.dart';
-export 'src/runtime/mcp_flutter_runtime_adapter.dart';
 export 'src/runtime/pilot_runtime_adapter.dart';
 export 'src/runtime/pilot_runtime_vm_service.dart';
 export 'src/runtime/runtime_adapter_selector.dart';

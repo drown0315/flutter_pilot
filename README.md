@@ -13,10 +13,8 @@ actions, screenshots, semantic Snapshots, logs, run reports, and timeline
 views. The goal is to make a UI bug report readable by humans, CI, and AI
 coding agents without relying on vague manual reproduction notes.
 
-Flutter Pilot builds above `mcp_flutter`, which provides the Flutter runtime
-bridge for interaction and inspection. Thanks to the `mcp_flutter` project for
-making Flutter UI state and runtime operations available through a toolable
-interface.
+Flutter Pilot drives debug Runtime Targets through `pilot_runtime`, the
+Flutter Pilot-owned runtime package for app-side interaction and inspection.
 
 ## What It Does
 
@@ -102,9 +100,9 @@ Install the Flutter Pilot CLI:
 dart pub global activate flutter_pilot
 ```
 
-Flutter Pilot drives a Flutter app through `mcp_flutter`. The target app must
-expose the MCP Toolkit runtime extension before `flutter_pilot test` can
-interact with it.
+Flutter Pilot drives a Flutter app through `pilot_runtime`. The target app must
+initialize the Pilot Runtime binding before `flutter_pilot test` can interact
+with it.
 
 From the Target App Package, initialize the safe app-side setup:
 
@@ -112,18 +110,18 @@ From the Target App Package, initialize the safe app-side setup:
 flutter_pilot init
 ```
 
-`init` installs the MCP Toolkit runtime dependency when it is missing. It does
-not edit `lib/main.dart`; when `bootstrapFlutter` is missing, it prints the
-import and `runApp` wrapper to add manually:
+`init` installs the `pilot_runtime` dependency when it is missing. It does not
+edit `lib/main.dart`; when `PilotRuntimeBinding.ensureInitialized()` is
+missing, it prints the import and binding call to add manually:
 
 ```dart
 import 'package:flutter/material.dart';
-import 'package:mcp_toolkit/mcp_toolkit.dart';
+import 'package:pilot_runtime/pilot_runtime.dart';
 
-Future<void> main() async {
-  await MCPToolkitBinding.instance.bootstrapFlutter(
-    runApp: () => runApp(const MyApp()),
-  );
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  PilotRuntimeBinding.ensureInitialized();
+  runApp(const MyApp());
 }
 ```
 
@@ -288,6 +286,5 @@ consistent.
 
 ## Scope
 
-Flutter Pilot focuses on reproducible Flutter UI debugging artifacts. It does
-not replace `mcp_flutter`, and it is not trying to become a broad visual
-regression platform in the first version.
+Flutter Pilot focuses on reproducible Flutter UI debugging artifacts. It is not
+trying to become a broad visual regression platform in the first version.

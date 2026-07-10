@@ -94,11 +94,51 @@ void main() {
           RuntimeOperation.resolveFinder,
           RuntimeOperation.performTap,
           RuntimeOperation.resolveFinder,
-          RuntimeOperation.replaceText,
+          RuntimeOperation.clearText,
+          RuntimeOperation.enterText,
+          RuntimeOperation.enterText,
+          RuntimeOperation.enterText,
+          RuntimeOperation.enterText,
+          RuntimeOperation.enterText,
+          RuntimeOperation.enterText,
+          RuntimeOperation.enterText,
+          RuntimeOperation.enterText,
+          RuntimeOperation.enterText,
+          RuntimeOperation.enterText,
+          RuntimeOperation.enterText,
+          RuntimeOperation.enterText,
+          RuntimeOperation.enterText,
+          RuntimeOperation.enterText,
+          RuntimeOperation.enterText,
           RuntimeOperation.resolveFinder,
           RuntimeOperation.performScroll,
           RuntimeOperation.resolveFinder,
           RuntimeOperation.dispose,
+        ],
+      );
+      expect(
+        adapter.events
+            .where(
+              (FakeRuntimeEvent event) =>
+                  event.operation == RuntimeOperation.enterText,
+            )
+            .map((FakeRuntimeEvent event) => event.text),
+        <String>[
+          'b',
+          'a',
+          'd',
+          '@',
+          'e',
+          'x',
+          'a',
+          'm',
+          'p',
+          'l',
+          'e',
+          '.',
+          'c',
+          'o',
+          'm',
         ],
       );
     });

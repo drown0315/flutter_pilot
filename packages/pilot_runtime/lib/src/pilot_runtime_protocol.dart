@@ -1,6 +1,7 @@
 /// Protocol constants shared by the app-side hook and VM Service client.
 ///
-/// Version 1 exposes runtime handshake, visible Finder resolution, and tap.
+/// Version 1 exposes runtime handshake, visible Finder resolution, tap,
+/// editable text entry, and scroll replay.
 class PilotRuntimeProtocol {
   PilotRuntimeProtocol._();
 
@@ -18,6 +19,17 @@ class PilotRuntimeProtocol {
   /// VM Service extension used to tap one resolved Runtime Handle.
   static const String tapExtension = 'ext.flutter_pilot.runtime.tap';
 
+  /// VM Service extension used to clear one editable text Runtime Handle.
+  static const String clearTextExtension =
+      'ext.flutter_pilot.runtime.clearText';
+
+  /// VM Service extension used to append text to one editable text handle.
+  static const String enterTextExtension =
+      'ext.flutter_pilot.runtime.enterText';
+
+  /// VM Service extension used to drag one scrollable Runtime Handle.
+  static const String scrollExtension = 'ext.flutter_pilot.runtime.scroll';
+
   /// Capability name reported when the handshake extension is available.
   static const String handshakeCapability = 'runtime.handshake';
 
@@ -27,11 +39,23 @@ class PilotRuntimeProtocol {
   /// Capability name reported when tap replay is available.
   static const String tapCapability = 'runtime.action.tap';
 
+  /// Capability name reported when editable text can be cleared directly.
+  static const String clearTextCapability = 'runtime.action.clearText';
+
+  /// Capability name reported when editable text can receive entered text.
+  static const String enterTextCapability = 'runtime.action.enterText';
+
+  /// Capability name reported when scroll replay is available.
+  static const String scrollCapability = 'runtime.action.scroll';
+
   /// Capabilities that this client requires before Scenario execution.
   static const Set<String> requiredCapabilities = <String>{
     handshakeCapability,
     resolveFinderCapability,
     tapCapability,
+    clearTextCapability,
+    enterTextCapability,
+    scrollCapability,
   };
 }
 

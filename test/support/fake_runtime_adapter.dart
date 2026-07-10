@@ -88,11 +88,19 @@ class FakeRuntimeAdapter implements RuntimeAdapter {
   }
 
   @override
-  Future<void> replaceText(FinderMatch match, String text) async {
-    _throwIfConfigured(RuntimeOperation.replaceText);
+  Future<void> clearText(FinderMatch match) async {
+    _throwIfConfigured(RuntimeOperation.clearText);
+    events.add(
+      FakeRuntimeEvent(operation: RuntimeOperation.clearText, match: match),
+    );
+  }
+
+  @override
+  Future<void> enterText(FinderMatch match, String text) async {
+    _throwIfConfigured(RuntimeOperation.enterText);
     events.add(
       FakeRuntimeEvent(
-        operation: RuntimeOperation.replaceText,
+        operation: RuntimeOperation.enterText,
         match: match,
         text: text,
       ),

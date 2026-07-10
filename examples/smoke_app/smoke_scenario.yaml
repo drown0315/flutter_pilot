@@ -1,9 +1,14 @@
 scenario:
   name: smoke_runtime
   description: |
-    Exercises Flutter Pilot against the sample Flutter app through mcp_flutter.
+    Exercises Flutter Pilot against the sample Flutter app through pilot_runtime.
 
 steps:
+  - label: wait_for_smoke_form
+    waitFor:
+      byText: Smoke form
+      timeoutMs: 5000
+
   - label: enter_email
     type:
       byType: textField
@@ -18,10 +23,3 @@ steps:
     waitFor:
       byText: Smoke validation failed
       timeoutMs: 5000
-
-
-  - label: capture_runtime
-    capture:
-      screenshot: true
-      widgetTree: true
-      logs: true

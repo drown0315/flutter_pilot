@@ -9,12 +9,11 @@ Flutter UI 操作路径描述成可提交、可分享、可重复执行的 YAML 
 调试所需的上下文整理成适合开发者、CI 和 AI 编码代理阅读的产物。
 
 > 项目状态：Flutter Pilot 仍在开发中。当前实现重点是 Dart CLI、Scenario
-> YAML 解析与校验、报告生成和命令外壳；通过 `mcp_flutter` 实际驱动 Flutter
-> UI 的执行能力还在建设中。
+> YAML 解析与校验、报告生成和命令外壳；通过 `pilot_runtime` 驱动 Flutter
+> UI 的执行能力正在建设中。
 
-Flutter Pilot 构建在 `mcp_flutter` 之上。`mcp_flutter` 负责提供 Flutter
-运行时交互和检查能力，Flutter Pilot 则在其上增加 Scenario DSL、调试产物收集、
-运行报告和后续 diff 能力。
+Flutter Pilot 通过 `pilot_runtime` 驱动 Flutter debug Runtime Target。
+`pilot_runtime` 是 Flutter Pilot 自有的运行时包，负责应用侧交互和检查能力。
 
 ## 它能做什么
 
@@ -95,8 +94,8 @@ HTML timeline report 会把同一次 UI 旅程转换成可视化审查界面。
 dart pub global activate flutter_pilot
 ```
 
-Flutter Pilot 通过 `mcp_flutter` 驱动 Flutter 应用。目标应用需要先暴露 MCP
-Toolkit 运行时扩展，`flutter_pilot test` 才能和它交互。
+Flutter Pilot 通过 `pilot_runtime` 驱动 Flutter 应用。目标应用需要先初始化
+Pilot Runtime binding，`flutter_pilot test` 才能和它交互。
 
 在 Target App Package 中初始化安全的应用侧配置：
 
@@ -104,17 +103,18 @@ Toolkit 运行时扩展，`flutter_pilot test` 才能和它交互。
 flutter_pilot init
 ```
 
-`init` 会在缺少 MCP Toolkit 运行时依赖时安装它。它不会修改 `lib/main.dart`；
-如果缺少 `bootstrapFlutter`，它会打印需要手动添加的 import 和 `runApp` 包裹代码：
+`init` 会在缺少 `pilot_runtime` 依赖时安装它。它不会修改 `lib/main.dart`；
+如果缺少 `PilotRuntimeBinding.ensureInitialized()`，它会打印需要手动添加的
+import 和 binding 调用：
 
 ```dart
 import 'package:flutter/material.dart';
-import 'package:mcp_toolkit/mcp_toolkit.dart';
+import 'package:pilot_runtime/pilot_runtime.dart';
 
-Future<void> main() async {
-  await MCPToolkitBinding.instance.bootstrapFlutter(
-    runApp: () => runApp(const MyApp()),
-  );
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  PilotRuntimeBinding.ensureInitialized();
+  runApp(const MyApp());
 }
 ```
 
@@ -268,5 +268,4 @@ dart test
 
 ## 范围
 
-Flutter Pilot 聚焦可复现的 Flutter UI 调试产物。它不会替代 `mcp_flutter`，
-第一版也不会扩展成通用的视觉回归平台。
+Flutter Pilot 聚焦可复现的 Flutter UI 调试产物。第一版不会扩展成通用的视觉回归平台。

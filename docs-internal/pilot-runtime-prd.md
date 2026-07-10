@@ -57,7 +57,7 @@ structured UI artifact exposed through `widgetTree`.
 20. As a Flutter developer, I want wrapper widgets and child semantics to combine within the same visible target subtree, so that `byWidget` can work with custom button wrappers.
 21. As a Flutter developer, I want tap to prefer semantic tap actions when available, so that taps use the most stable Flutter action path.
 22. As a Flutter developer, I want tap to fall back to pointer center taps on calibrated platforms, so that targets without semantic tap actions can still be exercised.
-23. As a Flutter developer, I want `type` to replace editable text without simulating platform keyboard input, so that text entry is deterministic.
+23. As a Flutter developer, I want `type` to clear editable text directly and then enter the configured text character by character without simulating platform keyboard input, so that text entry is deterministic while still exercising per-character text changes.
 24. As a Flutter developer, I want scroll deltas to remain Flutter logical pixel drag deltas, so that existing Scenario scroll semantics remain intact.
 25. As a Flutter developer, I want untargeted scroll to use the primary scrollable, so that simple scrolling Scenarios remain concise.
 26. As a Flutter developer, I want untargeted scroll to fail when the primary scrollable is ambiguous, so that Flutter Pilot does not pick an arbitrary scrollable.
@@ -106,7 +106,7 @@ structured UI artifact exposed through `widgetTree`.
 - Preserve `byType` as Semantic Node Type and do not overload it with Dart widget class matching.
 - All Finder fields remain single strings and use AND semantics.
 - Do not add `match`, OR semantics, first-match behavior, priority, or fallback chains.
-- `resolveFinder` returns visible Runtime Target matches. Action methods validate whether a match supports tap, text replacement, or scrolling.
+- `resolveFinder` returns visible Runtime Target matches. Action methods validate whether a match supports tap, editable text entry, or scrolling.
 - Finder matching excludes targets known to be offstage, inactive, zero-size, or invisible. Overlay occlusion is not a strong v1 guarantee.
 - Finder constraints may be satisfied across the same visible target subtree and collapsed into one Runtime Target match.
 - Finder match diagnostics include separate matched widget type and action widget type when those differ.
@@ -140,7 +140,7 @@ Major modules to build or modify:
 - `pilot_runtime` app-side binding module: registers debug-only service extensions and owns hook lifecycle.
 - Runtime protocol module: defines request and response envelopes, protocol versioning, capability names, and normalized errors.
 - Finder resolution module: combines Element, RenderObject, editable text, and Semantics evidence into visible Runtime Target matches.
-- Action execution module: performs tap, text replacement, and scroll operations against Runtime Handles.
+- Action execution module: performs tap, editable text clear/entry, and scroll operations against Runtime Handles.
 - Widget Tree normalizer module: converts Inspector summary diagnostics into the normalized Widget Tree artifact model.
 - Screenshot module: captures Flutter-layer screenshots through a calibrated runtime path.
 - Hot reload/restart module: wraps VM Service or Flutter runtime reset operations.
@@ -161,7 +161,7 @@ Major modules to build or modify:
 - Runtime client tests should use fake VM Service responses for handshake, protocol mismatch, capability missing, Widget Tree capture, and error mapping.
 - Runtime protocol tests should cover response decoding, version validation, capability validation, and structured runtime failures.
 - Finder resolution tests inside `pilot_runtime` should use Flutter widget tests for visible matching, offstage exclusion, `byText`, semantic `byType`, `ValueKey<String>`, `byWidget`, strict AND combinations, and wrapper-child subtree evidence.
-- Action execution tests inside `pilot_runtime` should use Flutter widget tests for semantic tap, pointer fallback, editable text replacement, targeted scroll, and primary scrollable resolution.
+- Action execution tests inside `pilot_runtime` should use Flutter widget tests for semantic tap, pointer fallback, editable text clear/entry, targeted scroll, and primary scrollable resolution.
 - Widget Tree normalizer tests should use recorded Inspector summary tree fixtures and verify normalized schema, source, node fields, child structure, missing optional fields, and rejection of invalid required shape.
 - Screenshot tests should verify returned MIME type and bytes shape where the chosen screenshot path can be faked; real screenshot quality should be covered by calibration smoke tests.
 - Logs tests should verify the not-implemented payload and that `logs: true` does not fail a capture Step.

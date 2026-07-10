@@ -5,13 +5,19 @@ import 'package:test/test.dart';
 /// the supported Finder contract.
 void main() {
   test(
-    'example smoke Scenario includes byText, byType, combined Finder, and capture',
+    'example smoke Scenario includes byText, byType, and combined Finder',
     () {
       final Scenario scenario = ScenarioParser.parseFile(
-        'examples/smoke_scenario.yaml',
+        'examples/smoke_app/smoke_scenario.yaml',
       );
 
       expect(scenario.name, 'smoke_runtime');
+
+      final WaitForAction waitForReady = _actionWithLabel<WaitForAction>(
+        scenario,
+        'wait_for_smoke_form',
+      );
+      expect(waitForReady.finder.byText, 'Smoke form');
 
       final TypeAction type = _actionWithLabel<TypeAction>(
         scenario,
@@ -34,14 +40,7 @@ void main() {
       expect(waitFor.finder.byText, 'Smoke validation failed');
       expect(waitFor.finder.byType, isNull);
 
-      final CaptureAction capture = _actionWithLabel<CaptureAction>(
-        scenario,
-        'capture_runtime',
-      );
-      expect(capture.screenshot, isTrue);
-      expect(capture.snapshot, isFalse);
-      expect(capture.logs, isTrue);
-      expect(capture.widgetTree, isTrue);
+      expect(scenario.steps, hasLength(4));
     },
   );
 }

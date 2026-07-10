@@ -525,7 +525,7 @@ class ScenarioRunner {
       ),
       TypeAction(:final Finder finder, :final String text) => _withUniqueMatch(
         finder,
-        (FinderMatch match) => adapter.replaceText(match, text),
+        (FinderMatch match) => _executeType(match, text),
         actionName: 'type',
       ),
       ScrollAction(
@@ -554,6 +554,18 @@ class ScenarioRunner {
           purpose: ArtifactPurpose.capture,
         ),
     };
+  }
+
+  /// Execute a Type Action as direct clear followed by character entry.
+  ///
+  /// The Runtime Adapter owns target-specific text mutation. The runner keeps
+  /// the Scenario semantics stable by clearing once and then sending one
+  /// character at a time instead of pasting the full value.
+  Future<void> _executeType(FinderMatch match, String text) async {
+    await adapter.clearText(match);
+    for (final int rune in text.runes) {
+      await adapter.enterText(match, String.fromCharCode(rune));
+    }
   }
 
   /// Resolve `finder`, execute `operation`, and return no Step artifacts.

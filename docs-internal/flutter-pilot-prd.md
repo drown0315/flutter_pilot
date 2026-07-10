@@ -4,11 +4,11 @@
 
 Flutter teams and AI coding agents need a reliable way to reproduce UI bugs, capture the runtime context around failures, and verify fixes without manually driving the app each time. Today, a bug report often contains a screenshot, a vague reproduction path, and scattered logs. That is not enough for an AI agent to locate the relevant widget, understand the visible UI state, or prove that a fix changed the right behavior.
 
-The project should provide a deterministic UI replay and diagnostics harness for Flutter apps. It should use `mcp_flutter` as the runtime bridge, then add a scenario DSL, artifact collection, reporting, and diffing layer above it.
+The project should provide a deterministic UI replay and diagnostics harness for Flutter apps. It should use `pilot_runtime` as the runtime bridge, then add a scenario DSL, artifact collection, reporting, and diffing layer above it.
 
 ## Solution
 
-Flutter Pilot will be a CLI tool that executes YAML scenarios against a Flutter app through `mcp_flutter`. A scenario describes user actions such as tapping, typing, scrolling, waiting for UI state, and capture checkpoints. Runtime connection details are not embedded in the scenario. The `test` command launches the current Target App Package with `flutter run --machine`, shows Target App Launch Progress while waiting for the Runtime Target URI from Flutter's machine output, runs the Scenario with Step progress, and cleans up the launched app process. During a run, Flutter Pilot records step-level artifacts including screenshots, semantic snapshots, widget summaries, logs that include runtime errors when available, timing, and command results.
+Flutter Pilot will be a CLI tool that executes YAML scenarios against a Flutter app through `pilot_runtime`. A scenario describes user actions such as tapping, typing, scrolling, waiting for UI state, and capture checkpoints. Runtime connection details are not embedded in the scenario. The `test` command launches the current Target App Package with `flutter run --machine`, shows Target App Launch Progress while waiting for the Runtime Target URI from Flutter's machine output, runs the Scenario with Step progress, and cleans up the launched app process. During a run, Flutter Pilot records step-level artifacts including screenshots, semantic snapshots, widget summaries, logs that include runtime errors when available, timing, and command results.
 
 The user-facing execution command is `flutter_pilot test`. With a Scenario file
 argument it executes that Entry Scenario. With no argument it runs the Target
@@ -34,8 +34,8 @@ The result is a reproducible bug report package that can be consumed by humans, 
 
 1. As a Flutter developer, I want to describe a UI reproduction path in YAML, so that I can replay the same bug consistently.
 2. As a Flutter developer, I want to tap widgets by visible text, so that simple scenarios are easy to write.
-3. As a Flutter developer, I want future key-based Finders to remain possible if `mcp_flutter` exposes stable key data, so that scenarios can become more resilient when text changes.
-4. As a Flutter developer, I want to tap widgets by semantic node type, so that I can interact with UI elements by the role exposed through `mcp_flutter`.
+3. As a Flutter developer, I want future key-based Finders to remain possible if `pilot_runtime` exposes stable key data, so that scenarios can become more resilient when text changes.
+4. As a Flutter developer, I want to tap widgets by semantic node type, so that I can interact with UI elements by the role exposed through `pilot_runtime`.
 5. As a Flutter developer, I want to combine text and semantic node type Finders in one step, so that I can disambiguate similar widgets.
 6. As a Flutter developer, I want combined Finders to always use all constraints without a configurable `match` field, so that Scenario behavior is predictable and the YAML stays compact.
 7. As a Flutter developer, I want to type text into fields by text Finder or semantic node type, so that form-based bugs can be reproduced.
@@ -70,10 +70,10 @@ The result is a reproducible bug report package that can be consumed by humans, 
 36. As a QA engineer, I want scenario runs to fail with clear exit codes, so that Flutter Pilot can be used in automation.
 37. As a QA engineer, I want artifacts produced even on failed runs, so that CI failures are debuggable.
 38. As a QA engineer, I want a human-readable report generated from CI artifacts, so that failures can be reviewed without rerunning locally.
-39. As a tech lead, I want Flutter Pilot to build on `mcp_flutter`, so that the project benefits from existing Flutter runtime inspection, screenshots, interactions, logs, and lifecycle tools.
+39. As a tech lead, I want Flutter Pilot to build on `pilot_runtime`, so that the project benefits from existing Flutter runtime inspection, screenshots, interactions, logs, and lifecycle tools.
 40. As a tech lead, I want Flutter Pilot to avoid reimplementing Flutter driver internals, so that the project stays focused on replay, reporting, and agent-ready diagnostics.
 41. As a contributor, I want the scenario parser and runner to be testable without a live Flutter app, so that the core behavior can be developed quickly.
-42. As a contributor, I want the `mcp_flutter` integration hidden behind a narrow interface, so that command mapping can evolve without changing the scenario model.
+42. As a contributor, I want the `pilot_runtime` integration hidden behind a narrow interface, so that command mapping can evolve without changing the scenario model.
 43. As a contributor, I want artifact writing to be isolated in one module, so that report generation and bundle layout remain consistent.
 
 ## Implementation Decisions
@@ -85,7 +85,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - First-slice runtime dependencies are `args`, `yaml`, and `path`. First-slice dev dependencies are `test` and `lints`.
 - The first implementation slice has been scaffolded as a Dart CLI package with command entrypoint, Scenario model, Scenario parser, validation exception shape, parser tests, and CLI subprocess tests.
 - Code should follow the local Dart code conventions captured during review: important local variables use explicit types, stateless utility classes expose static methods with a private constructor, parser APIs return typed domain objects on success and throw domain validation exceptions on failure, boolean CLI flags avoid meaningless negative forms, and every code file contains useful doc comments.
-- Use `mcp_flutter` as the runtime bridge for Flutter interaction and inspection. Flutter Pilot does not reimplement low-level app driving, widget inspection, screenshot capture, log collection, or lifecycle controls.
+- Use `pilot_runtime` as the runtime bridge for Flutter interaction and inspection. Flutter Pilot does not reimplement low-level app driving, widget inspection, screenshot capture, log collection, or lifecycle controls.
 - The MVP command set includes:
   - `flutter_pilot validate <scenario.yaml>`
   - `flutter_pilot test`
@@ -138,12 +138,12 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - Flutter Pilot's Target App Launch Progress renderer owns launch wording, launch choices, heartbeat wording, elapsed-time display, interactive refresh, success summaries, failure summaries, and JSON suppression rules.
 - Human-readable stderr summary should state `Run passed.`, `Run failed at ...`, or `Stopped after ... due to --until.` as appropriate. Stdout keeps stable report path lines, including `Run report:`, `HTML report:`, and Project Run summaries, for scripts and smoke verification.
 - CLI subprocess tests may select an in-process fake Runtime Adapter through a test-only environment variable such as `FLUTTER_PILOT_TEST_RUNTIME`. This hook must not appear in `--help` output or become part of the public CLI contract.
-- `byKey` is not part of the current Scenario DSL because the calibrated `mcp_flutter` semantic Snapshot path does not expose Flutter key values reliably. Key-based Finders may be added later if the Runtime Adapter can obtain stable key data.
-- `byType` accepts the `mcp_flutter` semantic Snapshot node type, such as `textField`, `button`, `text`, `scrollable`, or `header`. It does not accept Dart widget class names such as `TextField`, `FilledButton`, or app-defined wrapper widget classes.
+- `byKey` is not part of the current Scenario DSL because the calibrated `pilot_runtime` semantic Snapshot path does not expose Flutter key values reliably. Key-based Finders may be added later if the Runtime Adapter can obtain stable key data.
+- `byType` accepts the `pilot_runtime` semantic Snapshot node type, such as `textField`, `button`, `text`, `scrollable`, or `header`. It does not accept Dart widget class names such as `TextField`, `FilledButton`, or app-defined wrapper widget classes.
 - `byText` matches exact visible text. It does not perform contains, fuzzy, or regular expression matching in the first version.
 - A Finder must resolve to exactly one widget before an action can execute. Zero matches fail the step as "Finder matched no widgets"; multiple matches fail the step as "Finder matched multiple widgets." Flutter Pilot does not automatically choose the first match.
 - The initial action set includes `tap`, `type`, `scroll`, `waitFor`, and `capture`.
-- The `type` action means replacing text in a widget: clear existing text, then enter the configured text. It is distinct from the `byType` Finder constraint.
+- The `type` action means replacing text in a widget: clear existing text directly, then enter the configured text one character at a time. It is distinct from the `byType` Finder constraint.
 - The `waitFor` action waits for a Finder to produce exactly one match before its timeout. Zero matches keep waiting until timeout, one match succeeds, and multiple matches fail the step. The first version does not support waiting for disappearance, enabled state, or disabled state.
 - `waitFor.timeoutMs` defaults to `3000` when omitted. The first version supports per-step timeout overrides but no global timeout defaults in the Scenario.
 - The `scroll` action accepts `deltaX` and `deltaY` as gesture drag deltas in logical pixels. Omitted deltas default to `0`. For example, `deltaY: -500` means dragging upward by 500 logical pixels, which usually reveals lower content. A Finder is optional for `scroll`; when omitted, Flutter Pilot scrolls the primary scrollable. When provided, the Finder must resolve to exactly one scrollable target. At least one of `deltaX` or `deltaY` must be non-zero, so `scroll: {}` and zero-delta scrolls are invalid.
@@ -172,9 +172,9 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - Scenario-level device video recording is supported as an optional run-level artifact. When recording is enabled, `test` requires the selected Target Device to also be available as a Recording Device with the same device id. The Device Video Recording is stored under the run directory as `artifacts/device-video-recording.<ext>` and recorded in reports with a run-directory-relative path. Richer recording parameters remain out of scope. Step screenshots and timeline reports remain the primary step-level visual artifacts.
 - The implementation should be organized around deep modules:
   - Scenario model and parser: validates YAML and produces a typed scenario.
-  - Finder and action model: represents user intent independently from `mcp_flutter` command details.
+  - Finder and action model: represents user intent independently from `pilot_runtime` command details.
   - Runner engine: executes steps, handles `--until`, applies waits, records status, and triggers captures.
-  - `mcp_flutter` adapter: maps high-level actions and capture requests to `mcp_flutter`. Prefer an available API/SDK call path; use CLI subprocess execution only as a fallback when the API path is unavailable or insufficient.
+  - `PilotRuntimeAdapter`: maps high-level actions and capture requests to `pilot_runtime`. Prefer an available API/SDK call path; use CLI subprocess execution only as a fallback when the API path is unavailable or insufficient.
   - Artifact store: owns run directory layout and artifact metadata.
   - Diagnostic reducer: turns large widget and semantic data into agent-friendly summaries.
   - Report generator: builds JSON and HTML reports from run results.
@@ -188,10 +188,10 @@ The result is a reproducible bug report package that can be consumed by humans, 
    - The first slice included working `validate` behavior and an execution command shell that parsed arguments, validated the Scenario, checked CLI rules, and reported that UI execution was not implemented yet.
    - The current execution command is `test`; the earlier `run` shell has been removed from the public CLI.
    - This comes first because every later feature depends on a stable scenario contract and command surface.
-2. `mcp_flutter` adapter contract
+2. `PilotRuntimeAdapter` contract
    - Define the narrow interface for tap, type, scroll, wait, screenshot, semantic snapshot, widget data, and logs.
    - Add a fake adapter for tests before wiring real commands, so runner behavior can be developed without a live Flutter app.
-   - Manually calibrate `mcp_flutter` before locking the implementation path. Check whether API calls are available and whether they expose richer structured data than CLI output; use API shape as the primary reference while keeping runner-facing types inside Flutter Pilot's own model. The same calibration should verify discovery, screenshot, semantic snapshot, Logs, Finder by text/key/type, multiple Finder Match descriptions, WidgetBounds availability, and scroll without Finder.
+   - Manually calibrate `pilot_runtime` before locking the implementation path. Check whether API calls are available and whether they expose richer structured data than CLI output; use API shape as the primary reference while keeping runner-facing types inside Flutter Pilot's own model. The same calibration should verify discovery, screenshot, semantic snapshot, Logs, Finder by text/key/type, multiple Finder Match descriptions, WidgetBounds availability, and scroll without Finder.
 3. Runner engine with YAML replay
    - Execute ordered steps through the adapter, record step status, durations, command results, and exit codes.
    - Support the initial action set: `tap`, `type`, `scroll`, and `waitFor`.
@@ -218,7 +218,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
    - Compare two run directories for status changes, visible text changes, semantic/widget summary changes, screenshot differences, resolved runtime failures from logs, and regressions.
    - This comes after reports and reducers because it depends on stable artifact formats and summary data.
 11. Real integration smoke test with a sample Flutter app
-   - Add a minimal sample app and one end-to-end scenario to validate the real `mcp_flutter` path.
+   - Add a minimal sample app and one end-to-end scenario to validate the real `pilot_runtime` path.
    - Keep most coverage in unit and contract tests; use this as a final confidence check for the MVP.
 
 ## Testing Decisions
@@ -227,12 +227,12 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - First-slice tests already establish the baseline testing style: parser tests call the public parser API and assert on typed Scenario output or structured validation exceptions; CLI tests execute the command through a real Dart subprocess and assert on exit codes and terminal output.
 - The scenario model and parser should have unit tests for valid YAML, invalid YAML, labels, capture directives, Finders, unsupported actions, combined Finder constraints, rejection of array-valued Finder fields, rejection of unlabeled Step items that only contain a label, and rejection of Steps with multiple action fields.
 - First-slice tests should be split between parser/model unit tests and a small number of CLI subprocess tests. Parser/model tests cover detailed schema behavior. CLI subprocess tests cover external command behavior such as `validate`, `validate --json`, `test` command-shell behavior, and CLI argument errors.
-- The runner engine should have tests using a fake `mcp_flutter` adapter. These tests should verify step ordering, failure handling, automatic capture, `--until`, `--print`, zero Finder matches, one Finder match, multiple Finder matches, `waitFor` success, `waitFor` timeout, `waitFor` multiple-match failure, `scroll` with a Finder, `scroll` without a Finder, and `scroll` delta validation.
+- The runner engine should have tests using a fake `PilotRuntimeAdapter`. These tests should verify step ordering, failure handling, automatic capture, `--until`, `--print`, zero Finder matches, one Finder match, multiple Finder matches, `waitFor` success, `waitFor` timeout, `waitFor` multiple-match failure, `scroll` with a Finder, `scroll` without a Finder, and `scroll` delta validation.
 - The artifact store should have tests verifying stable run directory layout, artifact naming, metadata references, and report paths.
 - The diagnostic reducer should have tests using representative widget and semantic data fixtures. Tests should verify that visible text, interactive widgets, logs, runtime failures, and route-like context are preserved while noisy details are removed.
 - The report generator should have tests verifying JSON report shape and HTML timeline content from fixed run fixtures.
 - The diff engine should have tests comparing fixed before/after fixtures for resolved runtime failures from logs, changed visible text, missing steps, changed screenshots, and unchanged runs.
-- The `mcp_flutter` adapter should be covered by contract tests where practical. Most behavior should be tested through mocked command responses to avoid requiring a live Flutter app in unit tests.
+- The `PilotRuntimeAdapter` should be covered by contract tests where practical. Most behavior should be tested through mocked command responses to avoid requiring a live Flutter app in unit tests.
 - End-to-end tests with a sample Flutter app are valuable after the core CLI exists, but they are not required for the first parser and runner slices.
 - There is no prior test suite in the current repository, so test conventions should be established as part of the initial implementation.
 
@@ -243,13 +243,14 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - Interactive recording of manual app usage into YAML is not part of the MVP.
 - Automatic source-code patching is not part of this PRD.
 - Full visual regression testing infrastructure is not part of the MVP beyond before/after run diffing.
-- Replacing `mcp_flutter` or building a custom Flutter VM service integration is out of scope.
+- Replacing the `pilot_runtime` app-side bridge with a generic Flutter VM
+  service driver is out of scope.
 - Supporting every possible Flutter widget Finder in the first release is out of scope.
 - Cloud artifact hosting and team dashboard features are out of scope.
 
 ## Further Notes
 
-- The project now has the first Dart CLI slice in place. The next product risk is no longer YAML parsing; it is defining the narrow `mcp_flutter` adapter contract and keeping runner behavior testable without a live Flutter app.
+- The project now has the first Dart CLI slice in place. The next product risk is no longer YAML parsing; it is defining the narrow `PilotRuntimeAdapter` contract and keeping runner behavior testable without a live Flutter app.
 - The strongest product positioning is not "YAML UI automation"; it is "reproducible Flutter UI debugging artifacts for humans, CI, and AI agents."
 - Step screenshots are more useful than video for the initial AI-agent use case because they can be directly associated with step metadata, widget summaries, logs, and runtime failures. Scenario-level video recording is complementary run context rather than a replacement for step-owned captures.
 - The tool should keep raw data available for advanced debugging, but default CLI and agent output should be compact and high signal.

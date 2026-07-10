@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 ///
 /// This target is not the production smoke app. It exists so runtime research
 /// can verify a `pilot_runtime`-style app hook against a real Flutter debug
-/// Runtime Target without depending on `mcp_toolkit`.
+/// Runtime Target with an app-side probe binding.
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   PilotRuntimeProbeHook.instance.register();

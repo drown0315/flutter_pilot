@@ -30,7 +30,7 @@ abstract interface class TestScenarioRunner {
   });
 }
 
-/// Default Scenario runner factory backed by `McpFlutterRuntimeAdapter`.
+/// Default Scenario runner factory backed by `PilotRuntimeAdapter`.
 class DefaultTestScenarioRunnerFactory implements TestScenarioRunnerFactory {
   /// Creates the default runner factory.
   const DefaultTestScenarioRunnerFactory();

@@ -4,22 +4,8 @@ import 'dart:io';
 import 'package:flutter_pilot/src/smoke_verifier.dart';
 import 'package:test/test.dart';
 
-/// Verifies the real-runtime smoke script command-line contract.
-///
-/// The live Flutter app path is intentionally not part of default unit tests;
-/// this test only checks that the script fails clearly before external runtime
-/// work begins.
+/// Verifies the real-runtime smoke report contract.
 void main() {
-  test('smoke script requires a VM service URI', () async {
-    final ProcessResult result = await Process.run(
-      Platform.resolvedExecutable,
-      ['run', 'tool/run_mcp_flutter_smoke.dart'],
-    );
-
-    expect(result.exitCode, 64);
-    expect(result.stderr, contains('Usage:'));
-  });
-
   group('SmokeRunVerifier', () {
     test('extracts the run report path from Flutter Pilot stdout', () {
       final String? reportPath = SmokeRunVerifier.runReportPathFromStdout('''
@@ -33,7 +19,7 @@ HTML report: .runs/2026-06-19_10-20_smoke_runtime/timeline.html
       );
     });
 
-    test('passes when Finder Steps and capture artifacts are valid', () {
+    test('passes when required smoke Steps are valid', () {
       final Directory runDirectory = Directory.systemTemp.createTempSync(
         'flutter_pilot_smoke_report_',
       );
@@ -42,12 +28,11 @@ HTML report: .runs/2026-06-19_10-20_smoke_runtime/timeline.html
           runDirectory: runDirectory,
           status: 'passed',
           stepStatuses: const <String, String>{
+            'wait_for_smoke_form': 'passed',
             'enter_email': 'passed',
             'submit_form': 'passed',
             'wait_for_error': 'passed',
-            'capture_runtime': 'passed',
           },
-          createArtifactFiles: true,
         );
 
         final SmokeVerificationResult result =
@@ -69,12 +54,11 @@ HTML report: .runs/2026-06-19_10-20_smoke_runtime/timeline.html
           runDirectory: runDirectory,
           status: 'failed',
           stepStatuses: const <String, String>{
+            'wait_for_smoke_form': 'passed',
             'enter_email': 'passed',
             'submit_form': 'failed',
             'wait_for_error': 'skipped',
-            'capture_runtime': 'skipped',
           },
-          createArtifactFiles: true,
         );
 
         final SmokeVerificationResult result =
@@ -94,7 +78,7 @@ HTML report: .runs/2026-06-19_10-20_smoke_runtime/timeline.html
       }
     });
 
-    test('fails when a required capture artifact file is missing', () {
+    test('fails when a required smoke Step is missing', () {
       final Directory runDirectory = Directory.systemTemp.createTempSync(
         'flutter_pilot_smoke_report_',
       );
@@ -103,25 +87,17 @@ HTML report: .runs/2026-06-19_10-20_smoke_runtime/timeline.html
           runDirectory: runDirectory,
           status: 'passed',
           stepStatuses: const <String, String>{
+            'wait_for_smoke_form': 'passed',
             'enter_email': 'passed',
             'submit_form': 'passed',
-            'wait_for_error': 'passed',
-            'capture_runtime': 'passed',
           },
-          createArtifactFiles: false,
         );
 
         final SmokeVerificationResult result =
             SmokeRunVerifier.verifyReportFile(reportFile);
 
         expect(result.passed, isFalse);
-        expect(
-          result.errors,
-          contains(
-            'Missing capture artifact file for screenshot: '
-            '${runDirectory.path}/captures/0005_capture_runtime_screenshot.png',
-          ),
-        );
+        expect(result.errors, contains('Missing Finder Step: wait_for_error.'));
       } finally {
         runDirectory.deleteSync(recursive: true);
       }
@@ -134,34 +110,7 @@ File _writeSmokeReport({
   required Directory runDirectory,
   required String status,
   required Map<String, String> stepStatuses,
-  required bool createArtifactFiles,
 }) {
-  final List<Map<String, Object?>> captureArtifacts = <Map<String, Object?>>[
-    <String, Object?>{
-      'type': 'screenshot',
-      'path': 'captures/0005_capture_runtime_screenshot.png',
-      'purpose': 'capture',
-    },
-    <String, Object?>{
-      'type': 'widgetTree',
-      'path': 'captures/0005_capture_runtime_widget_tree.json',
-      'purpose': 'capture',
-    },
-    <String, Object?>{
-      'type': 'logs',
-      'path': 'captures/0005_capture_runtime_logs.json',
-      'purpose': 'capture',
-    },
-  ];
-  if (createArtifactFiles) {
-    for (final Map<String, Object?> artifact in captureArtifacts) {
-      final String path = artifact['path']! as String;
-      final File artifactFile = File('${runDirectory.path}/$path');
-      artifactFile.parent.createSync(recursive: true);
-      artifactFile.writeAsStringSync('{}');
-    }
-  }
-
   final File reportFile = File('${runDirectory.path}/run_report.json');
   reportFile.writeAsStringSync(
     const JsonEncoder.withIndent('  ').convert(<String, Object?>{
@@ -172,21 +121,22 @@ File _writeSmokeReport({
       'runDirectory': runDirectory.path,
       'artifacts': const <Object?>[],
       'steps': <Object?>[
-        _stepJson(label: 'enter_email', action: 'type', status: stepStatuses),
-        _stepJson(label: 'submit_form', action: 'tap', status: stepStatuses),
-        _stepJson(
-          label: 'wait_for_error',
-          action: 'waitFor',
-          status: stepStatuses,
-        ),
-        <String, Object?>{
-          ..._stepJson(
-            label: 'capture_runtime',
-            action: 'capture',
+        if (stepStatuses.containsKey('wait_for_smoke_form'))
+          _stepJson(
+            label: 'wait_for_smoke_form',
+            action: 'waitFor',
             status: stepStatuses,
           ),
-          'artifacts': captureArtifacts,
-        },
+        if (stepStatuses.containsKey('enter_email'))
+          _stepJson(label: 'enter_email', action: 'type', status: stepStatuses),
+        if (stepStatuses.containsKey('submit_form'))
+          _stepJson(label: 'submit_form', action: 'tap', status: stepStatuses),
+        if (stepStatuses.containsKey('wait_for_error'))
+          _stepJson(
+            label: 'wait_for_error',
+            action: 'waitFor',
+            status: stepStatuses,
+          ),
       ],
     }),
   );

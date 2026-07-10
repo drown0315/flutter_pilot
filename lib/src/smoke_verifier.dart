@@ -1,9 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
-
-/// Exit codes used by the real `mcp_flutter` smoke verifier.
+/// Exit codes used by the real Runtime Adapter smoke verifier.
 ///
 /// These codes keep CI failures distinguishable:
 /// - `usage`: invalid verifier invocation
@@ -29,7 +27,7 @@ class SmokeVerifierExitCodes {
 /// - `errors`: every contract failure found in the report or artifacts
 ///
 /// Example:
-/// A passed report with screenshot, Widget Tree, and Logs artifacts has an empty
+/// A passed report where every required smoke Step passed has an empty
 /// `errors` list.
 class SmokeVerificationResult {
   const SmokeVerificationResult({
@@ -49,22 +47,15 @@ class SmokeVerificationResult {
 /// current real Finder integration contract:
 /// - the run status is `passed`
 /// - the Finder Steps in `examples/smoke_scenario.yaml` passed
-/// - the capture Step lists screenshot, Widget Tree, and Logs artifacts
-/// - each required artifact path exists under the run directory
 class SmokeRunVerifier {
   SmokeRunVerifier._();
 
   static const String runReportPrefix = 'Run report:';
   static const Set<String> _finderStepLabels = <String>{
+    'wait_for_smoke_form',
     'enter_email',
     'submit_form',
     'wait_for_error',
-  };
-  static const String _captureStepLabel = 'capture_runtime';
-  static const Set<String> _requiredCaptureArtifactTypes = <String>{
-    'screenshot',
-    'widgetTree',
-    'logs',
   };
 
   /// Return the report path printed by `flutter_pilot test`.
@@ -87,7 +78,7 @@ class SmokeRunVerifier {
     return null;
   }
 
-  /// Check one `run_report.json` file and its referenced capture artifacts.
+  /// Check one `run_report.json` file and its required smoke Steps.
   ///
   /// Args:
   /// `reportFile` points to the report produced by the smoke Scenario run.
@@ -129,11 +120,6 @@ class SmokeRunVerifier {
     _verifyRunStatus(decoded, errors);
     final List<Map<String, Object?>> steps = _reportSteps(decoded, errors);
     _verifyFinderSteps(steps, errors);
-    _verifyCaptureArtifacts(
-      steps: steps,
-      runDirectory: reportFile.parent,
-      errors: errors,
-    );
 
     return SmokeVerificationResult(reportPath: reportFile.path, errors: errors);
   }
@@ -183,61 +169,6 @@ class SmokeRunVerifier {
     }
   }
 
-  /// Verify capture Step artifacts are listed and present on disk.
-  static void _verifyCaptureArtifacts({
-    required List<Map<String, Object?>> steps,
-    required Directory runDirectory,
-    required List<String> errors,
-  }) {
-    final Map<String, Object?>? captureStep = _stepByLabel(
-      steps,
-      _captureStepLabel,
-    );
-    if (captureStep == null) {
-      errors.add('Missing capture Step: $_captureStepLabel.');
-      return;
-    }
-    if (captureStep['status'] != 'passed') {
-      errors.add(
-        'Expected capture Step $_captureStepLabel to pass, '
-        'got ${captureStep['status']}.',
-      );
-    }
-
-    final Object? rawArtifacts = captureStep['artifacts'];
-    if (rawArtifacts is! List<Object?>) {
-      errors.add('Expected capture Step artifacts to be a list.');
-      return;
-    }
-    final List<Map<String, Object?>> artifacts = <Map<String, Object?>>[
-      for (final Object? artifact in rawArtifacts)
-        if (artifact is Map<String, Object?>) artifact,
-    ];
-
-    for (final String requiredType in _requiredCaptureArtifactTypes) {
-      final Map<String, Object?>? artifact = _artifactByType(
-        artifacts,
-        requiredType,
-      );
-      if (artifact == null) {
-        errors.add('Missing capture artifact type: $requiredType.');
-        continue;
-      }
-      final Object? relativePath = artifact['path'];
-      if (relativePath is! String || relativePath.isEmpty) {
-        errors.add('Capture artifact $requiredType has no path.');
-        continue;
-      }
-      final File artifactFile = File(p.join(runDirectory.path, relativePath));
-      if (!artifactFile.existsSync()) {
-        errors.add(
-          'Missing capture artifact file for $requiredType: '
-          '${artifactFile.path}',
-        );
-      }
-    }
-  }
-
   /// Return the Step with the requested label.
   static Map<String, Object?>? _stepByLabel(
     List<Map<String, Object?>> steps,
@@ -246,19 +177,6 @@ class SmokeRunVerifier {
     for (final Map<String, Object?> step in steps) {
       if (step['label'] == label) {
         return step;
-      }
-    }
-    return null;
-  }
-
-  /// Return the artifact with the requested type.
-  static Map<String, Object?>? _artifactByType(
-    List<Map<String, Object?>> artifacts,
-    String type,
-  ) {
-    for (final Map<String, Object?> artifact in artifacts) {
-      if (artifact['type'] == type) {
-        return artifact;
       }
     }
     return null;

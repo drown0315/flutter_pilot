@@ -16,7 +16,7 @@ class RuntimeTarget {
 /// Boundary used by the runner to operate on a Flutter Runtime Target.
 ///
 /// Implementations map Flutter Pilot actions and capture requests to a concrete
-/// runtime bridge such as `mcp_flutter`. The runner owns Scenario control flow;
+/// runtime bridge such as `pilot_runtime`. The runner owns Scenario control flow;
 /// the adapter owns runtime communication and returns Flutter Pilot model
 /// objects.
 abstract interface class RuntimeAdapter {
@@ -48,18 +48,27 @@ abstract interface class RuntimeAdapter {
   /// Tap the widget represented by a Finder Match from the current Step.
   Future<void> performTap(FinderMatch match);
 
-  /// Replace the text in the widget represented by a Finder Match.
+  /// Clear text in the widget represented by a Finder Match.
   ///
   /// Args:
   /// `match` is the target produced by the Step's Finder resolution.
-  /// `text` is the replacement text from the Scenario `type` action.
-  Future<void> replaceText(FinderMatch match, String text);
+  ///
+  /// The runner calls this once before entering the Scenario `type` text.
+  Future<void> clearText(FinderMatch match);
+
+  /// Enter text in the widget represented by a Finder Match.
+  ///
+  /// Args:
+  /// `match` is the target produced by the Step's Finder resolution.
+  /// `text` is the text fragment to enter. The Scenario runner sends one
+  /// character at a time for `type` actions.
+  Future<void> enterText(FinderMatch match, String text);
 
   /// Perform a drag gesture using Flutter Pilot scroll delta semantics.
   ///
   /// Args:
   /// `match` is an optional scroll target. When omitted, implementation support
-  /// depends on the real `mcp_flutter` calibration result.
+  /// depends on the active Runtime Adapter implementation.
   /// `deltaX` and `deltaY` are logical-pixel drag deltas.
   Future<void> performScroll({
     FinderMatch? match,
@@ -105,8 +114,8 @@ class FinderMatch {
 
 /// Logical-pixel rectangle for a matched widget in the Flutter view.
 ///
-/// Bounds are optional because the first `mcp_flutter` calibration must confirm
-/// whether this data is available and which coordinate space it uses.
+/// Bounds are optional because each Runtime Adapter must confirm whether this
+/// data is available and which coordinate space it uses.
 class WidgetBounds {
   const WidgetBounds({
     required this.left,
@@ -164,7 +173,8 @@ class LogsCapture {
 enum RuntimeOperation {
   resolveFinder,
   performTap,
-  replaceText,
+  clearText,
+  enterText,
   performScroll,
   captureScreenshot,
   captureSnapshot,

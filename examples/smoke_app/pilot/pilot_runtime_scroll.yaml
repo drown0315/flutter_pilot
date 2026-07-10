@@ -1,0 +1,16 @@
+scenario:
+  name: pilot_runtime_scroll
+  description: |
+    Verifies targeted scroll replay through PilotRuntimeAdapter.
+
+steps:
+  - label: scroll_target_list
+    scroll:
+      byKey: target_scroll_list
+      byType: scrollable
+      deltaY: -900
+
+  - label: wait_for_late_row
+    waitFor:
+      byText: Scroll demo row 18
+      timeoutMs: 5000
