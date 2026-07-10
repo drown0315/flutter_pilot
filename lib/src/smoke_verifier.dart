@@ -46,16 +46,23 @@ class SmokeVerificationResult {
 /// It reads the `run_report.json` written by `flutter_pilot test` and checks the
 /// current real Finder integration contract:
 /// - the run status is `passed`
-/// - the Finder Steps in `examples/smoke_scenario.yaml` passed
+/// - the Finder Steps in `examples/smoke_app/smoke_scenario.yaml` passed
+/// - the explicit capture Step passed and wrote the default capture bundle
 class SmokeRunVerifier {
   SmokeRunVerifier._();
 
   static const String runReportPrefix = 'Run report:';
+  static const String _captureStepLabel = 'capture_error';
   static const Set<String> _finderStepLabels = <String>{
     'wait_for_smoke_form',
     'enter_email',
     'submit_form',
     'wait_for_error',
+  };
+  static const Set<String> _requiredCaptureArtifactTypes = <String>{
+    'screenshot',
+    'widgetTree',
+    'logs',
   };
 
   /// Return the report path printed by `flutter_pilot test`.
@@ -120,6 +127,8 @@ class SmokeRunVerifier {
     _verifyRunStatus(decoded, errors);
     final List<Map<String, Object?>> steps = _reportSteps(decoded, errors);
     _verifyFinderSteps(steps, errors);
+    _verifyCaptureStep(steps, errors);
+    _verifyCaptureArtifacts(decoded, errors);
 
     return SmokeVerificationResult(reportPath: reportFile.path, errors: errors);
   }
@@ -165,6 +174,56 @@ class SmokeRunVerifier {
         errors.add(
           'Expected Finder Step $label to pass, got ${step['status']}.',
         );
+      }
+    }
+  }
+
+  /// Verify the smoke Scenario Step that exercises capture artifact writing.
+  static void _verifyCaptureStep(
+    List<Map<String, Object?>> steps,
+    List<String> errors,
+  ) {
+    final Map<String, Object?>? step = _stepByLabel(steps, _captureStepLabel);
+    if (step == null) {
+      errors.add('Missing capture Step: $_captureStepLabel.');
+      return;
+    }
+    if (step['status'] != 'passed') {
+      errors.add(
+        'Expected capture Step $_captureStepLabel to pass, got '
+        '${step['status']}.',
+      );
+    }
+  }
+
+  /// Verify that the explicit capture Step wrote the default artifact bundle.
+  static void _verifyCaptureArtifacts(
+    Map<String, Object?> report,
+    List<String> errors,
+  ) {
+    final Object? artifacts = report['artifacts'];
+    if (artifacts is! List<Object?>) {
+      errors.add('Expected run report artifacts to be a list.');
+      return;
+    }
+
+    final Set<String> captureArtifactTypes = <String>{};
+    for (final Object? artifact in artifacts) {
+      if (artifact is! Map<String, Object?>) {
+        continue;
+      }
+      if (artifact['purpose'] != 'capture') {
+        continue;
+      }
+      final Object? type = artifact['type'];
+      if (type is String) {
+        captureArtifactTypes.add(type);
+      }
+    }
+
+    for (final String requiredType in _requiredCaptureArtifactTypes) {
+      if (!captureArtifactTypes.contains(requiredType)) {
+        errors.add('Missing capture artifact type: $requiredType.');
       }
     }
   }

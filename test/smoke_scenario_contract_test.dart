@@ -2,10 +2,10 @@ import 'package:flutter_pilot/flutter_pilot.dart';
 import 'package:test/test.dart';
 
 /// Verifies that the checked-in real-runtime smoke Scenario keeps exercising
-/// the supported Finder contract.
+/// the supported Finder and capture contracts.
 void main() {
   test(
-    'example smoke Scenario includes byText, byType, and combined Finder',
+    'example smoke Scenario includes byText, byType, combined Finder, and capture',
     () {
       final Scenario scenario = ScenarioParser.parseFile(
         'examples/smoke_app/smoke_scenario.yaml',
@@ -40,7 +40,15 @@ void main() {
       expect(waitFor.finder.byText, 'Smoke validation failed');
       expect(waitFor.finder.byType, isNull);
 
-      expect(scenario.steps, hasLength(4));
+      final CaptureAction capture = _actionWithLabel<CaptureAction>(
+        scenario,
+        'capture_error',
+      );
+      expect(capture.screenshot, isTrue);
+      expect(capture.widgetTree, isTrue);
+      expect(capture.logs, isTrue);
+
+      expect(scenario.steps, hasLength(5));
     },
   );
 }

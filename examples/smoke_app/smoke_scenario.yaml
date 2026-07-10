@@ -23,3 +23,6 @@ steps:
     waitFor:
       byText: Smoke validation failed
       timeoutMs: 5000
+
+  - label: capture_error
+    capture: {}

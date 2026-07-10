@@ -19,31 +19,36 @@ HTML report: .runs/2026-06-19_10-20_smoke_runtime/timeline.html
       );
     });
 
-    test('passes when required smoke Steps are valid', () {
-      final Directory runDirectory = Directory.systemTemp.createTempSync(
-        'flutter_pilot_smoke_report_',
-      );
-      try {
-        final File reportFile = _writeSmokeReport(
-          runDirectory: runDirectory,
-          status: 'passed',
-          stepStatuses: const <String, String>{
-            'wait_for_smoke_form': 'passed',
-            'enter_email': 'passed',
-            'submit_form': 'passed',
-            'wait_for_error': 'passed',
-          },
+    test(
+      'passes when required smoke Steps and capture artifacts are valid',
+      () {
+        final Directory runDirectory = Directory.systemTemp.createTempSync(
+          'flutter_pilot_smoke_report_',
         );
+        try {
+          final File reportFile = _writeSmokeReport(
+            runDirectory: runDirectory,
+            status: 'passed',
+            stepStatuses: const <String, String>{
+              'wait_for_smoke_form': 'passed',
+              'enter_email': 'passed',
+              'submit_form': 'passed',
+              'wait_for_error': 'passed',
+              'capture_error': 'passed',
+            },
+            artifactTypes: const <String>{'screenshot', 'widgetTree', 'logs'},
+          );
 
-        final SmokeVerificationResult result =
-            SmokeRunVerifier.verifyReportFile(reportFile);
+          final SmokeVerificationResult result =
+              SmokeRunVerifier.verifyReportFile(reportFile);
 
-        expect(result.passed, isTrue);
-        expect(result.errors, isEmpty);
-      } finally {
-        runDirectory.deleteSync(recursive: true);
-      }
-    });
+          expect(result.passed, isTrue);
+          expect(result.errors, isEmpty);
+        } finally {
+          runDirectory.deleteSync(recursive: true);
+        }
+      },
+    );
 
     test('fails when a Finder Step failed', () {
       final Directory runDirectory = Directory.systemTemp.createTempSync(
@@ -58,6 +63,7 @@ HTML report: .runs/2026-06-19_10-20_smoke_runtime/timeline.html
             'enter_email': 'passed',
             'submit_form': 'failed',
             'wait_for_error': 'skipped',
+            'capture_error': 'skipped',
           },
         );
 
@@ -90,7 +96,9 @@ HTML report: .runs/2026-06-19_10-20_smoke_runtime/timeline.html
             'wait_for_smoke_form': 'passed',
             'enter_email': 'passed',
             'submit_form': 'passed',
+            'capture_error': 'passed',
           },
+          artifactTypes: const <String>{'screenshot', 'widgetTree', 'logs'},
         );
 
         final SmokeVerificationResult result =
@@ -98,6 +106,37 @@ HTML report: .runs/2026-06-19_10-20_smoke_runtime/timeline.html
 
         expect(result.passed, isFalse);
         expect(result.errors, contains('Missing Finder Step: wait_for_error.'));
+      } finally {
+        runDirectory.deleteSync(recursive: true);
+      }
+    });
+
+    test('fails when capture artifacts are missing', () {
+      final Directory runDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_smoke_report_',
+      );
+      try {
+        final File reportFile = _writeSmokeReport(
+          runDirectory: runDirectory,
+          status: 'passed',
+          stepStatuses: const <String, String>{
+            'wait_for_smoke_form': 'passed',
+            'enter_email': 'passed',
+            'submit_form': 'passed',
+            'wait_for_error': 'passed',
+            'capture_error': 'passed',
+          },
+          artifactTypes: const <String>{'screenshot', 'logs'},
+        );
+
+        final SmokeVerificationResult result =
+            SmokeRunVerifier.verifyReportFile(reportFile);
+
+        expect(result.passed, isFalse);
+        expect(
+          result.errors,
+          contains('Missing capture artifact type: widgetTree.'),
+        );
       } finally {
         runDirectory.deleteSync(recursive: true);
       }
@@ -110,6 +149,7 @@ File _writeSmokeReport({
   required Directory runDirectory,
   required String status,
   required Map<String, String> stepStatuses,
+  Set<String> artifactTypes = const <String>{},
 }) {
   final File reportFile = File('${runDirectory.path}/run_report.json');
   reportFile.writeAsStringSync(
@@ -119,7 +159,14 @@ File _writeSmokeReport({
       'startedAt': '2026-06-19T10:20:00.000Z',
       'durationMs': 42,
       'runDirectory': runDirectory.path,
-      'artifacts': const <Object?>[],
+      'artifacts': <Object?>[
+        for (final String artifactType in artifactTypes)
+          <String, Object?>{
+            'type': artifactType,
+            'path': 'captures/0005_capture_error_$artifactType.json',
+            'purpose': 'capture',
+          },
+      ],
       'steps': <Object?>[
         if (stepStatuses.containsKey('wait_for_smoke_form'))
           _stepJson(
@@ -135,6 +182,12 @@ File _writeSmokeReport({
           _stepJson(
             label: 'wait_for_error',
             action: 'waitFor',
+            status: stepStatuses,
+          ),
+        if (stepStatuses.containsKey('capture_error'))
+          _stepJson(
+            label: 'capture_error',
+            action: 'capture',
             status: stepStatuses,
           ),
       ],

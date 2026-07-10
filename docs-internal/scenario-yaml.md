@@ -327,7 +327,7 @@ and app entrypoint choices stay in CLI options so Scenarios remain portable
 across machines, devices, and CI.
 
 ```bash
-flutter_pilot test examples/smoke_scenario.yaml --device pixel-8
+flutter_pilot test examples/smoke_app/smoke_scenario.yaml --device pixel-8
 ```
 
 `test --target` selects the Flutter app entrypoint file, such as
@@ -363,11 +363,11 @@ Flutter Pilot validates Scenario YAML strictly:
 Run validation without connecting to a Flutter app:
 
 ```bash
-flutter_pilot validate examples/smoke_scenario.yaml
+flutter_pilot validate examples/smoke_app/smoke_scenario.yaml
 ```
 
 Use JSON output for tools:
 
 ```bash
-flutter_pilot validate examples/smoke_scenario.yaml --json
+flutter_pilot validate examples/smoke_app/smoke_scenario.yaml --json
 ```
