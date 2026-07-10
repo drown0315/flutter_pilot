@@ -255,7 +255,7 @@ class TapAction extends StepAction {
   }
 }
 
-/// Text-entry action that replaces the target widget's existing text.
+/// Text-entry action that clears and re-enters the target widget's text.
 class TypeAction extends StepAction {
   const TypeAction({required this.finder, required this.text});
 
@@ -313,7 +313,7 @@ class WaitForAction extends StepAction {
 ///
 /// Each boolean controls one artifact family:
 /// - `screenshot`: visual image artifact
-/// - `snapshot`: legacy structured UI state, no longer accepted in Scenario YAML
+/// - `snapshot`: legacy structured UI state, always false for Scenario YAML
 /// - `widgetTree`: structured Widget Tree for programs and agents
 /// - `logs`: structured runtime logs, including runtime errors when available
 class CaptureAction extends StepAction {

@@ -8,7 +8,7 @@ The project should provide a deterministic UI replay and diagnostics harness for
 
 ## Solution
 
-Flutter Pilot will be a CLI tool that executes YAML scenarios against a Flutter app through `pilot_runtime`. A scenario describes user actions such as tapping, typing, scrolling, waiting for UI state, and capture checkpoints. Runtime connection details are not embedded in the scenario. The `test` command launches the current Target App Package with `flutter run --machine`, shows Target App Launch Progress while waiting for the Runtime Target URI from Flutter's machine output, runs the Scenario with Step progress, and cleans up the launched app process. During a run, Flutter Pilot records step-level artifacts including screenshots, semantic snapshots, widget summaries, logs that include runtime errors when available, timing, and command results.
+Flutter Pilot will be a CLI tool that executes YAML scenarios against a Flutter app through `pilot_runtime`. A scenario describes user actions such as tapping, typing, scrolling, waiting for UI state, and capture checkpoints. Runtime connection details are not embedded in the scenario. The `test` command launches the current Target App Package with `flutter run --machine`, shows Target App Launch Progress while waiting for the Runtime Target URI from Flutter's machine output, runs the Scenario with Step progress, and cleans up the launched app process. During a run, Flutter Pilot records step-level artifacts including screenshots, Widget Trees, logs that include runtime errors when available, timing, and command results.
 
 The user-facing execution command is `flutter_pilot test`. With a Scenario file
 argument it executes that Entry Scenario. With no argument it runs the Target
@@ -22,7 +22,7 @@ the Flutter app entrypoint file, while `--device` selects the Target Device and
 The first product milestone focuses on six capabilities:
 
 1. YAML replay
-2. Step screenshots and semantic snapshots
+2. Step screenshots and Widget Trees
 3. Failure artifact bundle
 4. `--until` and `--print` debugging controls
 5. HTML timeline report
@@ -45,16 +45,16 @@ The result is a reproducible bug report package that can be consumed by humans, 
 11. As a Flutter developer, I want to stop a run at a named step, so that I can inspect the app at the exact point where a bug begins.
 12. As a Flutter developer, I want to stop a run at a numeric step, so that quick ad hoc debugging does not require editing YAML.
 13. As a Flutter developer, I want to print the current widget information after a chosen step, so that I can diagnose layout and state issues from the terminal.
-14. As a Flutter developer, I want to print the current semantic snapshot after a chosen step, so that I can give an AI agent compact UI context.
+14. As a Flutter developer, I want to print the current Widget Tree after a chosen step, so that I can give an AI agent compact UI context.
 15. As a Flutter developer, I want to capture a screenshot after any step, so that visual state is recorded alongside the action that produced it.
 16. As a Flutter developer, I want screenshots to be stored with step numbers and labels, so that artifacts are easy to navigate.
-17. As a Flutter developer, I want semantic snapshots to be stored with step numbers and labels, so that AI agents can reason about the visible UI.
+17. As a Flutter developer, I want Widget Trees to be stored with step numbers and labels, so that AI agents can reason about the visible UI.
 18. As a Flutter developer, I want widget summaries instead of only raw widget tree dumps, so that diagnostic output is readable and focused.
 19. As a Flutter developer, I want logs collected during the run, including runtime errors when available, so that assertions, debug output, and failures can be correlated with UI steps.
 20. As a Flutter developer, I want runtime failures represented in the same diagnostic stream as logs, so that I do not need to reason about overlapping artifact types in the first version.
 21. As a Flutter developer, I want the tool to automatically collect diagnostics when a step fails, so that I do not need to predict where to add captures.
 22. As a Flutter developer, I want a failure artifact bundle, so that I can attach a complete reproduction package to an issue.
-23. As a Flutter developer, I want the artifact bundle to include the scenario, screenshots, snapshots, logs, device metadata, and run report, so that debugging context is portable.
+23. As a Flutter developer, I want the artifact bundle to include the scenario, screenshots, Widget Trees, logs, device metadata, and run report, so that debugging context is portable.
 24. As a Flutter developer, I want a structured run report, so that other tools and AI agents can parse the result.
 25. As a Flutter developer, I want an HTML timeline report, so that I can review a run visually without reading JSON.
 26. As a Flutter developer, I want each timeline entry to show the action, status, duration, screenshot, and diagnostics, so that failures are easy to inspect.
@@ -94,8 +94,8 @@ The result is a reproducible bug report package that can be consumed by humans, 
   - `flutter_pilot test <scenario.yaml> --device <device-id-or-name>`
   - `flutter_pilot test <scenario.yaml> --flavor <flavor> --target <entrypoint.dart>`
   - `flutter_pilot test <scenario.yaml> --until <step-or-label>`
-  - `flutter_pilot test <scenario.yaml> --until <step-or-label> --print <snapshot|widget-tree|errors>`
-  - `flutter_pilot test <scenario.yaml> --until <step-or-label> --print <snapshot|widget-tree|errors> --json`
+  - `flutter_pilot test <scenario.yaml> --until <step-or-label> --print <widget-tree|errors>`
+  - `flutter_pilot test <scenario.yaml> --until <step-or-label> --print <widget-tree|errors> --json`
   - `flutter_pilot report <run-directory>`
   - `flutter_pilot diff <before-run> <after-run>`
 - The `validate` command checks Scenario YAML and schema rules without connecting to a Runtime Target.
@@ -111,7 +111,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - Unknown fields are validation errors. The Scenario DSL uses a strict schema so typos and unsupported options fail clearly instead of being ignored.
 - `scenario.description` is optional metadata. When present, it must be a string and may use YAML multiline string syntax.
 - `scenario.name`, when present, must match `^[a-zA-Z0-9][a-zA-Z0-9_-]*$`. This keeps run directory names portable and prevents path-like values. Names derived from file names must be sanitized to the same safe form.
-- The YAML scenario format is the product contract. It should support scenario metadata, ordered steps, optional labels, capture directives, and Finders by text and semantic node type. Multiple `by*` Finder constraints may be used in one step, and all constraints must match. Each `byText` and `byType` value is a single string, not an array. The YAML does not expose a `match` option. Runtime target configuration is produced by the `test` launch flow, while Target Device, flavor, and entrypoint choices are CLI options so scenarios remain portable across machines, devices, and CI.
+- The YAML scenario format is the product contract. It should support scenario metadata, ordered steps, optional labels, capture directives, and Finders by text, semantic node type, `ValueKey<String>`, and Dart widget runtime type. Multiple `by*` Finder constraints may be used in one step, and all constraints must match. Each Finder field value is a single string, not an array. The YAML does not expose a `match` option. Runtime target configuration is produced by the `test` launch flow, while Target Device, flavor, and entrypoint choices are CLI options so scenarios remain portable across machines, devices, and CI.
 - Each Step is one item in the `steps` array. A Step may include a `label` field and must include exactly one action field. Items in `steps` may also be Step Includes (`include:` key) that reference Step Library YAML files; includes are expanded at parse time into a flat Step list. The `label` field is a sibling of the action field, not a nested action parameter.
 - The typed action model uses a sealed class hierarchy so each Step has exactly one strongly typed action and runner/report code can handle actions exhaustively.
 - Finder is a typed value object shared by actions. `tap`, `type`, and `waitFor` require at least one Finder field; `scroll` may omit Finder; `capture` does not use Finder.
@@ -121,7 +121,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - `--until <step-or-label>` executes through the target Step and stops after that Step completes.
 - Numeric `--until` values are 1-based Step numbers.
 - `--print` must be used with `--until` in the first version. It prints the requested diagnostics after the target Step completes.
-- First-version `--print` values are `snapshot`, `widget-tree`, and `errors`. The option may be repeated to print several diagnostics after the same stopped Step. When multiple diagnostics are requested, output order is fixed as `snapshot`, `widget-tree`, then `errors`. By default, `--print` renders human-readable diagnostic text. With `--json`, it prints the raw diagnostic payload as indented JSON. Screenshots are file artifacts and are not printed to stdout.
+- First-version `--print` values are `widget-tree` and `errors`. The option may be repeated to print several diagnostics after the same stopped Step. When multiple diagnostics are requested, output order is fixed as `widget-tree`, then `errors`. By default, `--print` renders human-readable diagnostic text. With `--json`, it prints the raw diagnostic payload as indented JSON. Screenshots are file artifacts and are not printed to stdout.
 - `test` prints Target App Launch Progress before Step progress for human-readable executions. Launch progress includes launch choices when known, elapsed launch time, heartbeat output for non-interactive runs, a final launch success summary, and a concise failure summary with the buffered Flutter stderr tail when launch fails.
 - `test` prints concise Step progress after the Runtime Target is available for human-readable executions. Progress includes Scenario name, Step count, optional `--until` target, Step number, action, Step label or `-` when unlabeled, status, duration, concise failure reason when a Step fails, and include source file path (e.g. `[flows/login.yaml]`) for Steps expanded from Step Libraries.
 - Target App Launch Progress and Step progress are presentation behavior owned by the CLI, not Scenario semantics, artifact format, or Runtime Adapter contract. The launcher and runner should expose progress events or callbacks so CLI rendering stays separate from execution.
@@ -138,8 +138,9 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - Flutter Pilot's Target App Launch Progress renderer owns launch wording, launch choices, heartbeat wording, elapsed-time display, interactive refresh, success summaries, failure summaries, and JSON suppression rules.
 - Human-readable stderr summary should state `Run passed.`, `Run failed at ...`, or `Stopped after ... due to --until.` as appropriate. Stdout keeps stable report path lines, including `Run report:`, `HTML report:`, and Project Run summaries, for scripts and smoke verification.
 - CLI subprocess tests may select an in-process fake Runtime Adapter through a test-only environment variable such as `FLUTTER_PILOT_TEST_RUNTIME`. This hook must not appear in `--help` output or become part of the public CLI contract.
-- `byKey` is not part of the current Scenario DSL because the calibrated `pilot_runtime` semantic Snapshot path does not expose Flutter key values reliably. Key-based Finders may be added later if the Runtime Adapter can obtain stable key data.
-- `byType` accepts the `pilot_runtime` semantic Snapshot node type, such as `textField`, `button`, `text`, `scrollable`, or `header`. It does not accept Dart widget class names such as `TextField`, `FilledButton`, or app-defined wrapper widget classes.
+- `byKey` accepts visible `ValueKey<String>` values. It does not accept `ValueKey<int>`, `ObjectKey`, `GlobalKey`, or private object keys.
+- `byWidget` accepts exact Dart widget runtime type display names such as `FilledButton` or app-defined wrapper widget classes.
+- `byType` accepts the `pilot_runtime` semantic node type, such as `textField`, `button`, `text`, `scrollable`, or `header`. It does not accept Dart widget class names such as `TextField` or `FilledButton`.
 - `byText` matches exact visible text. It does not perform contains, fuzzy, or regular expression matching in the first version.
 - A Finder must resolve to exactly one widget before an action can execute. Zero matches fail the step as "Finder matched no widgets"; multiple matches fail the step as "Finder matched multiple widgets." Flutter Pilot does not automatically choose the first match.
 - The initial action set includes `tap`, `type`, `scroll`, `waitFor`, and `capture`.
@@ -147,7 +148,7 @@ The result is a reproducible bug report package that can be consumed by humans, 
 - The `waitFor` action waits for a Finder to produce exactly one match before its timeout. Zero matches keep waiting until timeout, one match succeeds, and multiple matches fail the step. The first version does not support waiting for disappearance, enabled state, or disabled state.
 - `waitFor.timeoutMs` defaults to `3000` when omitted. The first version supports per-step timeout overrides but no global timeout defaults in the Scenario.
 - The `scroll` action accepts `deltaX` and `deltaY` as gesture drag deltas in logical pixels. Omitted deltas default to `0`. For example, `deltaY: -500` means dragging upward by 500 logical pixels, which usually reveals lower content. A Finder is optional for `scroll`; when omitted, Flutter Pilot scrolls the primary scrollable. When provided, the Finder must resolve to exactly one scrollable target. At least one of `deltaX` or `deltaY` must be non-zero, so `scroll: {}` and zero-delta scrolls are invalid.
-- Capture directives support screenshots, semantic snapshots, widget summaries, logs, and labels. Runtime errors are collected as part of logs in the first version.
+- Capture directives support screenshots, Widget Trees, logs, and labels. Runtime errors are collected as part of logs in the first version.
 - Failed steps automatically trigger diagnostic capture even if the YAML did not request a capture at that point.
 - Scenario execution produces a run directory containing a structured run report, an HTML timeline report, aggregated Step metadata, and capture artifacts.
 - `scenario.name` is metadata and does not need to be globally unique. Run directories use minute-level timestamp plus scenario name, such as `.runs/2026-06-06_12-30_login_error/`, to avoid overwrites and preserve chronological sorting.
@@ -163,12 +164,12 @@ The result is a reproducible bug report package that can be consumed by humans, 
   paths. The first Project Run version does not generate a batch-level HTML
   report.
 - The HTML timeline report is generated from the run report and artifacts, not by rerunning the scenario. `flutter_pilot report <run-directory>` regenerates `timeline.html` from an existing run directory.
-- The diff command compares two run directories. It reports changes in step status, screenshots, visible text, semantic snapshots, widget summaries, and logs.
-- A Screenshot is a visual image artifact for human review. A Snapshot is a structured UI state artifact for programmatic and agent consumption. A Widget Tree is a raw or near-raw Flutter hierarchy artifact for deeper debugging.
-- Snapshot capture is enabled by default for capture checkpoints. Widget Tree capture is available but disabled by default because it can be large and noisy.
-- The `capture` action records diagnostic artifacts at a Step. `capture: {}` uses the default bundle: `screenshot: true`, `snapshot: true`, `widgetTree: false`, and `logs: true`. Each option can be explicitly overridden.
+- The diff command compares two run directories. It reports changes in step status, screenshots, visible text, Widget Trees, and logs.
+- A Screenshot is a visual image artifact for human review. A Widget Tree is structured Flutter hierarchy data for programmatic and agent consumption.
+- Widget Tree capture is enabled by default for capture checkpoints. The legacy `snapshot` capture field is no longer accepted in Scenario YAML.
+- The `capture` action records diagnostic artifacts at a Step. `capture: {}` uses the default bundle: `screenshot: true`, `widgetTree: true`, and `logs: true`. Each option can be explicitly overridden.
 - Failed Steps automatically capture the same default bundle as `capture: {}`.
-- Raw Widget Tree dumps may be available, but agent-facing output should default to compact summaries of visible text, interactive widgets, routes, logs, runtime failures, and likely suspects. The Diagnostic Reducer writes this summary as `diagnosticSummary` in the run report when `--print` captures raw Snapshot, Widget Tree, or error diagnostics.
+- Raw Widget Tree dumps may be available, but agent-facing output should default to compact summaries of visible text, interactive widgets, routes, logs, runtime failures, and likely suspects. The Diagnostic Reducer writes this summary as `diagnosticSummary` in the run report when `--print` captures Widget Tree or error diagnostics.
 - Scenario-level device video recording is supported as an optional run-level artifact. When recording is enabled, `test` requires the selected Target Device to also be available as a Recording Device with the same device id. The Device Video Recording is stored under the run directory as `artifacts/device-video-recording.<ext>` and recorded in reports with a run-directory-relative path. Richer recording parameters remain out of scope. Step screenshots and timeline reports remain the primary step-level visual artifacts.
 - The implementation should be organized around deep modules:
   - Scenario model and parser: validates YAML and produces a typed scenario.
@@ -189,23 +190,23 @@ The result is a reproducible bug report package that can be consumed by humans, 
    - The current execution command is `test`; the earlier `run` shell has been removed from the public CLI.
    - This comes first because every later feature depends on a stable scenario contract and command surface.
 2. `PilotRuntimeAdapter` contract
-   - Define the narrow interface for tap, type, scroll, wait, screenshot, semantic snapshot, widget data, and logs.
+   - Define the narrow interface for tap, type, scroll, wait, screenshot, Widget Tree data, and logs.
    - Add a fake adapter for tests before wiring real commands, so runner behavior can be developed without a live Flutter app.
-   - Manually calibrate `pilot_runtime` before locking the implementation path. Check whether API calls are available and whether they expose richer structured data than CLI output; use API shape as the primary reference while keeping runner-facing types inside Flutter Pilot's own model. The same calibration should verify discovery, screenshot, semantic snapshot, Logs, Finder by text/key/type, multiple Finder Match descriptions, WidgetBounds availability, and scroll without Finder.
+   - Manually calibrate `pilot_runtime` before locking the implementation path. Check whether API calls are available and whether they expose richer structured data than CLI output; use API shape as the primary reference while keeping runner-facing types inside Flutter Pilot's own model. The same calibration should verify discovery, screenshot, Widget Tree data, Logs, Finder by text/key/type/widget, multiple Finder Match descriptions, WidgetBounds availability, and scroll without Finder.
 3. Runner engine with YAML replay
    - Execute ordered steps through the adapter, record step status, durations, command results, and exit codes.
    - Support the initial action set: `tap`, `type`, `scroll`, and `waitFor`.
 4. Artifact store and structured run report
    - Create stable run directories, persist scenario copies, aggregated Step metadata, command outputs, and `run_report.json`.
    - This should land before richer captures so every feature has a consistent place to write artifacts.
-5. Capture checkpoints: screenshots and semantic snapshots
+5. Capture checkpoints: screenshots and Widget Trees
    - Implement explicit `capture` steps and optional per-step capture configuration.
-   - Store screenshots and semantic snapshots with step numbers and labels, referenced from the run report.
+   - Store screenshots and Widget Trees with step numbers and labels, referenced from the run report.
 6. Failure artifact bundle
-   - On failed steps, automatically collect screenshot, semantic snapshot, widget summary, logs, and device or target metadata.
+   - On failed steps, automatically collect screenshot, Widget Tree, logs, and device or target metadata.
    - This is the first major user-facing debugging win and should be complete before report polish.
 7. `--until` and `--print`
-   - Support stopping at numeric or labeled steps and printing `snapshot`, `widget-tree`, `errors`, or any repeated combination of those values in fixed output order.
+   - Support stopping at numeric or labeled steps and printing `widget-tree`, `errors`, or both in fixed output order.
    - This builds on the runner, capture, and diagnostic plumbing and makes the tool useful for iterative human and agent debugging.
 8. Diagnostic reducer
    - Convert raw widget, semantic, and log data into compact agent-friendly summaries of visible text, interactive widgets, routes, logs, runtime failures, and likely suspects.

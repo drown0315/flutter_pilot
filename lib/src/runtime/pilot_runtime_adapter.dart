@@ -5,9 +5,9 @@ import 'runtime_contract.dart';
 
 /// Runtime Adapter backed by the `pilot_runtime` package.
 ///
-/// This first adapter slice verifies the app-side runtime handshake and exposes
-/// Widget Tree capture through Flutter Pilot's existing Runtime Adapter
-/// contract.
+/// It verifies the app-side runtime handshake, maps Scenario Finders and
+/// replay actions to `pilot_runtime`, and exposes Widget Tree capture through
+/// Flutter Pilot's Runtime Adapter contract.
 class PilotRuntimeAdapter implements RuntimeAdapter {
   /// Create an adapter backed by a checked `pilot_runtime` client.
   const PilotRuntimeAdapter({

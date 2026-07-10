@@ -35,8 +35,9 @@ Labels must be unique inside a Scenario.
 
 ## Find widgets by visible UI
 
-Use `byText` for exact visible text and `byType` for semantic node types
-exposed by the runtime.
+Use `byText` for exact visible text, `byType` for semantic node types exposed
+by the runtime, `byKey` for `ValueKey<String>` values, and `byWidget` for exact
+Dart widget runtime type display names.
 
 ```yaml scenario
 steps:
@@ -44,6 +45,8 @@ steps:
     tap:
       byText: Continue
       byType: button
+      byKey: continue_button
+      byWidget: PrimaryButton
 ```
 
 When a Finder has multiple fields, every configured field must match.

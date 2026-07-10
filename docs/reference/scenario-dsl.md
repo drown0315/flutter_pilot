@@ -103,6 +103,8 @@ A Finder identifies the widget that an action should interact with or wait for.
 | --- | --- |
 | `byText` | Exact visible text. |
 | `byType` | Semantic node type exposed by the runtime, such as `button` or `textField`. |
+| `byKey` | `ValueKey<String>` value. |
+| `byWidget` | Exact Dart widget runtime type display name, such as `FilledButton`. |
 
 ```yaml scenario
 steps:
@@ -122,7 +124,7 @@ Flutter Pilot supports these Scenario actions:
 | Action | Purpose |
 | --- | --- |
 | `tap` | Tap exactly one Finder Match. |
-| `type` | Replace text in exactly one Finder Match. |
+| `type` | Clear and enter text in exactly one Finder Match. |
 | `scroll` | Drag a scrollable area by logical-pixel deltas. |
 | `waitFor` | Wait until a Finder resolves to exactly one match. |
 | `capture` | Record diagnostic artifacts at that Step. |
@@ -180,3 +182,4 @@ steps:
 ```
 
 `capture: {}` records the default bundle: screenshot, Widget Tree, and logs.
+The legacy `snapshot` capture field is no longer accepted in Scenario YAML.

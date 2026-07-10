@@ -54,8 +54,7 @@ steps:
   - label: capture_failure
     capture:
       screenshot: true
-      snapshot: true
-      widgetTree: false
+      widgetTree: true
       logs: true
 ```
 
@@ -186,7 +185,7 @@ produce a validation error instead of falling back to the working directory.
 ## Finders
 
 A Finder identifies the widget that a Step should interact with or wait for.
-Supported Finder fields are `byText` and `byType`.
+Supported Finder fields are `byText`, `byType`, `byKey`, and `byWidget`.
 
 ```yaml
 tap:
@@ -202,6 +201,16 @@ tap:
 tap:
   byText: Continue
   byType: button
+```
+
+```yaml
+tap:
+  byKey: continue_button
+```
+
+```yaml
+tap:
+  byWidget: PrimaryButton
 ```
 
 When several Finder fields are present, all constraints must match. There is no
@@ -210,9 +219,14 @@ When several Finder fields are present, all constraints must match. There is no
 `byText` matches exact visible text. It does not perform contains, fuzzy, or
 regular expression matching.
 
-`byType` is the `mcp_flutter` semantic Snapshot node type, such as `textField`,
-`button`, `text`, `scrollable`, or `header`. It is not a Dart widget class name
-like `TextField` or `FilledButton`.
+`byType` is the runtime semantic node type, such as `textField`, `button`,
+`text`, `scrollable`, or `header`. It is not a Dart widget class name like
+`TextField` or `FilledButton`.
+
+`byKey` matches a visible target by `ValueKey<String>` value.
+
+`byWidget` matches a visible target by exact Dart widget runtime type display
+name, such as `FilledButton` or an app-authored wrapper widget class.
 
 Finder fields are single strings. Arrays are validation errors.
 
@@ -300,8 +314,7 @@ waiting until timeout. Multiple matches fail the Step.
 
 ```yaml
 screenshot: true
-snapshot: true
-widgetTree: false
+widgetTree: true
 logs: true
 ```
 
@@ -311,10 +324,11 @@ Each option can be overridden:
 - label: capture_deep_context
   capture:
     screenshot: true
-    snapshot: true
     widgetTree: true
     logs: true
 ```
+
+The legacy `snapshot` capture field is no longer accepted in Scenario YAML.
 
 Runtime errors are collected as part of logs in the first version.
 
@@ -347,7 +361,7 @@ Flutter Pilot validates Scenario YAML strictly:
 - `tap`, `type`, and `waitFor` require a Finder.
 - `scroll` may omit a Finder.
 - `capture` does not use a Finder.
-- `byText` and `byType` must be single strings.
+- `byText`, `byType`, `byKey`, and `byWidget` must be single strings.
 - Step labels must be unique (checked after include expansion).
 - `scroll` must have a non-zero `deltaX` or `deltaY`.
 - `waitFor.timeoutMs` defaults to `3000`.

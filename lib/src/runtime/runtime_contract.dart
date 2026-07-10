@@ -4,9 +4,9 @@ import '../scenario.dart';
 
 /// Runtime Target selected for one Scenario run.
 ///
-/// The first version accepts a Flutter VM service URI from the CLI `--target`
-/// option. The target is bound when creating the real runtime adapter, rather
-/// than passed to every adapter method.
+/// It identifies the launched or connected app instance for the real runtime
+/// adapter. The target is bound when creating the adapter, rather than passed
+/// to every adapter method.
 class RuntimeTarget {
   const RuntimeTarget({required this.vmServiceUri});
 

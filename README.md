@@ -9,7 +9,7 @@ debugging context.
 
 It lets you describe a UI path in YAML, replay that Scenario against a running
 Flutter app, and collect the context needed to understand what happened:
-actions, screenshots, semantic Snapshots, logs, run reports, and timeline
+actions, screenshots, Widget Trees, logs, run reports, and timeline
 views. The goal is to make a UI bug report readable by humans, CI, and AI
 coding agents without relying on vague manual reproduction notes.
 
@@ -179,7 +179,7 @@ Stop after a specific Step and print captured diagnostic context:
 ```bash
 flutter_pilot test examples/smoke_app/smoke_scenario.yaml \
   --until wait_for_error \
-  --print snapshot
+  --print widget-tree
 ```
 
 Regenerate the HTML timeline from an existing run directory:
@@ -217,14 +217,14 @@ flutter_pilot test <scenario-directory>
 flutter_pilot test <scenario.yaml> --device <device-id-or-name>
 flutter_pilot test <scenario.yaml> --flavor <flavor> --target <entrypoint.dart>
 flutter_pilot test <scenario.yaml> --until <step-or-label>
-flutter_pilot test <scenario.yaml> --until <step-or-label> --print <snapshot|widget-tree|errors>
+flutter_pilot test <scenario.yaml> --until <step-or-label> --print <widget-tree|errors>
 flutter_pilot report <run-directory>
 flutter_pilot diff <before-run> <after-run>
 flutter_pilot diff <before-run> <after-run> --json
 ```
 
 `--print` may be repeated. When several diagnostics are requested, Flutter Pilot
-prints them in a stable order: Snapshot, Widget Tree, then errors.
+prints them in a stable order: Widget Tree, then errors.
 
 With no Scenario file, `test` discovers Project Scenarios under `pilot/`. With
 a directory argument, it discovers Project Scenarios under that directory.
@@ -248,7 +248,6 @@ batch run directory under `.runs/` and child Scenario Run directories inside it.
 The artifact model is designed for both human review and machine consumption.
 
 - Screenshot: what a user saw on screen.
-- Snapshot: structured UI state for tools and AI agents.
 - Widget Tree: deeper Flutter hierarchy data when requested.
 - Logs: runtime and diagnostic output.
 - Device Video Recording: optional run-level video saved when
