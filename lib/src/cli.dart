@@ -25,13 +25,12 @@ class FlutterPilotCli {
   const FlutterPilotCli({
     TestCommandExecutor testCommandExecutor =
         const DefaultTestCommandExecutor(),
-    ProjectRunCommandExecutor projectRunCommandExecutor =
-        const DefaultProjectRunCommandExecutor(),
+    ProjectRunExecutor projectRunExecutor = const DefaultProjectRunExecutor(),
   }) : _testCommandExecutor = testCommandExecutor,
-       _projectRunCommandExecutor = projectRunCommandExecutor;
+       _projectRunExecutor = projectRunExecutor;
 
   final TestCommandExecutor _testCommandExecutor;
-  final ProjectRunCommandExecutor _projectRunCommandExecutor;
+  final ProjectRunExecutor _projectRunExecutor;
 
   /// Run the CLI with already-tokenized command-line arguments.
   ///
@@ -51,7 +50,7 @@ class FlutterPilotCli {
           ..addCommand(
             TestCommand(
               executor: _testCommandExecutor,
-              projectRunExecutor: _projectRunCommandExecutor,
+              projectRunExecutor: _projectRunExecutor,
             ),
           )
           ..addCommand(ReportCommand())

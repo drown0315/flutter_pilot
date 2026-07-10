@@ -26,9 +26,9 @@ class TestCommandOptions {
 }
 
 /// Parsed Project Run inputs selected by the `test` command.
-class ProjectRunCommandOptions {
-  /// Creates validated Project Run command inputs.
-  const ProjectRunCommandOptions({
+class ProjectRunOptions {
+  /// Creates validated Project Run inputs.
+  const ProjectRunOptions({
     required this.discoveryRootPath,
     required this.scenarios,
     required this.device,
@@ -49,9 +49,9 @@ class ProjectRunCommandOptions {
   final bool jsonOutput;
 }
 
-/// Project Run command result used by mode selection and stdout rendering.
-class ProjectRunCommandReport {
-  const ProjectRunCommandReport({
+/// Project Run result used by mode selection and stdout rendering.
+class ProjectRunResult {
+  const ProjectRunResult({
     required this.passed,
     required this.status,
     required this.projectRunReportPath,

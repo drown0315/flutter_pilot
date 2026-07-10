@@ -20,13 +20,13 @@ import 'test_scenario_runner_factory.dart';
 import 'test_target_device_selection.dart';
 
 /// Executes a validated Project Run selected by `test`.
-abstract interface class ProjectRunCommandExecutor {
+abstract interface class ProjectRunExecutor {
   /// Run the Project Scenarios described by [options].
   ///
   /// `onLaunchProgress`, when provided, receives the batch-level Target App
   /// Launch Progress events before any Project Scenario executes.
-  Future<ProjectRunCommandReport> run(
-    ProjectRunCommandOptions options, {
+  Future<ProjectRunResult> run(
+    ProjectRunOptions options, {
     void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
     bool launchHeartbeatEnabled = false,
     void Function(StepProgressEvent event)? onProgress,
@@ -34,8 +34,8 @@ abstract interface class ProjectRunCommandExecutor {
 }
 
 /// Default Project Run executor for launch reuse and batch Scenario execution.
-class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
-  const DefaultProjectRunCommandExecutor({
+class DefaultProjectRunExecutor implements ProjectRunExecutor {
+  const DefaultProjectRunExecutor({
     this.deviceDiscovery = const DefaultTestDeviceDiscovery(),
     this.launcher = const TargetAppLauncher(),
     this.runnerFactory = const DefaultTestScenarioRunnerFactory(),
@@ -67,8 +67,8 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
   final Stream<void>? launchHeartbeatTicks;
 
   @override
-  Future<ProjectRunCommandReport> run(
-    ProjectRunCommandOptions options, {
+  Future<ProjectRunResult> run(
+    ProjectRunOptions options, {
     void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
     bool launchHeartbeatEnabled = false,
     void Function(StepProgressEvent event)? onProgress,
@@ -127,7 +127,7 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
             scenarioResults: scenarioResults,
           );
       projectRunWriter.writeProjectRunReport(projectReport.toJson());
-      return ProjectRunCommandReport(
+      return ProjectRunResult(
         passed: false,
         status: ProjectRunStatus.environmentFailed,
         projectRunReportPath: p.join(
@@ -311,7 +311,7 @@ class DefaultProjectRunCommandExecutor implements ProjectRunCommandExecutor {
             scenarioResults: scenarioResults,
           );
     projectRunWriter.writeProjectRunReport(projectReport.toJson());
-    return ProjectRunCommandReport(
+    return ProjectRunResult(
       passed: projectStatus == ProjectRunStatus.passed,
       status: projectStatus,
       projectRunReportPath: p.join(

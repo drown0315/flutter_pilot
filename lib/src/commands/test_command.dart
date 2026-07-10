@@ -18,7 +18,7 @@ import '../test_command_support.dart';
 class TestCommand extends Command<int> {
   TestCommand({
     required TestCommandExecutor executor,
-    required ProjectRunCommandExecutor projectRunExecutor,
+    required ProjectRunExecutor projectRunExecutor,
   }) : _executor = executor,
        _projectRunExecutor = projectRunExecutor {
     argParser
@@ -50,7 +50,7 @@ class TestCommand extends Command<int> {
   }
 
   final TestCommandExecutor _executor;
-  final ProjectRunCommandExecutor _projectRunExecutor;
+  final ProjectRunExecutor _projectRunExecutor;
 
   @override
   String get description => 'Launch the Target App Package and run a Scenario.';
@@ -216,7 +216,7 @@ class TestCommand extends Command<int> {
       _writeValidationErrors(error.errors);
       return 1;
     }
-    final ProjectRunCommandOptions options = ProjectRunCommandOptions(
+    final ProjectRunOptions options = ProjectRunOptions(
       discoveryRootPath: discoveryRootPath,
       scenarios: scenarios,
       device: device,
@@ -237,7 +237,7 @@ class TestCommand extends Command<int> {
             jsonOutput: options.jsonOutput,
             stderrHasTerminal: stderr.hasTerminal,
           );
-      final ProjectRunCommandReport report = await _projectRunExecutor.run(
+      final ProjectRunResult report = await _projectRunExecutor.run(
         options,
         onLaunchProgress: launchProgressRenderer?.render,
         launchHeartbeatEnabled: launchProgressRenderer != null,

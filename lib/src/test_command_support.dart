@@ -5,7 +5,7 @@
 /// implementations live in focused files.
 library;
 
-export 'project_run_command_executor.dart';
+export 'project_run_executor.dart';
 export 'test_command_executor.dart';
 export 'test_command_models.dart';
 export 'test_command_output.dart';

@@ -46,7 +46,7 @@ class TestCommandOutput {
   ///
   /// The summary keeps the batch-level report path first, then prints each
   /// Scenario's existing report paths in execution order.
-  static String renderProjectRunSummary(ProjectRunCommandReport report) {
+  static String renderProjectRunSummary(ProjectRunResult report) {
     final StringBuffer buffer = StringBuffer()
       ..writeln('Project Run: ${report.status.name}')
       ..writeln('Project Run report: ${report.projectRunReportPath}');

@@ -22,11 +22,12 @@ scenario:
 steps:
   - capture: {}
 ''');
-      final FakeProjectRunCommandExecutor projectExecutor =
-          FakeProjectRunCommandExecutor(report: _passedProjectReport());
+      final FakeProjectRunExecutor projectExecutor = FakeProjectRunExecutor(
+        report: _passedProjectReport(),
+      );
 
       final int exitCode = await FlutterPilotCli(
-        projectRunCommandExecutor: projectExecutor,
+        projectRunExecutor: projectExecutor,
       ).run(<String>['test']);
 
       expect(exitCode, 0);
@@ -51,11 +52,12 @@ scenario:
 steps:
   - capture: {}
 ''');
-        final FakeProjectRunCommandExecutor projectExecutor =
-            FakeProjectRunCommandExecutor(report: _passedProjectReport());
+        final FakeProjectRunExecutor projectExecutor = FakeProjectRunExecutor(
+          report: _passedProjectReport(),
+        );
 
         final int exitCode = await FlutterPilotCli(
-          projectRunCommandExecutor: projectExecutor,
+          projectRunExecutor: projectExecutor,
         ).run(<String>['test', 'flows']);
 
         expect(exitCode, 0);
@@ -71,7 +73,7 @@ steps:
   );
 
   test('Project Run output renders deterministic all-passed summary', () {
-    const ProjectRunCommandReport report = ProjectRunCommandReport(
+    const ProjectRunResult report = ProjectRunResult(
       passed: true,
       status: ProjectRunStatus.passed,
       projectRunReportPath:
@@ -115,7 +117,7 @@ HTML report: .runs/2026-07-01_09-30_project-run/2026-07-01_09-30_login/timeline.
   });
 
   test('Project Run output renders partially failed summary', () {
-    const ProjectRunCommandReport report = ProjectRunCommandReport(
+    const ProjectRunResult report = ProjectRunResult(
       passed: false,
       status: ProjectRunStatus.failed,
       projectRunReportPath: '.runs/project-run/project_run_report.json',
@@ -143,7 +145,7 @@ HTML report: .runs/2026-07-01_09-30_project-run/2026-07-01_09-30_login/timeline.
   });
 
   test('Project Run output renders environment-level failure summary', () {
-    const ProjectRunCommandReport report = ProjectRunCommandReport(
+    const ProjectRunResult report = ProjectRunResult(
       passed: false,
       status: ProjectRunStatus.environmentFailed,
       projectRunReportPath: '.runs/project-run/project_run_report.json',
@@ -168,12 +170,13 @@ steps:
       final FakeTestCommandExecutor executor = FakeTestCommandExecutor(
         report: _passedReport(),
       );
-      final FakeProjectRunCommandExecutor projectExecutor =
-          FakeProjectRunCommandExecutor(report: _passedProjectReport());
+      final FakeProjectRunExecutor projectExecutor = FakeProjectRunExecutor(
+        report: _passedProjectReport(),
+      );
 
       final int exitCode = await FlutterPilotCli(
         testCommandExecutor: executor,
-        projectRunCommandExecutor: projectExecutor,
+        projectRunExecutor: projectExecutor,
       ).run(<String>['test', scenarioFile.path]);
 
       expect(exitCode, 0);
@@ -228,11 +231,12 @@ steps:
 steps:
   - capture: {}
 ''');
-        final FakeProjectRunCommandExecutor projectExecutor =
-            FakeProjectRunCommandExecutor(report: _passedProjectReport());
+        final FakeProjectRunExecutor projectExecutor = FakeProjectRunExecutor(
+          report: _passedProjectReport(),
+        );
 
         final int exitCode = await FlutterPilotCli(
-          projectRunCommandExecutor: projectExecutor,
+          projectRunExecutor: projectExecutor,
         ).run(<String>['test']);
 
         expect(exitCode, 64);
@@ -343,11 +347,12 @@ steps:
       ];
 
       for (final List<String> optionCase in optionCases) {
-        final FakeProjectRunCommandExecutor projectExecutor =
-            FakeProjectRunCommandExecutor(report: _passedProjectReport());
+        final FakeProjectRunExecutor projectExecutor = FakeProjectRunExecutor(
+          report: _passedProjectReport(),
+        );
 
         final int exitCode = await FlutterPilotCli(
-          projectRunCommandExecutor: projectExecutor,
+          projectRunExecutor: projectExecutor,
         ).run(<String>['test', ...optionCase]);
 
         expect(exitCode, 64);
@@ -391,11 +396,12 @@ scenario:
 steps:
   - capture: {}
 ''');
-      final FakeProjectRunCommandExecutor projectExecutor =
-          FakeProjectRunCommandExecutor(report: _passedProjectReport());
+      final FakeProjectRunExecutor projectExecutor = FakeProjectRunExecutor(
+        report: _passedProjectReport(),
+      );
 
       final int exitCode = await FlutterPilotCli(
-        projectRunCommandExecutor: projectExecutor,
+        projectRunExecutor: projectExecutor,
       ).run(<String>['test']);
 
       expect(exitCode, 0);
@@ -440,11 +446,12 @@ scenario:
 steps:
   - capture: {}
 ''');
-        final FakeProjectRunCommandExecutor projectExecutor =
-            FakeProjectRunCommandExecutor(report: _passedProjectReport());
+        final FakeProjectRunExecutor projectExecutor = FakeProjectRunExecutor(
+          report: _passedProjectReport(),
+        );
 
         final int exitCode = await FlutterPilotCli(
-          projectRunCommandExecutor: projectExecutor,
+          projectRunExecutor: projectExecutor,
         ).run(<String>['test']);
 
         expect(exitCode, 0);
@@ -465,11 +472,12 @@ scenario:
 steps:
   - capture: {}
 ''');
-        final FakeProjectRunCommandExecutor projectExecutor =
-            FakeProjectRunCommandExecutor(report: _passedProjectReport());
+        final FakeProjectRunExecutor projectExecutor = FakeProjectRunExecutor(
+          report: _passedProjectReport(),
+        );
 
         final int exitCode = await FlutterPilotCli(
-          projectRunCommandExecutor: projectExecutor,
+          projectRunExecutor: projectExecutor,
         ).run(<String>['test', '--json']);
 
         expect(exitCode, 0);
@@ -1696,16 +1704,15 @@ steps:
         final FakeScenarioRunner secondRunner = FakeScenarioRunner(
           _passedReportFor('checkout'),
         );
-        final DefaultProjectRunCommandExecutor executor =
-            DefaultProjectRunCommandExecutor(
-              launcher: TargetAppLauncher(starter: starter),
-              runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
-                firstRunner,
-                secondRunner,
-              ]),
-              outputDirectory: Directory.current,
-              clock: () => DateTime.utc(2026, 7, 1, 9, 30),
-            );
+        final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
+          launcher: TargetAppLauncher(starter: starter),
+          runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+            firstRunner,
+            secondRunner,
+          ]),
+          outputDirectory: Directory.current,
+          clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+        );
         final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
           ProjectScenarioFile(
             path: 'pilot/login.yaml',
@@ -1719,8 +1726,8 @@ steps:
           ),
         ];
 
-        final Future<ProjectRunCommandReport> reportFuture = executor.run(
-          ProjectRunCommandOptions(
+        final Future<ProjectRunResult> reportFuture = executor.run(
+          ProjectRunOptions(
             discoveryRootPath: 'pilot',
             scenarios: scenarios,
             device: null,
@@ -1746,7 +1753,7 @@ steps:
           jsonEncode(<String, Object?>{'id': 0, 'result': true}),
         );
 
-        final ProjectRunCommandReport report = await reportFuture;
+        final ProjectRunResult report = await reportFuture;
 
         expect(report.passed, isTrue);
         expect(starter.startCount, 1);
@@ -1801,16 +1808,15 @@ steps:
             ),
           ],
         );
-        final DefaultProjectRunCommandExecutor executor =
-            DefaultProjectRunCommandExecutor(
-              deviceDiscovery: deviceDiscovery,
-              launcher: TargetAppLauncher(starter: starter),
-              runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
-                runner,
-              ]),
-              outputDirectory: Directory.current,
-              clock: () => DateTime.utc(2026, 7, 1, 9, 30),
-            );
+        final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
+          deviceDiscovery: deviceDiscovery,
+          launcher: TargetAppLauncher(starter: starter),
+          runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+            runner,
+          ]),
+          outputDirectory: Directory.current,
+          clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+        );
         final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
           ProjectScenarioFile(
             path: 'pilot/login.yaml',
@@ -1819,8 +1825,8 @@ steps:
           ),
         ];
 
-        final Future<ProjectRunCommandReport> reportFuture = executor.run(
-          ProjectRunCommandOptions(
+        final Future<ProjectRunResult> reportFuture = executor.run(
+          ProjectRunOptions(
             discoveryRootPath: 'pilot',
             scenarios: scenarios,
             device: 'Pixel',
@@ -1845,7 +1851,7 @@ steps:
           jsonEncode(<String, Object?>{'id': 0, 'result': true}),
         );
 
-        final ProjectRunCommandReport report = await reportFuture;
+        final ProjectRunResult report = await reportFuture;
 
         expect(report.passed, isTrue);
         expect(deviceDiscovery.flutterDeviceListCount, 1);
@@ -1890,16 +1896,15 @@ steps:
             RecordingDeviceIdentity(id: 'pixel-8'),
           ],
         );
-        final DefaultProjectRunCommandExecutor executor =
-            DefaultProjectRunCommandExecutor(
-              deviceDiscovery: deviceDiscovery,
-              launcher: TargetAppLauncher(starter: starter),
-              runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
-                runner,
-              ]),
-              outputDirectory: Directory.current,
-              clock: () => DateTime.utc(2026, 7, 1, 9, 30),
-            );
+        final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
+          deviceDiscovery: deviceDiscovery,
+          launcher: TargetAppLauncher(starter: starter),
+          runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+            runner,
+          ]),
+          outputDirectory: Directory.current,
+          clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+        );
         final List<TargetAppLaunchProgressEvent> launchEvents =
             <TargetAppLaunchProgressEvent>[];
         final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
@@ -1924,8 +1929,8 @@ steps:
           ),
         ];
 
-        final Future<ProjectRunCommandReport> reportFuture = executor.run(
-          ProjectRunCommandOptions(
+        final Future<ProjectRunResult> reportFuture = executor.run(
+          ProjectRunOptions(
             discoveryRootPath: 'pilot',
             scenarios: scenarios,
             device: null,
@@ -1944,7 +1949,7 @@ steps:
           }),
         );
 
-        final ProjectRunCommandReport report = await reportFuture;
+        final ProjectRunResult report = await reportFuture;
 
         expect(report.passed, isTrue);
         expect(deviceDiscovery.flutterDeviceListCount, 1);
@@ -2000,16 +2005,15 @@ steps:
             const RecordingDeviceIdentity(id: 'iphone-15'),
           ],
         );
-        final DefaultProjectRunCommandExecutor executor =
-            DefaultProjectRunCommandExecutor(
-              deviceDiscovery: deviceDiscovery,
-              launcher: TargetAppLauncher(starter: starter),
-              runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
-                FakeScenarioRunner(_passedReportFor('recorded')),
-              ]),
-              outputDirectory: Directory.current,
-              clock: () => DateTime.utc(2026, 7, 1, 9, 30),
-            );
+        final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
+          deviceDiscovery: deviceDiscovery,
+          launcher: TargetAppLauncher(starter: starter),
+          runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+            FakeScenarioRunner(_passedReportFor('recorded')),
+          ]),
+          outputDirectory: Directory.current,
+          clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+        );
         final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
           ProjectScenarioFile(
             path: 'pilot/recorded.yaml',
@@ -2032,8 +2036,8 @@ steps:
           ),
         ];
 
-        final ProjectRunCommandReport report = await executor.run(
-          ProjectRunCommandOptions(
+        final ProjectRunResult report = await executor.run(
+          ProjectRunOptions(
             discoveryRootPath: 'pilot',
             scenarios: scenarios,
             device: null,
@@ -2073,19 +2077,18 @@ steps:
             'flutter devices failed',
           ),
         );
-        final DefaultProjectRunCommandExecutor executor =
-            DefaultProjectRunCommandExecutor(
-              deviceDiscovery: deviceDiscovery,
-              launcher: TargetAppLauncher(starter: starter),
-              runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
-                FakeScenarioRunner(_passedReportFor('login')),
-              ]),
-              outputDirectory: Directory.current,
-              clock: () => DateTime.utc(2026, 7, 1, 9, 30),
-            );
+        final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
+          deviceDiscovery: deviceDiscovery,
+          launcher: TargetAppLauncher(starter: starter),
+          runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+            FakeScenarioRunner(_passedReportFor('login')),
+          ]),
+          outputDirectory: Directory.current,
+          clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+        );
 
-        final ProjectRunCommandReport report = await executor.run(
-          ProjectRunCommandOptions(
+        final ProjectRunResult report = await executor.run(
+          ProjectRunOptions(
             discoveryRootPath: 'pilot',
             scenarios: <ProjectScenarioFile>[
               ProjectScenarioFile(
@@ -2124,15 +2127,12 @@ steps:
       final FakeScenarioRunner runner = FakeScenarioRunner(
         _passedReportFor('login'),
       );
-      final DefaultProjectRunCommandExecutor executor =
-          DefaultProjectRunCommandExecutor(
-            launcher: TargetAppLauncher(starter: starter),
-            runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
-              runner,
-            ]),
-            outputDirectory: Directory.current,
-            clock: () => DateTime.utc(2026, 7, 1, 9, 30),
-          );
+      final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
+        launcher: TargetAppLauncher(starter: starter),
+        runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[runner]),
+        outputDirectory: Directory.current,
+        clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+      );
       final List<TargetAppLaunchProgressEvent> launchEvents =
           <TargetAppLaunchProgressEvent>[];
       final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
@@ -2143,8 +2143,8 @@ steps:
         ),
       ];
 
-      final Future<ProjectRunCommandReport> reportFuture = executor.run(
-        ProjectRunCommandOptions(
+      final Future<ProjectRunResult> reportFuture = executor.run(
+        ProjectRunOptions(
           discoveryRootPath: 'pilot',
           scenarios: scenarios,
           device: null,
@@ -2161,7 +2161,7 @@ steps:
         }),
       );
 
-      final ProjectRunCommandReport report = await reportFuture;
+      final ProjectRunResult report = await reportFuture;
 
       expect(report.passed, isTrue);
       expect(
@@ -2184,19 +2184,16 @@ steps:
       final HangingScenarioRunner runner = HangingScenarioRunner();
       final StreamController<void> interruptController =
           StreamController<void>();
-      final DefaultProjectRunCommandExecutor executor =
-          DefaultProjectRunCommandExecutor(
-            launcher: TargetAppLauncher(starter: starter),
-            runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
-              runner,
-            ]),
-            interruptSignals: interruptController.stream,
-            outputDirectory: Directory.current,
-            clock: () => DateTime.utc(2026, 7, 1, 9, 30),
-          );
+      final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
+        launcher: TargetAppLauncher(starter: starter),
+        runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[runner]),
+        interruptSignals: interruptController.stream,
+        outputDirectory: Directory.current,
+        clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+      );
 
-      final Future<ProjectRunCommandReport> reportFuture = executor.run(
-        ProjectRunCommandOptions(
+      final Future<ProjectRunResult> reportFuture = executor.run(
+        ProjectRunOptions(
           discoveryRootPath: 'pilot',
           scenarios: <ProjectScenarioFile>[
             ProjectScenarioFile(
@@ -2257,16 +2254,15 @@ steps:
         );
         final StreamController<void> ticks = StreamController<void>();
         DateTime now = DateTime.utc(2026, 7, 1, 9, 30);
-        final DefaultProjectRunCommandExecutor executor =
-            DefaultProjectRunCommandExecutor(
-              launcher: TargetAppLauncher(starter: starter),
-              runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
-                runner,
-              ]),
-              outputDirectory: Directory.current,
-              clock: () => now,
-              launchHeartbeatTicks: ticks.stream,
-            );
+        final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
+          launcher: TargetAppLauncher(starter: starter),
+          runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+            runner,
+          ]),
+          outputDirectory: Directory.current,
+          clock: () => now,
+          launchHeartbeatTicks: ticks.stream,
+        );
         final List<TargetAppLaunchProgressEvent> launchEvents =
             <TargetAppLaunchProgressEvent>[];
         final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
@@ -2277,8 +2273,8 @@ steps:
           ),
         ];
 
-        final Future<ProjectRunCommandReport> reportFuture = executor.run(
-          ProjectRunCommandOptions(
+        final Future<ProjectRunResult> reportFuture = executor.run(
+          ProjectRunOptions(
             discoveryRootPath: 'pilot',
             scenarios: scenarios,
             device: null,
@@ -2331,16 +2327,15 @@ steps:
         final FakeScenarioRunner secondRunner = FakeScenarioRunner(
           _passedReportFor('checkout'),
         );
-        final DefaultProjectRunCommandExecutor executor =
-            DefaultProjectRunCommandExecutor(
-              launcher: TargetAppLauncher(starter: starter),
-              runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
-                firstRunner,
-                secondRunner,
-              ]),
-              outputDirectory: Directory.current,
-              clock: () => DateTime.utc(2026, 7, 1, 9, 30),
-            );
+        final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
+          launcher: TargetAppLauncher(starter: starter),
+          runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+            firstRunner,
+            secondRunner,
+          ]),
+          outputDirectory: Directory.current,
+          clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+        );
         final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
           ProjectScenarioFile(
             path: 'pilot/login.yaml',
@@ -2354,8 +2349,8 @@ steps:
           ),
         ];
 
-        final Future<ProjectRunCommandReport> reportFuture = executor.run(
-          ProjectRunCommandOptions(
+        final Future<ProjectRunResult> reportFuture = executor.run(
+          ProjectRunOptions(
             discoveryRootPath: 'pilot',
             scenarios: scenarios,
             device: null,
@@ -2380,7 +2375,7 @@ steps:
           jsonEncode(<String, Object?>{'id': 0, 'result': true}),
         );
 
-        final ProjectRunCommandReport report = await reportFuture;
+        final ProjectRunResult report = await reportFuture;
 
         expect(report.passed, isFalse);
         expect(starter.startCount, 1);
@@ -2408,16 +2403,15 @@ steps:
       final FakeScenarioRunner secondRunner = FakeScenarioRunner(
         _passedReportFor('checkout'),
       );
-      final DefaultProjectRunCommandExecutor executor =
-          DefaultProjectRunCommandExecutor(
-            launcher: TargetAppLauncher(starter: starter),
-            runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
-              firstRunner,
-              secondRunner,
-            ]),
-            outputDirectory: Directory.current,
-            clock: () => DateTime.utc(2026, 7, 1, 9, 30),
-          );
+      final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
+        launcher: TargetAppLauncher(starter: starter),
+        runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+          firstRunner,
+          secondRunner,
+        ]),
+        outputDirectory: Directory.current,
+        clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+      );
       final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
         ProjectScenarioFile(
           path: 'pilot/login.yaml',
@@ -2431,8 +2425,8 @@ steps:
         ),
       ];
 
-      final Future<ProjectRunCommandReport> reportFuture = executor.run(
-        ProjectRunCommandOptions(
+      final Future<ProjectRunResult> reportFuture = executor.run(
+        ProjectRunOptions(
           discoveryRootPath: 'pilot',
           scenarios: scenarios,
           device: null,
@@ -2451,7 +2445,7 @@ steps:
         }),
       );
 
-      final ProjectRunCommandReport report = await reportFuture;
+      final ProjectRunResult report = await reportFuture;
 
       expect(report.passed, isFalse);
       expect(starter.startCount, 1);
@@ -2491,19 +2485,19 @@ class FakeTestCommandExecutor implements TestCommandExecutor {
   }
 }
 
-class FakeProjectRunCommandExecutor implements ProjectRunCommandExecutor {
-  FakeProjectRunCommandExecutor({required this.report});
+class FakeProjectRunExecutor implements ProjectRunExecutor {
+  FakeProjectRunExecutor({required this.report});
 
-  final ProjectRunCommandReport report;
-  late ProjectRunCommandOptions options;
+  final ProjectRunResult report;
+  late ProjectRunOptions options;
   bool ran = false;
   void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress;
   bool? launchHeartbeatEnabled;
   void Function(StepProgressEvent event)? onProgress;
 
   @override
-  Future<ProjectRunCommandReport> run(
-    ProjectRunCommandOptions options, {
+  Future<ProjectRunResult> run(
+    ProjectRunOptions options, {
     void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
     bool launchHeartbeatEnabled = false,
     void Function(StepProgressEvent event)? onProgress,
@@ -2517,8 +2511,8 @@ class FakeProjectRunCommandExecutor implements ProjectRunCommandExecutor {
   }
 }
 
-ProjectRunCommandReport _passedProjectReport() {
-  return const ProjectRunCommandReport(
+ProjectRunResult _passedProjectReport() {
+  return const ProjectRunResult(
     passed: true,
     status: ProjectRunStatus.passed,
     projectRunReportPath: '.runs/project-run/project_run_report.json',
