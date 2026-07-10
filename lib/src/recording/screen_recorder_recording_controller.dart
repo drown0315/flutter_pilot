@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:screen_recorder/screen_recorder.dart' as screen_recorder;
 
-import '../scenario.dart';
+import '../scenario/scenario.dart';
 import 'recording_contract.dart';
 
 /// Recording Controller backed by the `screen_recorder` package.

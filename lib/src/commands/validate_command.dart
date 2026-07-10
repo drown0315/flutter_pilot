@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 
-import '../scenario_parser.dart';
+import '../scenario/scenario_parser.dart';
 
 /// `validate` command for checking Scenario YAML without connecting to Flutter.
 ///

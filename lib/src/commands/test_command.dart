@@ -3,14 +3,14 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 
-import '../diagnostic_text_renderer.dart';
-import '../project_scenario_discovery.dart';
-import '../scenario.dart';
-import '../scenario_parser.dart';
-import '../scenario_runner.dart';
-import '../step_progress_renderer.dart';
-import '../target_app_launch_progress_renderer.dart';
-import '../test_command_support.dart';
+import '../diagnostics/diagnostic_text_renderer.dart';
+import '../scenario/project_scenario_discovery.dart';
+import '../scenario/scenario.dart';
+import '../execution/scenario_runner.dart';
+import '../scenario/scenario_parser.dart';
+import '../target/step_progress_renderer.dart';
+import '../target/target_app_launch_progress_renderer.dart';
+import '../execution/test_command_support.dart';
 
 /// `test` command shell for validating CLI arguments before app launch.
 ///
@@ -18,7 +18,7 @@ import '../test_command_support.dart';
 class TestCommand extends Command<int> {
   TestCommand({
     required TestCommandExecutor executor,
-    required ProjectRunCommandExecutor projectRunExecutor,
+    required ProjectRunExecutor projectRunExecutor,
   }) : _executor = executor,
        _projectRunExecutor = projectRunExecutor {
     argParser
@@ -50,7 +50,7 @@ class TestCommand extends Command<int> {
   }
 
   final TestCommandExecutor _executor;
-  final ProjectRunCommandExecutor _projectRunExecutor;
+  final ProjectRunExecutor _projectRunExecutor;
 
   @override
   String get description => 'Launch the Target App Package and run a Scenario.';
@@ -216,7 +216,7 @@ class TestCommand extends Command<int> {
       _writeValidationErrors(error.errors);
       return 1;
     }
-    final ProjectRunCommandOptions options = ProjectRunCommandOptions(
+    final ProjectRunOptions options = ProjectRunOptions(
       discoveryRootPath: discoveryRootPath,
       scenarios: scenarios,
       device: device,
@@ -237,7 +237,7 @@ class TestCommand extends Command<int> {
             jsonOutput: options.jsonOutput,
             stderrHasTerminal: stderr.hasTerminal,
           );
-      final ProjectRunCommandReport report = await _projectRunExecutor.run(
+      final ProjectRunResult report = await _projectRunExecutor.run(
         options,
         onLaunchProgress: launchProgressRenderer?.render,
         launchHeartbeatEnabled: launchProgressRenderer != null,

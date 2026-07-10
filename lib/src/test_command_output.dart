@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'step_progress_renderer.dart';
-import 'target_app_launch_progress_renderer.dart';
-import 'test_command_models.dart';
+import 'target/step_progress_renderer.dart';
+import 'target/target_app_launch_progress_renderer.dart';
+import 'execution/test_command_models.dart';
 
 /// Terminal output helpers for the `test` command.
 class TestCommandOutput {
@@ -46,7 +46,7 @@ class TestCommandOutput {
   ///
   /// The summary keeps the batch-level report path first, then prints each
   /// Scenario's existing report paths in execution order.
-  static String renderProjectRunSummary(ProjectRunCommandReport report) {
+  static String renderProjectRunSummary(ProjectRunResult report) {
     final StringBuffer buffer = StringBuffer()
       ..writeln('Project Run: ${report.status.name}')
       ..writeln('Project Run report: ${report.projectRunReportPath}');

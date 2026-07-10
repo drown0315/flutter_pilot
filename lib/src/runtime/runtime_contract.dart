@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import '../scenario.dart';
+import '../scenario/scenario.dart';
 
 /// Runtime Target selected for one Scenario run.
 ///
@@ -8,9 +8,15 @@ import '../scenario.dart';
 /// option. The target is bound when creating the real runtime adapter, rather
 /// than passed to every adapter method.
 class RuntimeTarget {
-  const RuntimeTarget({required this.vmServiceUri});
+  const RuntimeTarget({required this.vmServiceUri, this.deviceId});
 
   final Uri vmServiceUri;
+
+  /// Target Device id used for Flutter CLI operations that require `-d`.
+  ///
+  /// The id comes from an explicit `--device` selection when present, or from
+  /// Flutter machine output when `flutter run` reports the launched device.
+  final String? deviceId;
 }
 
 /// Boundary used by the runner to operate on a Flutter Runtime Target.

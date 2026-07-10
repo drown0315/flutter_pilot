@@ -1,4 +1,4 @@
-import '../scenario.dart';
+import '../scenario/scenario.dart';
 
 /// Boundary used by the runner to control full-run Scenario Recording.
 ///

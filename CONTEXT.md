@@ -24,6 +24,10 @@ _Avoid_: Scenario Suite, full test, all YAML files
 A Flutter Pilot execution that runs multiple Project Scenarios as one batch for a Target App Package. A Project Run has one batch-level run directory that groups each Scenario Run directory and a project-level summary report.
 _Avoid_: Full test run, test suite run, all-Scenario run
 
+**Test Execution Session**:
+The shared execution lifetime inside `flutter_pilot test` that prepares one launched Target App Package for Scenario execution, exposes the Runtime Target and Target Device selected for that launch, handles launch progress and interruption, and owns cleanup. A single Entry Scenario uses one Test Execution Session for one Scenario Run; a Project Run uses one Test Execution Session across multiple Project Scenarios with hot restarts between later Scenarios.
+_Avoid_: Run command, Project Run, Scenario Run
+
 **Runtime Target**:
 The running Flutter app instance that a Scenario is executed against. Connection details for the Runtime Target are provided outside the Scenario.
 _Avoid_: Target configuration, environment block

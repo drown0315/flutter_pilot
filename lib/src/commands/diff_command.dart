@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 
-import '../run_diff.dart';
+import '../diff/run_diff.dart';
 
 /// `diff` command for comparing two existing Scenario Run directories.
 ///
