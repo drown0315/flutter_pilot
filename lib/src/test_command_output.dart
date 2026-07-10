@@ -1,8 +1,8 @@
 import 'dart:io';
 
-import 'step_progress_renderer.dart';
-import 'target_app_launch_progress_renderer.dart';
-import 'test_command_models.dart';
+import 'target/step_progress_renderer.dart';
+import 'target/target_app_launch_progress_renderer.dart';
+import 'execution/test_command_models.dart';
 
 /// Terminal output helpers for the `test` command.
 class TestCommandOutput {

@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 
-import '../html_timeline_report.dart';
+import '../reports/html_timeline_report.dart';
 
 /// `report` command for regenerating HTML from an existing run directory.
 ///

@@ -7,7 +7,7 @@ import 'commands/diff_command.dart';
 import 'commands/report_command.dart';
 import 'commands/test_command.dart';
 import 'commands/validate_command.dart';
-import 'test_command_support.dart';
+import 'execution/test_command_support.dart';
 
 /// Command-line entry point for Flutter Pilot.
 ///

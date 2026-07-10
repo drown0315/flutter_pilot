@@ -3,14 +3,14 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 
-import '../diagnostic_text_renderer.dart';
-import '../project_scenario_discovery.dart';
-import '../scenario.dart';
-import '../scenario_parser.dart';
-import '../scenario_runner.dart';
-import '../step_progress_renderer.dart';
-import '../target_app_launch_progress_renderer.dart';
-import '../test_command_support.dart';
+import '../diagnostics/diagnostic_text_renderer.dart';
+import '../scenario/project_scenario_discovery.dart';
+import '../scenario/scenario.dart';
+import '../execution/scenario_runner.dart';
+import '../scenario/scenario_parser.dart';
+import '../target/step_progress_renderer.dart';
+import '../target/target_app_launch_progress_renderer.dart';
+import '../execution/test_command_support.dart';
 
 /// `test` command shell for validating CLI arguments before app launch.
 ///

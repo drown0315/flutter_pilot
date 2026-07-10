@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import '../scenario.dart';
+import '../scenario/scenario.dart';
 
 /// Runtime Target selected for one Scenario run.
 ///

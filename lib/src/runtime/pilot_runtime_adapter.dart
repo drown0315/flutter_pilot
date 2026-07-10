@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:pilot_runtime/pilot_runtime.dart';
 
-import '../scenario.dart';
+import '../scenario/scenario.dart';
 import 'runtime_contract.dart';
 
 /// Runtime Adapter backed by the `pilot_runtime` package.

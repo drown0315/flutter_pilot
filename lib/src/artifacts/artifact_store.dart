@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
-import '../scenario.dart';
+import '../scenario/scenario.dart';
 
 const JsonEncoder _artifactJsonEncoder = JsonEncoder.withIndent('  ');
 
