@@ -784,6 +784,54 @@ steps:
   });
 
   test(
+    'default executor runs one Scenario inside one Test Execution Session',
+    () async {
+      final FakeTestExecutionSession session = FakeTestExecutionSession(
+        runtimeTarget: RuntimeTarget(
+          vmServiceUri: Uri.parse('ws://127.0.0.1:1234/token=/ws'),
+          deviceId: 'pixel-8',
+        ),
+      );
+      final FakeTestExecutionSessionFactory sessionFactory =
+          FakeTestExecutionSessionFactory(session);
+      final FakeScenarioRunner runner = FakeScenarioRunner(_passedReport());
+      final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
+        sessionFactory: sessionFactory,
+        runnerFactory: FakeScenarioRunnerFactory(runner),
+      );
+      final Scenario scenario = Scenario(
+        name: 'session_backed',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: TapAction(finder: Finder(byText: 'Continue')),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await executor.run(
+        TestCommandOptions(
+          scenario: scenario,
+          device: null,
+          flavor: 'staging',
+          target: 'lib/main_staging.dart',
+          stopPoint: null,
+          printDiagnostics: const <PrintDiagnostic>{},
+          jsonOutput: false,
+        ),
+      );
+
+      expect(report.status, ScenarioRunStatus.passed);
+      expect(sessionFactory.startCount, 1);
+      expect(sessionFactory.flavor, 'staging');
+      expect(sessionFactory.target, 'lib/main_staging.dart');
+      expect(runner.runtimeTarget.deviceId, 'pixel-8');
+      expect(session.runWithInterruptCount, 1);
+      expect(session.closeCount, 1);
+    },
+  );
+
+  test(
     'default executor reports invalid hidden runtime switch values',
     () async {
       await FileTestkit.runZoned(() async {
@@ -1786,6 +1834,70 @@ steps:
   );
 
   test(
+    'default Project Run executor reuses one Test Execution Session',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTestExecutionSession session = FakeTestExecutionSession(
+          runtimeTarget: RuntimeTarget(
+            vmServiceUri: Uri.parse('ws://127.0.0.1:1234/token=/ws'),
+            deviceId: 'pixel-8',
+          ),
+        );
+        final FakeTestExecutionSessionFactory sessionFactory =
+            FakeTestExecutionSessionFactory(session);
+        final FakeScenarioRunner firstRunner = FakeScenarioRunner(
+          _passedReportFor('login'),
+        );
+        final FakeScenarioRunner secondRunner = FakeScenarioRunner(
+          _passedReportFor('checkout'),
+        );
+        final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
+          sessionFactory: sessionFactory,
+          runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+            firstRunner,
+            secondRunner,
+          ]),
+          outputDirectory: Directory.current,
+          clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+        );
+        final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
+          ProjectScenarioFile(
+            path: 'pilot/login.yaml',
+            relativePath: 'login.yaml',
+            scenario: _scenario('login'),
+          ),
+          ProjectScenarioFile(
+            path: 'pilot/checkout.yaml',
+            relativePath: 'checkout.yaml',
+            scenario: _scenario('checkout'),
+          ),
+        ];
+
+        final ProjectRunResult result = await executor.run(
+          ProjectRunOptions(
+            discoveryRootPath: 'pilot',
+            scenarios: scenarios,
+            device: null,
+            flavor: 'staging',
+            target: 'lib/main_staging.dart',
+            jsonOutput: false,
+          ),
+        );
+
+        expect(result.status, ProjectRunStatus.passed);
+        expect(sessionFactory.startCount, 1);
+        expect(sessionFactory.flavor, 'staging');
+        expect(sessionFactory.target, 'lib/main_staging.dart');
+        expect(session.hotRestartCount, 1);
+        expect(session.runWithInterruptCount, 2);
+        expect(session.closeCount, 1);
+        expect(firstRunner.runtimeTarget.deviceId, 'pixel-8');
+        expect(secondRunner.runtimeTarget.deviceId, 'pixel-8');
+      });
+    },
+  );
+
+  test(
     'default Project Run executor resolves explicit Target Device before launch',
     () async {
       await FileTestkit.runZoned(() async {
@@ -2633,6 +2745,66 @@ class FakeDeviceDiscovery implements TestDeviceDiscovery {
       throw exception;
     }
     return recordingDevices;
+  }
+}
+
+class FakeTestExecutionSessionFactory implements TestExecutionSessionFactory {
+  FakeTestExecutionSessionFactory(this.session);
+
+  final FakeTestExecutionSession session;
+  int startCount = 0;
+  String? deviceSelector;
+  String? flavor;
+  String? target;
+  bool? recordingRequired;
+  bool? launchHeartbeatEnabled;
+
+  @override
+  Future<TestExecutionSession> start({
+    required String? deviceSelector,
+    required String? flavor,
+    required String? target,
+    required bool recordingRequired,
+    required bool launchHeartbeatEnabled,
+    void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
+  }) async {
+    startCount++;
+    this.deviceSelector = deviceSelector;
+    this.flavor = flavor;
+    this.target = target;
+    this.recordingRequired = recordingRequired;
+    this.launchHeartbeatEnabled = launchHeartbeatEnabled;
+    return session;
+  }
+}
+
+class FakeTestExecutionSession implements TestExecutionSession {
+  FakeTestExecutionSession({required this.runtimeTarget, this.targetDevice});
+
+  @override
+  final RuntimeTarget runtimeTarget;
+
+  @override
+  final TargetDevice? targetDevice;
+
+  int runWithInterruptCount = 0;
+  int closeCount = 0;
+  int hotRestartCount = 0;
+
+  @override
+  Future<T> runWithInterrupt<T>(Future<T> operation) {
+    runWithInterruptCount++;
+    return operation;
+  }
+
+  @override
+  Future<void> hotRestart() async {
+    hotRestartCount++;
+  }
+
+  @override
+  Future<void> close() async {
+    closeCount++;
   }
 }
 

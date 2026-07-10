@@ -9,11 +9,10 @@ import 'runtime/runtime_contract.dart';
 import 'scenario_runner.dart';
 import 'target_app_launch_progress_renderer.dart';
 import 'target_app_launcher.dart';
-import 'target_device.dart';
 import 'test_command_models.dart';
 import 'test_device_discovery.dart';
+import 'test_execution_session.dart';
 import 'test_scenario_runner_factory.dart';
-import 'test_target_device_selection.dart';
 
 /// Executes a validated `test` command.
 abstract interface class TestCommandExecutor {
@@ -40,14 +39,16 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
   const DefaultTestCommandExecutor({
     this.deviceDiscovery = const DefaultTestDeviceDiscovery(),
     this.launcher = const TargetAppLauncher(),
+    TestExecutionSessionFactory? sessionFactory,
     this.runnerFactory = const DefaultTestScenarioRunnerFactory(),
     this.interruptSignals,
     this.launchHeartbeatTicks,
     this.launchClock = DateTime.now,
-  });
+  }) : _sessionFactory = sessionFactory;
 
   final TestDeviceDiscovery deviceDiscovery;
   final TargetAppLauncher launcher;
+  final TestExecutionSessionFactory? _sessionFactory;
   final TestScenarioRunnerFactory runnerFactory;
   final Stream<void>? interruptSignals;
   final Stream<void>? launchHeartbeatTicks;
@@ -61,95 +62,23 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
     void Function(StepProgressEvent event)? onProgress,
   }) async {
     final bool recordingRequired = options.scenario.recording?.enabled == true;
-    TargetDevice? targetDevice;
-    if (options.device != null || recordingRequired) {
-      try {
-        final List<FlutterDevice> flutterDevices = await deviceDiscovery
-            .listFlutterDevices();
-        final List<RecordingDeviceIdentity> recordingDevices = recordingRequired
-            ? await deviceDiscovery.listRecordingDevices()
-            : const <RecordingDeviceIdentity>[];
-        targetDevice = TargetDeviceResolver.resolve(
-          selector: options.device,
-          recordingRequired: recordingRequired,
-          flutterDevices: flutterDevices,
-          recordingDevices: recordingDevices,
-        );
-      } on TargetDeviceResolutionException catch (error) {
-        throw TestCommandException(message: error.message, exitCode: 64);
-      } on DeviceDiscoveryException catch (error) {
-        throw TestCommandException(message: error.message, exitCode: 1);
-      }
-    }
-
-    TargetAppLaunch launch;
-    final DateTime launchStartedAt = launchClock();
-    final TargetAppLaunchChoices launchChoices = TargetAppLaunchChoices(
-      targetDevice: targetDevice,
-      selectionReason: targetDeviceSelectionReason(
-        deviceSelector: options.device,
-        recordingRequired: recordingRequired,
-      ),
-      flavor: options.flavor,
-      target: options.target,
-    );
-    onLaunchProgress?.call(
-      TargetAppLaunchStartedEvent(
-        startedAt: launchStartedAt,
-        choices: launchChoices,
-      ),
-    );
-    TargetAppLaunchHeartbeat? launchHeartbeat;
-    if (onLaunchProgress != null && launchHeartbeatEnabled) {
-      launchHeartbeat = TargetAppLaunchHeartbeat(
-        ticks:
-            launchHeartbeatTicks ??
-            Stream<void>.periodic(const Duration(seconds: 10)),
-        onProgress: onLaunchProgress,
-        clock: launchClock,
-      );
-      launchHeartbeat.start(
-        TargetAppLaunchStartedEvent(
-          startedAt: launchStartedAt,
-          choices: launchChoices,
-        ),
-      );
-    }
+    final TestExecutionSession session;
     try {
-      launch = await launcher.launch(
-        TargetAppLaunchCommand(
-          deviceId: targetDevice?.id,
-          flavor: options.flavor,
-          target: options.target,
-        ),
+      session = await _effectiveSessionFactory.start(
+        deviceSelector: options.device,
+        flavor: options.flavor,
+        target: options.target,
+        recordingRequired: recordingRequired,
+        launchHeartbeatEnabled: launchHeartbeatEnabled,
+        onLaunchProgress: onLaunchProgress,
       );
-      onLaunchProgress?.call(
-        TargetAppLaunchSucceededEvent(
-          startedAt: launchStartedAt,
-          finishedAt: launchClock(),
-          choices: launchChoices,
-        ),
-      );
-      await launchHeartbeat?.stop();
-    } on TargetAppLaunchException catch (error) {
-      onLaunchProgress?.call(
-        TargetAppLaunchFailedEvent(
-          startedAt: launchStartedAt,
-          failedAt: launchClock(),
-          message: error.message,
-          stderrLines: error.stderrLines,
-          choices: launchChoices,
-        ),
-      );
-      await launchHeartbeat?.stop();
-      final String stderrContext =
-          onLaunchProgress == null && error.stderrLines.isNotEmpty
-          ? '\n${error.stderrLines.join('\n')}'
-          : '';
+    } on TestExecutionTargetDeviceException catch (error) {
+      throw TestCommandException(message: error.message, exitCode: 64);
+    } on TestExecutionLaunchException catch (error) {
       throw TestCommandException(
-        message: '${error.message}$stderrContext',
+        message: error.message,
         exitCode: 1,
-        alreadyRendered: onLaunchProgress != null,
+        alreadyRendered: error.alreadyRendered,
       );
     }
 
@@ -157,15 +86,12 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
       final TestScenarioRunner runner;
       try {
         runner = runnerFactory.create(
-          runtimeTarget: RuntimeTarget(
-            vmServiceUri: launch.runtimeTargetUri,
-            deviceId: targetDevice?.id ?? launch.deviceId,
-          ),
-          targetDevice: targetDevice,
+          runtimeTarget: session.runtimeTarget,
+          targetDevice: session.targetDevice,
           recordingController: recordingRequired
               ? ScreenRecorderRecordingController(
                   recorder: screen_recorder.ScreenRecorder.defaultRecorder(),
-                  deviceSelector: targetDevice!.id,
+                  deviceSelector: session.targetDevice!.id,
                   outputDirectory: Directory.current,
                 )
               : null,
@@ -179,37 +105,22 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
         printDiagnostics: options.printDiagnostics,
         onProgress: onProgress,
       );
-      StreamSubscription<void>? interruptSub;
-      try {
-        final Completer<ScenarioRunReport> interruptCompleter =
-            Completer<ScenarioRunReport>();
-        interruptSub =
-            (interruptSignals ??
-                    ProcessSignal.sigint.watch().map<void>(
-                      (ProcessSignal _) {},
-                    ))
-                .listen((_) {
-                  if (!interruptCompleter.isCompleted) {
-                    interruptCompleter.completeError(
-                      const TestCommandException(
-                        message: 'test command interrupted.',
-                        exitCode: 130,
-                      ),
-                    );
-                  }
-                });
-        return await Future.any(<Future<ScenarioRunReport>>[
-          runFuture,
-          interruptCompleter.future,
-        ]);
-      } finally {
-        runFuture.ignore();
-        await interruptSub?.cancel();
-      }
+      return await session.runWithInterrupt(runFuture);
     } on RuntimeOperationException catch (error) {
       throw TestCommandException(message: error.message, exitCode: 1);
     } finally {
-      await launch.cleanup();
+      await session.close();
     }
+  }
+
+  TestExecutionSessionFactory get _effectiveSessionFactory {
+    return _sessionFactory ??
+        DefaultTestExecutionSessionFactory(
+          deviceDiscovery: deviceDiscovery,
+          launcher: launcher,
+          interruptSignals: interruptSignals,
+          launchHeartbeatTicks: launchHeartbeatTicks,
+          launchClock: launchClock,
+        );
   }
 }

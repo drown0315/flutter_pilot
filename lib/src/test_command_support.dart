@@ -10,4 +10,5 @@ export 'test_command_executor.dart';
 export 'test_command_models.dart';
 export 'test_command_output.dart';
 export 'test_device_discovery.dart';
+export 'test_execution_session.dart';
 export 'test_scenario_runner_factory.dart';

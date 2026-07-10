@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -9,15 +8,13 @@ import 'project_scenario_discovery.dart';
 import 'project_run_report.dart';
 import 'recording/screen_recorder_recording_controller.dart';
 import 'runtime/runtime_adapter_selector.dart';
-import 'runtime/runtime_contract.dart';
 import 'scenario_runner.dart';
 import 'target_app_launch_progress_renderer.dart';
 import 'target_app_launcher.dart';
-import 'target_device.dart';
 import 'test_command_models.dart';
 import 'test_device_discovery.dart';
+import 'test_execution_session.dart';
 import 'test_scenario_runner_factory.dart';
-import 'test_target_device_selection.dart';
 
 /// Executes a validated Project Run selected by `test`.
 abstract interface class ProjectRunExecutor {
@@ -38,18 +35,22 @@ class DefaultProjectRunExecutor implements ProjectRunExecutor {
   const DefaultProjectRunExecutor({
     this.deviceDiscovery = const DefaultTestDeviceDiscovery(),
     this.launcher = const TargetAppLauncher(),
+    TestExecutionSessionFactory? sessionFactory,
     this.runnerFactory = const DefaultTestScenarioRunnerFactory(),
     this.interruptSignals,
     this.outputDirectory,
     this.clock = DateTime.now,
     this.launchHeartbeatTicks,
-  });
+  }) : _sessionFactory = sessionFactory;
 
   /// Discovers Flutter and Recording Devices before app launch when needed.
   final TestDeviceDiscovery deviceDiscovery;
 
   /// Starts the Target App Package and exposes hot restart.
   final TargetAppLauncher launcher;
+
+  /// Starts the shared Test Execution Session for this Project Run.
+  final TestExecutionSessionFactory? _sessionFactory;
 
   /// Creates Scenario runners for each selected Project Scenario.
   final TestScenarioRunnerFactory runnerFactory;
@@ -81,110 +82,25 @@ class DefaultProjectRunExecutor implements ProjectRunExecutor {
     final List<ProjectScenarioRunReport> scenarioResults =
         <ProjectScenarioRunReport>[];
     ProjectRunEnvironmentFailure? environmentFailure;
-    TargetAppLaunch? launch;
-    TargetDevice? targetDevice;
     final bool recordingRequired = options.scenarios.any(
       (ProjectScenarioFile file) => file.scenario.recording?.enabled == true,
     );
-    if (options.device != null || recordingRequired) {
-      try {
-        final List<FlutterDevice> flutterDevices = await deviceDiscovery
-            .listFlutterDevices();
-        final List<RecordingDeviceIdentity> recordingDevices = recordingRequired
-            ? await deviceDiscovery.listRecordingDevices()
-            : const <RecordingDeviceIdentity>[];
-        targetDevice = TargetDeviceResolver.resolve(
-          selector: options.device,
-          recordingRequired: recordingRequired,
-          flutterDevices: flutterDevices,
-          recordingDevices: recordingDevices,
-        );
-      } on TargetDeviceResolutionException catch (error) {
-        environmentFailure = ProjectRunEnvironmentFailure(
-          phase: ProjectRunEnvironmentFailurePhase.targetDeviceResolution,
-          message: error.message,
-        );
-      } on DeviceDiscoveryException catch (error) {
-        environmentFailure = ProjectRunEnvironmentFailure(
-          phase: ProjectRunEnvironmentFailurePhase.targetDeviceResolution,
-          message: error.message,
-        );
-      }
-    }
-    if (environmentFailure != null) {
-      stopwatch.stop();
-      final ProjectRunReport projectReport =
-          ProjectRunReport.environmentFailure(
-            discoveryRootPath: options.discoveryRootPath,
-            startedAt: startedAt,
-            durationMs: stopwatch.elapsedMilliseconds,
-            commandInputs: ProjectRunCommandInputs(
-              device: options.device,
-              flavor: options.flavor,
-              target: options.target,
-            ),
-            failure: environmentFailure,
-            scenarioResults: scenarioResults,
-          );
-      projectRunWriter.writeProjectRunReport(projectReport.toJson());
-      return ProjectRunResult(
-        passed: false,
-        status: ProjectRunStatus.environmentFailed,
-        projectRunReportPath: p.join(
-          projectRunWriter.runDirectory.path,
-          'project_run_report.json',
-        ),
-        scenarioReports: const <ProjectRunScenarioOutputReport>[],
-      );
-    }
-    final TargetAppLaunchChoices launchChoices = TargetAppLaunchChoices(
-      targetDevice: targetDevice,
-      selectionReason: targetDeviceSelectionReason(
-        deviceSelector: options.device,
-        recordingRequired: recordingRequired,
-      ),
-      flavor: options.flavor,
-      target: options.target,
-    );
-    final TargetAppLaunchStartedEvent launchStartedEvent =
-        TargetAppLaunchStartedEvent(
-          startedAt: startedAt,
-          choices: launchChoices,
-        );
-    onLaunchProgress?.call(launchStartedEvent);
-    TargetAppLaunchHeartbeat? launchHeartbeat;
-    if (onLaunchProgress != null && launchHeartbeatEnabled) {
-      launchHeartbeat = TargetAppLaunchHeartbeat(
-        ticks:
-            launchHeartbeatTicks ??
-            Stream<void>.periodic(const Duration(seconds: 10)),
-        onProgress: onLaunchProgress,
-        clock: clock,
-      );
-      launchHeartbeat.start(launchStartedEvent);
-    }
+    TestExecutionSession? session;
     try {
-      launch = await launcher.launch(
-        TargetAppLaunchCommand(
-          flavor: options.flavor,
-          target: options.target,
-          deviceId: targetDevice?.id,
-        ),
+      session = await _effectiveSessionFactory.start(
+        deviceSelector: options.device,
+        flavor: options.flavor,
+        target: options.target,
+        recordingRequired: recordingRequired,
+        launchHeartbeatEnabled: launchHeartbeatEnabled,
+        onLaunchProgress: onLaunchProgress,
       );
-      onLaunchProgress?.call(
-        TargetAppLaunchSucceededEvent(
-          startedAt: startedAt,
-          finishedAt: clock().toUtc(),
-          choices: launchChoices,
-        ),
-      );
-      await launchHeartbeat?.stop();
       for (int index = 0; index < options.scenarios.length; index++) {
         final ProjectScenarioFile scenarioFile = options.scenarios[index];
         if (index > 0) {
           try {
-            await launch.hotRestart();
-          } on TargetAppLaunchException catch (error) {
+            await session.hotRestart();
+          } on TestExecutionLaunchException catch (error) {
             environmentFailure = ProjectRunEnvironmentFailure(
               phase: ProjectRunEnvironmentFailurePhase.hotRestart,
               message: error.message,
@@ -199,16 +115,13 @@ class DefaultProjectRunExecutor implements ProjectRunExecutor {
         final TestScenarioRunner runner;
         try {
           runner = runnerFactory.create(
-            runtimeTarget: RuntimeTarget(
-              vmServiceUri: launch.runtimeTargetUri,
-              deviceId: targetDevice?.id ?? launch.deviceId,
-            ),
-            targetDevice: targetDevice,
+            runtimeTarget: session.runtimeTarget,
+            targetDevice: session.targetDevice,
             recordingController:
                 scenarioFile.scenario.recording?.enabled == true
                 ? ScreenRecorderRecordingController(
                     recorder: screen_recorder.ScreenRecorder.defaultRecorder(),
-                    deviceSelector: targetDevice!.id,
+                    deviceSelector: session.targetDevice!.id,
                     outputDirectory: Directory.current,
                   )
                 : null,
@@ -225,8 +138,9 @@ class DefaultProjectRunExecutor implements ProjectRunExecutor {
           runArtifactWriter: childRun,
           onProgress: onProgress,
         );
-        final ScenarioRunReport scenarioReport =
-            await _runScenarioWithInterrupt(runFuture);
+        final ScenarioRunReport scenarioReport = await session.runWithInterrupt(
+          runFuture,
+        );
         final ProjectScenarioRunStatus scenarioStatus =
             scenarioReport.status == ScenarioRunStatus.passed
             ? ProjectScenarioRunStatus.passed
@@ -246,21 +160,16 @@ class DefaultProjectRunExecutor implements ProjectRunExecutor {
           ),
         );
       }
-    } on TargetAppLaunchException catch (error) {
+    } on TestExecutionTargetDeviceException catch (error) {
+      environmentFailure = ProjectRunEnvironmentFailure(
+        phase: ProjectRunEnvironmentFailurePhase.targetDeviceResolution,
+        message: error.message,
+      );
+    } on TestExecutionLaunchException catch (error) {
       environmentFailure = ProjectRunEnvironmentFailure(
         phase: ProjectRunEnvironmentFailurePhase.launch,
         message: error.message,
       );
-      onLaunchProgress?.call(
-        TargetAppLaunchFailedEvent(
-          startedAt: startedAt,
-          failedAt: clock().toUtc(),
-          message: error.message,
-          stderrLines: error.stderrLines,
-          choices: launchChoices,
-        ),
-      );
-      await launchHeartbeat?.stop();
     } on TestCommandException catch (error) {
       if (error.exitCode == 130) {
         rethrow;
@@ -271,8 +180,7 @@ class DefaultProjectRunExecutor implements ProjectRunExecutor {
       );
     } finally {
       stopwatch.stop();
-      await launchHeartbeat?.stop();
-      await launch?.cleanup();
+      await session?.close();
     }
     final bool allPassed =
         environmentFailure == null &&
@@ -336,33 +244,14 @@ class DefaultProjectRunExecutor implements ProjectRunExecutor {
     );
   }
 
-  Future<ScenarioRunReport> _runScenarioWithInterrupt(
-    Future<ScenarioRunReport> runFuture,
-  ) async {
-    StreamSubscription<void>? interruptSub;
-    try {
-      final Completer<ScenarioRunReport> interruptCompleter =
-          Completer<ScenarioRunReport>();
-      interruptSub =
-          (interruptSignals ??
-                  ProcessSignal.sigint.watch().map<void>((ProcessSignal _) {}))
-              .listen((_) {
-                if (!interruptCompleter.isCompleted) {
-                  interruptCompleter.completeError(
-                    const TestCommandException(
-                      message: 'test command interrupted.',
-                      exitCode: 130,
-                    ),
-                  );
-                }
-              });
-      return await Future.any(<Future<ScenarioRunReport>>[
-        runFuture,
-        interruptCompleter.future,
-      ]);
-    } finally {
-      runFuture.ignore();
-      await interruptSub?.cancel();
-    }
+  TestExecutionSessionFactory get _effectiveSessionFactory {
+    return _sessionFactory ??
+        DefaultTestExecutionSessionFactory(
+          deviceDiscovery: deviceDiscovery,
+          launcher: launcher,
+          interruptSignals: interruptSignals,
+          launchHeartbeatTicks: launchHeartbeatTicks,
+          launchClock: clock,
+        );
   }
 }
