@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 /// Exit codes used by the real Runtime Adapter smoke verifier.
 ///
 /// These codes keep CI failures distinguishable:
@@ -128,7 +130,7 @@ class SmokeRunVerifier {
     final List<Map<String, Object?>> steps = _reportSteps(decoded, errors);
     _verifyFinderSteps(steps, errors);
     _verifyCaptureStep(steps, errors);
-    _verifyCaptureArtifacts(decoded, errors);
+    _verifyCaptureArtifacts(reportFile, decoded, errors);
 
     return SmokeVerificationResult(reportPath: reportFile.path, errors: errors);
   }
@@ -198,6 +200,7 @@ class SmokeRunVerifier {
 
   /// Verify that the explicit capture Step wrote the default artifact bundle.
   static void _verifyCaptureArtifacts(
+    File reportFile,
     Map<String, Object?> report,
     List<String> errors,
   ) {
@@ -207,7 +210,8 @@ class SmokeRunVerifier {
       return;
     }
 
-    final Set<String> captureArtifactTypes = <String>{};
+    final Map<String, List<String>> captureArtifactPaths =
+        <String, List<String>>{};
     for (final Object? artifact in artifacts) {
       if (artifact is! Map<String, Object?>) {
         continue;
@@ -216,14 +220,25 @@ class SmokeRunVerifier {
         continue;
       }
       final Object? type = artifact['type'];
-      if (type is String) {
-        captureArtifactTypes.add(type);
+      final Object? path = artifact['path'];
+      if (type is String && path is String) {
+        captureArtifactPaths.putIfAbsent(type, () => <String>[]).add(path);
       }
     }
 
     for (final String requiredType in _requiredCaptureArtifactTypes) {
-      if (!captureArtifactTypes.contains(requiredType)) {
+      final List<String>? artifactPaths = captureArtifactPaths[requiredType];
+      if (artifactPaths == null || artifactPaths.isEmpty) {
         errors.add('Missing capture artifact type: $requiredType.');
+        continue;
+      }
+      for (final String artifactPath in artifactPaths) {
+        final File artifactFile = File(
+          p.join(reportFile.parent.path, artifactPath),
+        );
+        if (!artifactFile.existsSync()) {
+          errors.add('Missing capture artifact file: $artifactPath.');
+        }
       }
     }
   }

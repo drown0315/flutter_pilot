@@ -141,6 +141,41 @@ HTML report: .runs/2026-06-19_10-20_smoke_runtime/timeline.html
         runDirectory.deleteSync(recursive: true);
       }
     });
+
+    test('fails when a listed capture artifact file is missing', () {
+      final Directory runDirectory = Directory.systemTemp.createTempSync(
+        'flutter_pilot_smoke_report_',
+      );
+      try {
+        final File reportFile = _writeSmokeReport(
+          runDirectory: runDirectory,
+          status: 'passed',
+          stepStatuses: const <String, String>{
+            'wait_for_smoke_form': 'passed',
+            'enter_email': 'passed',
+            'submit_form': 'passed',
+            'wait_for_error': 'passed',
+            'capture_error': 'passed',
+          },
+          artifactTypes: const <String>{'screenshot', 'widgetTree', 'logs'},
+          missingArtifactTypes: const <String>{'widgetTree'},
+        );
+
+        final SmokeVerificationResult result =
+            SmokeRunVerifier.verifyReportFile(reportFile);
+
+        expect(result.passed, isFalse);
+        expect(
+          result.errors,
+          contains(
+            'Missing capture artifact file: '
+            'captures/0005_capture_error_widgetTree.json.',
+          ),
+        );
+      } finally {
+        runDirectory.deleteSync(recursive: true);
+      }
+    });
   });
 }
 
@@ -150,8 +185,19 @@ File _writeSmokeReport({
   required String status,
   required Map<String, String> stepStatuses,
   Set<String> artifactTypes = const <String>{},
+  Set<String> missingArtifactTypes = const <String>{},
 }) {
   final File reportFile = File('${runDirectory.path}/run_report.json');
+  final Directory captureDirectory = Directory('${runDirectory.path}/captures')
+    ..createSync(recursive: true);
+  for (final String artifactType in artifactTypes) {
+    if (missingArtifactTypes.contains(artifactType)) {
+      continue;
+    }
+    File(
+      '${captureDirectory.path}/0005_capture_error_$artifactType.json',
+    ).writeAsStringSync('{}');
+  }
   reportFile.writeAsStringSync(
     const JsonEncoder.withIndent('  ').convert(<String, Object?>{
       'scenario': <String, Object?>{'name': 'smoke_runtime'},
