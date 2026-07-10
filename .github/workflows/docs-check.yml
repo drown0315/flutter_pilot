@@ -7,10 +7,10 @@ on:
     paths:
       - "docs/**"
       - "lib/src/cli.dart"
-      - "lib/src/scenario_dsl_docs.dart"
+      - "lib/src/scenario/scenario_dsl_docs.dart"
       - "tool/check_*_docs.dart"
       - "tool/generate_*_docs.dart"
-      - "test/*docs*_test.dart"
+      - "test/**docs*_test.dart"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/docs-check.yml"
@@ -49,7 +49,7 @@ jobs:
         run: dart analyze --fatal-infos --fatal-warnings
 
       - name: Test docs examples
-        run: dart test test/scenario_dsl_docs_test.dart test/scenario_dsl_docs_tool_test.dart
+        run: dart test test/scenario/scenario_dsl_docs_test.dart test/scenario/scenario_dsl_docs_tool_test.dart
 
       - name: Check Scenario DSL docs
         run: dart run tool/check_scenario_dsl_docs.dart
