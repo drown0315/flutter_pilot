@@ -1,0 +1,64 @@
+scenario:
+  name: pilot_runtime_calibration_01_interact
+  description: |
+    Exercises the live pilot_runtime replacement checks before Project Run hot
+    restart resets the Target App Package for the next Scenario.
+
+steps:
+  - label: wait_for_calibration_ready
+    waitFor:
+      byText: Pilot Runtime Calibration Ready
+      timeoutMs: 5000
+
+  - label: tap_calibration_button_by_text_and_type
+    tap:
+      byText: Calibration tap
+      byType: button
+
+  - label: wait_for_tap_count
+    waitFor:
+      byText: 'Calibration taps: 1'
+      byKey: calibration_tap_count
+      timeoutMs: 5000
+
+  - label: type_calibration_field_by_semantic_type
+    type:
+      byType: textField
+      text: calibrated@example.com
+
+  - label: tap_calibration_chip_by_key_and_widget
+    tap:
+      byKey: calibration_chip
+      byWidget: CalibrationChip
+
+  - label: wait_for_chip_count
+    waitFor:
+      byText: 'Calibration chip taps: 1'
+      byKey: calibration_chip_count
+      timeoutMs: 5000
+
+  - label: targeted_scroll_calibration_list
+    scroll:
+      byKey: calibration_target_scrollable
+      byType: scrollable
+      deltaY: -260
+
+  - label: wait_for_nested_scroll_result
+    waitFor:
+      byText: Calibration nested row 6
+      timeoutMs: 5000
+
+  - label: primary_scroll_calibration_page
+    scroll:
+      deltaY: -900
+
+  - label: wait_for_primary_scroll_result
+    waitFor:
+      byText: Calibration page row 24
+      timeoutMs: 5000
+
+  - label: capture_calibration_artifacts
+    capture:
+      screenshot: true
+      widgetTree: true
+      logs: true

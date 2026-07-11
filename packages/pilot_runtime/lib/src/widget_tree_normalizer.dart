@@ -40,12 +40,14 @@ class PilotRuntimeWidgetTreeNormalizer {
     Map<String, Object?> node,
     String path,
   ) {
-    final String description = _requiredString(node, 'description', path);
     final String widgetRuntimeType = _requiredString(
       node,
       'widgetRuntimeType',
       path,
     );
+    final String description = path == 'root'
+        ? _rootDescription(node, widgetRuntimeType)
+        : _requiredString(node, 'description', path);
     final String inspectorValueId = _requiredString(node, 'valueId', path);
 
     final Map<String, Object?> normalized = <String, Object?>{
@@ -97,6 +99,22 @@ class PilotRuntimeWidgetTreeNormalizer {
       throw FormatException('$path.$field must be a non-empty string.');
     }
     return value;
+  }
+
+  /// Return the root node description, accepting Android Inspector omissions.
+  ///
+  /// Some real debug Runtime Targets return a root summary node without a
+  /// usable `description`. The root still has `widgetRuntimeType`, so use that
+  /// as the display label while preserving strict validation for child nodes.
+  static String _rootDescription(
+    Map<String, Object?> node,
+    String widgetRuntimeType,
+  ) {
+    final Object? value = node['description'];
+    if (value is String && value.isNotEmpty) {
+      return value;
+    }
+    return widgetRuntimeType;
   }
 
   /// Normalize an Inspector node's child list.

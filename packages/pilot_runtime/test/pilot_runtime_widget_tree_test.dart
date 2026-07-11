@@ -161,6 +161,40 @@ void main() {
     );
 
     test(
+      'falls back to widget runtime type when root description is absent',
+      () async {
+        final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
+          responses: <String, Map<String, Object?>>{
+            PilotRuntimeInspectorProtocol.setPubRootDirectoriesExtension:
+                <String, Object?>{'result': 'ok'},
+            PilotRuntimeInspectorProtocol.getRootWidgetTreeExtension:
+                <String, Object?>{
+                  'widgetRuntimeType': 'RootWidget',
+                  'valueId': 'inspector-1',
+                  'children': <Object?>[
+                    <String, Object?>{
+                      'description': 'Text',
+                      'widgetRuntimeType': 'Text',
+                      'valueId': 'inspector-2',
+                    },
+                  ],
+                },
+          },
+        );
+        final PilotRuntimeClient client = PilotRuntimeClient(vmService);
+
+        final Map<String, Object?> widgetTree = await client.captureWidgetTree(
+          projectRoot: '/tmp/smoke_app',
+        );
+        final Map<String, Object?> root =
+            widgetTree['root']! as Map<String, Object?>;
+
+        expect(root['description'], 'RootWidget');
+        expect(root['widgetRuntimeType'], 'RootWidget');
+      },
+    );
+
+    test(
       'fails clearly when Inspector cannot set pub root directories',
       () async {
         final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
