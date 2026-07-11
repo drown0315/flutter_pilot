@@ -195,6 +195,34 @@ void main() {
     );
 
     test(
+      'unwraps VM Service response JSON before normalizing Widget Tree',
+      () async {
+        final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
+          responses: <String, Map<String, Object?>>{
+            PilotRuntimeInspectorProtocol.setPubRootDirectoriesExtension:
+                <String, Object?>{'result': 'ok'},
+            PilotRuntimeInspectorProtocol
+                .getRootWidgetTreeExtension: <String, Object?>{
+              'type': 'Response',
+              'json':
+                  '{"description":"Root","widgetRuntimeType":"RootWidget","valueId":"inspector-1"}',
+            },
+          },
+        );
+        final PilotRuntimeClient client = PilotRuntimeClient(vmService);
+
+        final Map<String, Object?> widgetTree = await client.captureWidgetTree(
+          projectRoot: '/tmp/smoke_app',
+        );
+        final Map<String, Object?> root =
+            widgetTree['root']! as Map<String, Object?>;
+
+        expect(root['description'], 'Root');
+        expect(root['widgetRuntimeType'], 'RootWidget');
+      },
+    );
+
+    test(
       'fails clearly when Inspector cannot set pub root directories',
       () async {
         final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(

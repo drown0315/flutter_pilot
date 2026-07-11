@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'pilot_runtime_protocol.dart';
 import 'widget_tree_normalizer.dart';
 
@@ -496,9 +498,9 @@ class PilotRuntimeClient {
       );
     }
 
-    final Map<String, Object?> rawTree;
+    final Map<String, Object?> rawResponse;
     try {
-      rawTree = await _vmService.callServiceExtension(
+      rawResponse = await _vmService.callServiceExtension(
         PilotRuntimeInspectorProtocol.getRootWidgetTreeExtension,
         parameters: PilotRuntimeInspectorProtocol.summaryTreeParameters,
       );
@@ -513,6 +515,9 @@ class PilotRuntimeClient {
     }
 
     try {
+      final Map<String, Object?> rawTree = _unwrapWidgetTreeResponse(
+        rawResponse,
+      );
       return PilotRuntimeWidgetTreeNormalizer.normalize(rawTree);
     } on FormatException catch (error) {
       throw PilotRuntimeWidgetTreeCaptureException(
@@ -523,6 +528,42 @@ class PilotRuntimeClient {
         cause: error,
       );
     }
+  }
+
+  /// Extract the Inspector diagnostics node from VM Service response wrappers.
+  ///
+  /// Some Flutter Inspector service extension calls return the diagnostics tree
+  /// directly while others return a `Response` object with a JSON-encoded
+  /// payload. Normalize both shapes before Widget Tree validation.
+  static Map<String, Object?> _unwrapWidgetTreeResponse(
+    Map<String, Object?> response,
+  ) {
+    final Object? jsonPayload = response['json'];
+    if (jsonPayload is String) {
+      final Object? decoded = jsonDecode(jsonPayload);
+      if (decoded is Map<String, Object?>) {
+        return decoded;
+      }
+      throw const FormatException(
+        'Widget Tree response json must decode to an object.',
+      );
+    }
+
+    final Object? result = response['result'];
+    if (result is Map<String, Object?>) {
+      return result;
+    }
+    if (result is String) {
+      final Object? decoded = jsonDecode(result);
+      if (decoded is Map<String, Object?>) {
+        return decoded;
+      }
+      throw const FormatException(
+        'Widget Tree response result must decode to an object.',
+      );
+    }
+
+    return response;
   }
 
   /// Resolve one Finder through the app-side runtime extension.
