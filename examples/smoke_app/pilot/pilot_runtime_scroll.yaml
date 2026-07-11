@@ -4,6 +4,11 @@ scenario:
     Verifies targeted scroll replay through PilotRuntimeAdapter.
 
 steps:
+  - label: tt
+    waitFor:
+      byText: Scroll demo row 1
+      timeoutMs: 5000
+
   - label: scroll_target_list
     scroll:
       byKey: target_scroll_list
@@ -14,3 +19,8 @@ steps:
     waitFor:
       byText: Scroll demo row 18
       timeoutMs: 5000
+
+  - label: capture_logs
+    capture:
+      logs: true
+      widgetTree: false

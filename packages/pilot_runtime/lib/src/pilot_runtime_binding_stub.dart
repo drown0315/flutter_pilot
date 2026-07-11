@@ -10,6 +10,7 @@ class PilotRuntimeBinding {
   static void ensureInitialized({
     PilotRuntimeExtensionRegistrar? registerExtension,
     bool? debugMode,
+    bool? captureLogs,
   }) {
     throw UnsupportedError(
       'PilotRuntimeBinding.ensureInitialized() is only available in Flutter.',

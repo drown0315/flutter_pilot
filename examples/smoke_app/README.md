@@ -105,3 +105,55 @@ Expected result:
 - the Scenario fails at `scroll_read_only_text`
 - the failure reason contains `does not identify a scrollable`
 - failure diagnostics are still written under the run directory
+
+## PilotRuntime Replacement Calibration
+
+The `pilot/calibration` Project Scenarios are the live replacement checks for
+the `pilot_runtime` path. They run against one debug Target App Package target
+and cover `byText`, semantic `byType`, `byKey`, `byWidget`, tap, type, targeted
+scroll, untargeted scroll, Screenshot, Widget Tree, Logs, and Project Run hot
+restart between Scenarios.
+
+The calibration app routes `package:logging` records through `debugPrint`, so a
+capture step should write a non-empty `.log` artifact.
+
+Run the macOS desktop debug calibration from `examples/smoke_app`:
+
+```bash
+dart run ../../bin/flutter_pilot.dart test pilot/calibration \
+  --target lib/pilot_runtime_calibration_app.dart \
+  --device macos
+```
+
+Run the Android debug calibration by replacing the device id with a connected
+debug device:
+
+```bash
+dart run ../../bin/flutter_pilot.dart test pilot/calibration \
+  --target lib/pilot_runtime_calibration_app.dart \
+  --device <android-device-id>
+```
+
+Expected Project Run result:
+
+- `01_interact.yaml` passes and writes Screenshot, Widget Tree, and Logs
+  artifacts.
+- Flutter Pilot hot restarts the Target App Package before
+  `02_after_restart.yaml`.
+- `02_after_restart.yaml` sees `Calibration taps: 0`, proving the restart reset
+  app state while `PilotRuntimeBinding` and capture still work.
+- The Project Run writes `project_run_report.json`; each Scenario Run writes
+  `run_report.json` and `timeline.html`.
+
+Calibration output should record:
+
+- platform: macOS desktop debug or Android debug
+- Flutter SDK version
+- selected Target Device id
+- exact command
+- observed Project Run result and artifact paths
+- any unsupported capability or platform-specific difference
+
+Web, profile, release, and iOS are not claimed by v1. These examples do not
+change Flutter Pilot runtime selection behavior; they only provide a focused
+Project Run for live `pilot_runtime` calibration.

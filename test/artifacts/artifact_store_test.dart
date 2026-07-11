@@ -386,11 +386,11 @@ void main() {
         'captures/0001_checkpoint_widget_tree.json',
       );
       expect(logsArtifact.type, ArtifactType.logs);
-      expect(logsArtifact.path, 'captures/0001_checkpoint_logs.json');
+      expect(logsArtifact.path, 'captures/0001_checkpoint_logs.log');
       expect(failureLogsArtifact.purpose, ArtifactPurpose.failure);
       expect(failureLogsArtifact.toJson(), <String, Object?>{
         'type': 'logs',
-        'path': 'captures/0002_failed_submit_logs.json',
+        'path': 'captures/0002_failed_submit_logs.log',
         'purpose': 'failure',
       });
       expect(
@@ -415,6 +415,10 @@ void main() {
               )
               as Map<String, Object?>;
       expect(logsJson['entries'], hasLength(1));
+      expect(
+        File('${writer.runDirectory.path}/${logsArtifact.path}').path,
+        endsWith('.log'),
+      );
     });
   });
 }

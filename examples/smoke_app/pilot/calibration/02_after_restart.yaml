@@ -1,0 +1,24 @@
+scenario:
+  name: pilot_runtime_calibration_02_after_restart
+  description: |
+    Verifies the Project Run hot restart boundary by checking that the runtime
+    binding, Finder resolution, and capture artifacts still work after the
+    previous Scenario changed app state.
+
+steps:
+  - label: verify_hot_restart_reset_state
+    waitFor:
+      byText: 'Calibration taps: 0'
+      byKey: calibration_tap_count
+      timeoutMs: 5000
+
+  - label: verify_runtime_binding_after_restart
+    waitFor:
+      byText: Pilot Runtime Calibration Ready
+      timeoutMs: 5000
+
+  - label: capture_after_restart_artifacts
+    capture:
+      screenshot: true
+      widgetTree: true
+      logs: true

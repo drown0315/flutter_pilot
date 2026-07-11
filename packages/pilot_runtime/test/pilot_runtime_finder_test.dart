@@ -423,6 +423,38 @@ void main() {
       },
     );
 
+    testWidgets('tap delegates from a custom wrapper to a tappable child', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      int taps = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: _CustomTapWrapper(
+              key: const ValueKey<String>('custom_wrapper_target'),
+              onTap: () {
+                taps += 1;
+              },
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> response = await _resolveFinder(
+        extensions,
+        byKey: 'custom_wrapper_target',
+        byWidget: '_CustomTapWrapper',
+      );
+      final Map<String, Object?> match = _singleMatch(response);
+
+      await _tap(extensions, handle: match['handle']! as String);
+      await tester.pump();
+
+      expect(taps, 1);
+    });
+
     testWidgets('tap falls back to pointer center tap for Material buttons', (
       WidgetTester tester,
     ) async {
@@ -697,6 +729,21 @@ void main() {
       expect(scrollResponse['message'], contains('ambiguous'));
     });
   });
+}
+
+class _CustomTapWrapper extends StatelessWidget {
+  const _CustomTapWrapper({required this.onTap, super.key});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: const SizedBox(width: 80, height: 40),
+    );
+  }
 }
 
 Map<String, PilotRuntimeExtensionHandler> _registerRuntimeExtensions() {

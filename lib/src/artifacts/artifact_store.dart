@@ -434,14 +434,16 @@ class RunArtifactWriter {
     );
   }
 
-  /// Write one structured Logs capture produced by a Step.
+  /// Write one Flutter runtime Logs capture produced by a Step.
   ///
   /// Args:
   /// `index` is the 1-based Step number.
   /// `label` is the optional Step label used in the artifact file name.
   /// `data` is the JSON-compatible Logs payload returned by the Runtime
   /// Adapter. Runtime errors are represented inside this payload when the
-  /// adapter exposes them.
+  /// adapter exposes them. The file uses a `.log` extension so humans can
+  /// identify it as runtime log output while tools can still decode the JSON
+  /// payload.
   /// `purpose` explains whether these Logs came from an explicit capture Step
   /// or from an automatic failure bundle.
   ///
@@ -460,7 +462,7 @@ class RunArtifactWriter {
         index: index,
         label: label,
         suffix: 'logs',
-        extension: 'json',
+        extension: 'log',
       ),
     );
     final File logsFile = File(p.join(runDirectory.path, relativePath));

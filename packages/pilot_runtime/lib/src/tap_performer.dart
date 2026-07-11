@@ -33,25 +33,28 @@ class PilotRuntimeTapPerformer {
       );
     }
 
-    final SemanticsNode? semanticsNode = element.renderObject?.debugSemantics;
+    final Element? actionElement = _actionElementFor(element);
+    if (actionElement == null) {
+      return _failure(
+        code: 'notTappable',
+        message: 'Runtime Handle $handle cannot be tapped.',
+      );
+    }
+
+    final SemanticsNode? semanticsNode =
+        actionElement.renderObject?.debugSemantics;
     if (semanticsNode != null &&
         semanticsNode.getSemanticsData().hasAction(SemanticsAction.tap)) {
       semanticsNode.owner?.performAction(semanticsNode.id, SemanticsAction.tap);
       return <String, Object?>{'ok': true, 'method': 'semantic'};
     }
 
-    final Offset? center = _centerFor(element);
+    final Offset? center = _centerFor(actionElement);
     if (center == null) {
       return _failure(
         code: 'notTappable',
         message:
             'Runtime Handle $handle does not have usable bounds for pointer tap.',
-      );
-    }
-    if (!_canReceivePointerTap(element)) {
-      return _failure(
-        code: 'notTappable',
-        message: 'Runtime Handle $handle cannot be tapped.',
       );
     }
 
@@ -85,6 +88,24 @@ class PilotRuntimeTapPerformer {
       return null;
     }
     return renderObject.localToGlobal(renderObject.size.center(Offset.zero));
+  }
+
+  static Element? _actionElementFor(Element element) {
+    if (_hasSemanticTap(element) || _canReceivePointerTap(element)) {
+      return element;
+    }
+
+    Element? match;
+    element.visitChildren((Element child) {
+      match ??= _actionElementFor(child);
+    });
+    return match;
+  }
+
+  static bool _hasSemanticTap(Element element) {
+    final SemanticsNode? semanticsNode = element.renderObject?.debugSemantics;
+    return semanticsNode != null &&
+        semanticsNode.getSemanticsData().hasAction(SemanticsAction.tap);
   }
 
   static bool _canReceivePointerTap(Element element) {

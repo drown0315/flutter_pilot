@@ -39,6 +39,17 @@ class PilotRuntimeVmServiceConnection implements PilotRuntimeVmService {
     }
   }
 
+  @override
+  Future<Map<String, Object?>> reloadSources({required bool force}) async {
+    final vm_service.VmService service = await _connectedService();
+    final String isolateId = await _selectedIsolateId(service);
+    final vm_service.ReloadReport response = await service.reloadSources(
+      isolateId,
+      force: force,
+    );
+    return response.toJson();
+  }
+
   /// Close the underlying VM Service connection when one was opened.
   Future<void> dispose() async {
     await _service?.dispose();

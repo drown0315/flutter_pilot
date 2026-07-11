@@ -209,8 +209,9 @@ class PilotRuntimeAdapter implements RuntimeAdapter {
   }
 
   @override
-  Future<LogsCapture> collectLogs() {
-    throw _notImplemented(RuntimeOperation.collectLogs);
+  Future<LogsCapture> collectLogs() async {
+    final Map<String, Object?> data = await _client.collectLogs();
+    return LogsCapture(data: data);
   }
 
   RuntimeOperationException _notImplemented(RuntimeOperation operation) {

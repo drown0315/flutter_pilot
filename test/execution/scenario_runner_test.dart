@@ -835,7 +835,7 @@ steps:
           widgetTreeArtifact.path,
           'captures/0001_after_submit_widget_tree.json',
         );
-        expect(logsArtifact.path, 'captures/0001_after_submit_logs.json');
+        expect(logsArtifact.path, 'captures/0001_after_submit_logs.log');
         expect(
           File(
             '${report.runDirectoryPath}/${screenshotArtifact.path}',
