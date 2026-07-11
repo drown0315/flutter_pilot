@@ -23,6 +23,17 @@ abstract interface class PilotRuntimeVmService {
     String extensionName, {
     Map<String, Object?> parameters = const <String, Object?>{},
   });
+
+  /// Request VM Service source reload for the selected Runtime Target isolate.
+  ///
+  /// Args:
+  /// - `force`: `false` performs Flutter hot reload semantics. `true` forces a
+  ///   full source reload and is used by Flutter Pilot as the hot restart
+  ///   client capability.
+  ///
+  /// Returns the decoded VM Service reload report so the client can normalize
+  /// success and failure into Flutter Pilot-owned result types.
+  Future<Map<String, Object?>> reloadSources({required bool force});
 }
 
 /// Signals that a required Flutter Pilot service extension is not registered.
@@ -178,6 +189,62 @@ class PilotRuntimeActionException implements Exception {
   @override
   String toString() {
     return 'PilotRuntimeActionException: $message';
+  }
+}
+
+/// Runtime lifecycle operation requested through VM Service source reload.
+enum PilotRuntimeReloadOperation {
+  /// Hot reload updates modified source without forcing a full restart.
+  hotReload,
+
+  /// Hot restart forces source reload for the selected Runtime Target isolate.
+  hotRestart,
+}
+
+/// Normalized result for a runtime hot reload or hot restart request.
+///
+/// The result keeps the VM Service response available for diagnostics while
+/// exposing operation and success fields that belong to Flutter Pilot's client
+/// contract.
+class PilotRuntimeReloadResult {
+  /// Create one normalized VM Service reload result.
+  const PilotRuntimeReloadResult({
+    required this.operation,
+    required this.success,
+    required this.response,
+  });
+
+  /// Runtime lifecycle operation that produced this result.
+  final PilotRuntimeReloadOperation operation;
+
+  /// Whether the VM Service reported a successful reload.
+  final bool success;
+
+  /// Decoded VM Service reload response retained for diagnostics.
+  final Map<String, Object?> response;
+}
+
+/// Failure thrown when a VM Service hot reload or hot restart request fails.
+class PilotRuntimeReloadException implements Exception {
+  /// Create a runtime reload failure.
+  const PilotRuntimeReloadException({
+    required this.operation,
+    required this.message,
+    this.cause,
+  });
+
+  /// Runtime lifecycle operation that failed.
+  final PilotRuntimeReloadOperation operation;
+
+  /// Human-readable explanation suitable for run reports or calibration logs.
+  final String message;
+
+  /// Original VM Service error or response when available.
+  final Object? cause;
+
+  @override
+  String toString() {
+    return 'PilotRuntimeReloadException: $message';
   }
 }
 
@@ -592,6 +659,28 @@ class PilotRuntimeClient {
     );
   }
 
+  /// Request a hot reload through VM Service source reload.
+  ///
+  /// This operation is a client capability, not a Scenario Step action and not
+  /// an app-side `ext.flutter_pilot.runtime.*` hook extension.
+  Future<PilotRuntimeReloadResult> hotReload() {
+    return _reloadSources(
+      operation: PilotRuntimeReloadOperation.hotReload,
+      force: false,
+    );
+  }
+
+  /// Request a hot restart through VM Service source reload.
+  ///
+  /// This operation is a client capability, not a Scenario Step action and not
+  /// an app-side `ext.flutter_pilot.runtime.*` hook extension.
+  Future<PilotRuntimeReloadResult> hotRestart() {
+    return _reloadSources(
+      operation: PilotRuntimeReloadOperation.hotRestart,
+      force: true,
+    );
+  }
+
   void _checkActionResponse(
     Map<String, Object?> response, {
     required String actionName,
@@ -655,5 +744,53 @@ class PilotRuntimeClient {
         cause: error,
       );
     }
+  }
+
+  Future<PilotRuntimeReloadResult> _reloadSources({
+    required PilotRuntimeReloadOperation operation,
+    required bool force,
+  }) async {
+    final Map<String, Object?> response;
+    try {
+      response = await _vmService.reloadSources(force: force);
+    } catch (error) {
+      throw PilotRuntimeReloadException(
+        operation: operation,
+        message: '${_reloadOperationLabel(operation)} failed: $error',
+        cause: error,
+      );
+    }
+
+    final Object? successValue = response['success'];
+    if (successValue is! bool) {
+      throw PilotRuntimeReloadException(
+        operation: operation,
+        message:
+            '${_reloadOperationLabel(operation)} returned an invalid VM '
+            'Service reload report.',
+        cause: response,
+      );
+    }
+
+    if (!successValue) {
+      throw PilotRuntimeReloadException(
+        operation: operation,
+        message: '${_reloadOperationLabel(operation)} failed.',
+        cause: response,
+      );
+    }
+
+    return PilotRuntimeReloadResult(
+      operation: operation,
+      success: successValue,
+      response: response,
+    );
+  }
+
+  String _reloadOperationLabel(PilotRuntimeReloadOperation operation) {
+    return switch (operation) {
+      PilotRuntimeReloadOperation.hotReload => 'Hot reload',
+      PilotRuntimeReloadOperation.hotRestart => 'Hot restart',
+    };
   }
 }

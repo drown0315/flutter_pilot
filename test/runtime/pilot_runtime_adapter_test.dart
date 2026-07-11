@@ -542,6 +542,24 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
   }
 
   @override
+  Future<PilotRuntimeReloadResult> hotReload() async {
+    return const PilotRuntimeReloadResult(
+      operation: PilotRuntimeReloadOperation.hotReload,
+      success: true,
+      response: <String, Object?>{'type': 'ReloadReport', 'success': true},
+    );
+  }
+
+  @override
+  Future<PilotRuntimeReloadResult> hotRestart() async {
+    return const PilotRuntimeReloadResult(
+      operation: PilotRuntimeReloadOperation.hotRestart,
+      success: true,
+      response: <String, Object?>{'type': 'ReloadReport', 'success': true},
+    );
+  }
+
+  @override
   Future<List<PilotRuntimeFinderMatch>> resolveFinder({
     String? byText,
     String? byType,

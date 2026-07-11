@@ -257,6 +257,11 @@ class FakePilotRuntimeVmService implements PilotRuntimeVmService {
     }
     return responses[extensionName] ?? <String, Object?>{};
   }
+
+  @override
+  Future<Map<String, Object?>> reloadSources({required bool force}) async {
+    return <String, Object?>{'type': 'ReloadReport', 'success': true};
+  }
 }
 
 class FakeVmServiceCall {

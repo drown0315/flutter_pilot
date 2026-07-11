@@ -355,6 +355,73 @@ void main() {
       });
     });
   });
+
+  group('PilotRuntimeClient reload lifecycle', () {
+    test('uses VM Service reloadSources for hot reload', () async {
+      final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
+        reloadResponses: <bool, Map<String, Object?>>{
+          false: <String, Object?>{'type': 'ReloadReport', 'success': true},
+        },
+      );
+      final PilotRuntimeClient client = PilotRuntimeClient(vmService);
+
+      final PilotRuntimeReloadResult result = await client.hotReload();
+
+      expect(result.operation, PilotRuntimeReloadOperation.hotReload);
+      expect(result.success, isTrue);
+      expect(result.response, <String, Object?>{
+        'type': 'ReloadReport',
+        'success': true,
+      });
+      expect(vmService.reloadForces, <bool>[false]);
+    });
+
+    test('uses forced VM Service reloadSources for hot restart', () async {
+      final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
+        reloadResponses: <bool, Map<String, Object?>>{
+          true: <String, Object?>{'type': 'ReloadReport', 'success': true},
+        },
+      );
+      final PilotRuntimeClient client = PilotRuntimeClient(vmService);
+
+      final PilotRuntimeReloadResult result = await client.hotRestart();
+
+      expect(result.operation, PilotRuntimeReloadOperation.hotRestart);
+      expect(result.success, isTrue);
+      expect(vmService.reloadForces, <bool>[true]);
+    });
+
+    test('maps failed VM Service reload report to typed failure', () async {
+      final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
+        reloadResponses: <bool, Map<String, Object?>>{
+          false: <String, Object?>{'type': 'ReloadReport', 'success': false},
+        },
+      );
+      final PilotRuntimeClient client = PilotRuntimeClient(vmService);
+
+      await expectLater(
+        client.hotReload(),
+        throwsA(
+          isA<PilotRuntimeReloadException>()
+              .having(
+                (PilotRuntimeReloadException error) => error.operation,
+                'operation',
+                PilotRuntimeReloadOperation.hotReload,
+              )
+              .having(
+                (PilotRuntimeReloadException error) => error.message,
+                'message',
+                contains('Hot reload failed'),
+              )
+              .having(
+                (PilotRuntimeReloadException error) => error.cause,
+                'cause',
+                <String, Object?>{'type': 'ReloadReport', 'success': false},
+              ),
+        ),
+      );
+    });
+  });
 }
 
 class FakePilotRuntimeVmService implements PilotRuntimeVmService {
@@ -363,14 +430,19 @@ class FakePilotRuntimeVmService implements PilotRuntimeVmService {
     this.handshakeResponse = const <String, Object?>{},
     this.missingExtension = false,
     Map<String, Map<String, Object?>>? extensionResponses,
+    Map<bool, Map<String, Object?>>? reloadResponses,
   }) : extensionResponses =
-           extensionResponses ?? const <String, Map<String, Object?>>{};
+           extensionResponses ?? const <String, Map<String, Object?>>{},
+       reloadResponses =
+           reloadResponses ?? const <bool, Map<String, Object?>>{};
 
   final Map<String, Object?> handshakeResponse;
   final bool missingExtension;
   final Map<String, Map<String, Object?>> extensionResponses;
+  final Map<bool, Map<String, Object?>> reloadResponses;
   final List<String> calledExtensions = <String>[];
   final List<Map<String, Object?>> calledParameters = <Map<String, Object?>>[];
+  final List<bool> reloadForces = <bool>[];
 
   @override
   Future<Map<String, Object?>> callServiceExtension(
@@ -388,5 +460,12 @@ class FakePilotRuntimeVmService implements PilotRuntimeVmService {
       return extensionResponse;
     }
     return handshakeResponse;
+  }
+
+  @override
+  Future<Map<String, Object?>> reloadSources({required bool force}) async {
+    reloadForces.add(force);
+    return reloadResponses[force] ??
+        <String, Object?>{'type': 'ReloadReport', 'success': true};
   }
 }
