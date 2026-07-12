@@ -115,6 +115,12 @@ steps:
 When several Finder fields are present, all constraints must match. Finder
 fields are single strings.
 
+Finder-backed actions first wait up to 500ms for the current or next Flutter
+frame, then poll every 50ms until exactly one match is available. The frame wait
+and polling share one total budget. `tap`, `type`, and targeted `scroll` use a
+3000ms budget; `waitFor.timeoutMs` sets the budget for that `waitFor` Step.
+Multiple matches fail immediately.
+
 ## Actions
 
 Flutter Pilot supports these Scenario actions:
@@ -154,6 +160,12 @@ steps:
     scroll:
       deltaY: -500
 ```
+
+The dominant drag axis is vertical when `abs(deltaY) >= abs(deltaX)` and
+horizontal otherwise. Without a Finder, Flutter Pilot selects the unique
+outermost visible scrollable on that axis and avoids starting the gesture over
+a nested scrollable on the same axis. Multiple peer scrollables are ambiguous;
+add a Finder to choose one explicitly.
 
 ### waitFor
 

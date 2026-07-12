@@ -12,6 +12,7 @@ import '../target/target_device.dart';
 ///
 /// It contains:
 /// - the Runtime Adapter used for UI operations and captures
+/// - the shared Finder Action Budget for tap, type, and targeted scroll
 /// - the output directory where run artifacts are written
 ///
 /// During `run`, it:

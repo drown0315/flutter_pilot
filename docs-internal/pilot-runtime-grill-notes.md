@@ -118,8 +118,10 @@ design memory, not a final PRD.
 - `scroll` v1 uses pointer drag gestures and Flutter logical pixel deltas. It
   does not use semantic scroll actions.
 - Scroll with a Finder validates that the unique match can be scrolled.
-- Scroll without a Finder targets the primary scrollable. If the primary
-  scrollable cannot be uniquely determined, the action fails.
+- Scroll without a Finder targets the unique outermost visible scrollable on
+  the dominant drag axis. Nested scrollables on that axis are excluded from
+  primary selection and avoided when choosing the drag start; multiple peer
+  candidates fail as ambiguous.
 
 ## Widget Tree And Capture Artifacts
 

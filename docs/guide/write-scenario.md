@@ -48,6 +48,11 @@ steps:
 
 When a Finder has multiple fields, every configured field must match.
 
+Finder-backed actions tolerate UI that appears asynchronously: Flutter Pilot
+waits for a Flutter frame and polls for one unique match within the action's
+timeout budget. Multiple matches fail immediately instead of selecting the
+first match.
+
 ## Capture diagnostics
 
 `capture` is a Step action. Use it as its own Step when you want the default

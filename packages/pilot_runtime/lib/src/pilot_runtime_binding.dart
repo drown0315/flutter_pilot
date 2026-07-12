@@ -31,9 +31,9 @@ typedef PilotRuntimeExtensionRegistrar =
 /// App-side hook that exposes Flutter Pilot runtime service extensions.
 ///
 /// Target App Packages call `ensureInitialized()` from app startup while
-/// running in debug mode. The binding registers the protocol handshake
-/// extension once per isolate and returns without side effects when debug mode
-/// is disabled.
+/// running in debug mode. The binding registers the handshake, frame
+/// synchronization, Finder, action, and log extensions once per isolate and
+/// returns without side effects when debug mode is disabled.
 class PilotRuntimeBinding {
   PilotRuntimeBinding._();
 
@@ -124,6 +124,10 @@ class PilotRuntimeBinding {
     );
   }
 
+  /// Wait for the current or next Flutter frame within the requested timeout.
+  ///
+  /// The response reports timeout as data because Finder polling may continue
+  /// after the synchronization attempt reaches its bound.
   static Future<Map<String, Object?>> _handleEndOfFrame(
     Map<String, Object?> parameters,
   ) async {

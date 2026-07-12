@@ -59,8 +59,8 @@ structured UI artifact exposed through `widgetTree`.
 22. As a Flutter developer, I want tap to fall back to pointer center taps on calibrated platforms, so that targets without semantic tap actions can still be exercised.
 23. As a Flutter developer, I want `type` to clear editable text directly and then enter the configured text character by character without simulating platform keyboard input, so that text entry is deterministic while still exercising per-character text changes.
 24. As a Flutter developer, I want scroll deltas to remain Flutter logical pixel drag deltas, so that existing Scenario scroll semantics remain intact.
-25. As a Flutter developer, I want untargeted scroll to use the primary scrollable, so that simple scrolling Scenarios remain concise.
-26. As a Flutter developer, I want untargeted scroll to fail when the primary scrollable is ambiguous, so that Flutter Pilot does not pick an arbitrary scrollable.
+25. As a Flutter developer, I want untargeted scroll to use the unique outermost visible scrollable on the dominant drag axis, so that simple scrolling Scenarios remain concise and nested views do not capture the gesture accidentally.
+26. As a Flutter developer, I want untargeted scroll to fail when multiple outermost scrollables remain on the dominant drag axis, so that Flutter Pilot does not pick an arbitrary scrollable.
 27. As a Flutter developer, I want Widget Tree capture to use Flutter Inspector summary tree data, so that artifacts preserve useful hierarchy without raw dump noise.
 28. As a Flutter developer, I want Widget Tree JSON to be normalized, so that artifacts are stable and not tied to raw Inspector response envelopes.
 29. As a Flutter developer, I want Widget Tree artifacts to include schema and source metadata, so that tools can version and interpret them safely.
@@ -114,7 +114,9 @@ structured UI artifact exposed through `widgetTree`.
 - Tap execution prefers semantic tap actions and falls back to pointer center tap on calibrated platforms.
 - Text entry supports editable text targets only and replaces existing text. It does not simulate keyboard or IME input.
 - Scroll execution uses pointer drag gestures and Flutter logical pixel deltas. It does not use semantic scroll actions.
-- Untargeted scroll resolves the primary scrollable and fails when that target cannot be uniquely determined.
+- Untargeted scroll chooses the dominant drag axis, resolves the unique outermost visible scrollable on that axis, and fails when multiple peer candidates remain.
+- Scroll gesture start selection avoids the bounds of nested scrollables on the same axis so the intended outer scrollable receives the drag.
+- Finder-backed actions synchronize with the current or next Flutter frame before polling for a unique Finder Match. Frame synchronization and polling share one action budget; multiple matches fail immediately.
 - Remove Snapshot from the new Scenario capture contract, Runtime Adapter contract, print diagnostics, and artifact language.
 - Use `widgetTree` as the structured UI capture field, print diagnostic, and report artifact type.
 - Write Widget Tree artifacts with a `widget_tree` filename suffix.
@@ -161,7 +163,7 @@ Major modules to build or modify:
 - Runtime client tests should use fake VM Service responses for handshake, protocol mismatch, capability missing, Widget Tree capture, and error mapping.
 - Runtime protocol tests should cover response decoding, version validation, capability validation, and structured runtime failures.
 - Finder resolution tests inside `pilot_runtime` should use Flutter widget tests for visible matching, offstage exclusion, `byText`, semantic `byType`, `ValueKey<String>`, `byWidget`, strict AND combinations, and wrapper-child subtree evidence.
-- Action execution tests inside `pilot_runtime` should use Flutter widget tests for semantic tap, pointer fallback, editable text clear/entry, targeted scroll, and primary scrollable resolution.
+- Action execution tests inside `pilot_runtime` should use Flutter widget tests for semantic tap, pointer fallback, editable text clear/entry, targeted scroll, axis-aware outermost scrollable selection, nested-scrollable avoidance, and ambiguous peer scrollables.
 - Widget Tree normalizer tests should use recorded Inspector summary tree fixtures and verify normalized schema, source, node fields, child structure, missing optional fields, and rejection of invalid required shape.
 - Screenshot tests should verify returned MIME type and bytes shape where the chosen screenshot path can be faked; real screenshot quality should be covered by calibration smoke tests.
 - Logs tests should verify the not-implemented payload and that `logs: true` does not fail a capture Step.

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'finder_resolver.dart';
 
-/// Performs scroll actions for targeted and primary scrollables.
+/// Performs scroll actions for targeted and automatically selected scrollables.
 ///
 /// The performer uses pointer drag gestures with Flutter logical-pixel deltas.
 /// It does not use semantic scroll actions, so Scenario `deltaX` and `deltaY`
@@ -13,16 +13,19 @@ class PilotRuntimeScrollPerformer {
 
   static int _nextPointer = 1;
 
-  /// Drag a targeted scrollable or the primary visible scrollable.
+  /// Drag a targeted scrollable or the unique outermost visible scrollable.
   ///
   /// Args:
   /// - `handle`: Optional Runtime Handle. When present, the handle must identify
   ///   a visible scrollable or a widget subtree that contains one scrollable.
   /// - `deltaX`: Horizontal drag distance in logical pixels.
   /// - `deltaY`: Vertical drag distance in logical pixels.
+  ///   The larger absolute delta selects the scroll axis; ties are vertical.
   ///
-  /// Returns a structured VM Service response. Missing, ambiguous, or
-  /// non-scrollable targets return `ok: false` instead of throwing.
+  /// Without a handle, selection ignores nested scrollables on the chosen axis
+  /// and fails when multiple outermost candidates remain. Returns a structured
+  /// VM Service response. Missing, ambiguous, or non-scrollable targets return
+  /// `ok: false` instead of throwing.
   static Future<Map<String, Object?>> scroll({
     String? handle,
     required double deltaX,
