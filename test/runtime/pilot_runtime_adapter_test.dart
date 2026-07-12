@@ -75,6 +75,20 @@ void main() {
     },
   );
 
+  test('forwards end-of-frame timeout to pilot_runtime', () async {
+    final _FakePilotRuntimeClient client = _FakePilotRuntimeClient();
+    final PilotRuntimeAdapter adapter = PilotRuntimeAdapter(
+      client: client,
+      projectRoot: '/target/app',
+    );
+
+    await adapter.waitForEndOfFrame(timeout: const Duration(milliseconds: 375));
+
+    expect(client.endOfFrameTimeouts, <Duration>[
+      const Duration(milliseconds: 375),
+    ]);
+  });
+
   test('returns Widget Tree capture data from pilot_runtime', () async {
     final _FakePilotRuntimeClient client = _FakePilotRuntimeClient(
       widgetTree: <String, Object?>{
@@ -502,6 +516,7 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
       <({String? byText, String? byType, String? byKey, String? byWidget})>[];
   final List<String> tapHandles = <String>[];
   final List<String> clearTextHandles = <String>[];
+  final List<Duration> endOfFrameTimeouts = <Duration>[];
   final List<({String handle, String text})> enterTextRequests =
       <({String handle, String text})>[];
   final List<({String? handle, double dx, double dy})> scrollRequests =
@@ -521,6 +536,7 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
         'runtime.action.scroll',
         'runtime.action.tap',
         'runtime.finder.resolve',
+        'runtime.frame.end',
         'runtime.handshake',
         'runtime.logs.collect',
       },
@@ -539,6 +555,11 @@ class _FakePilotRuntimeClient implements PilotRuntimeClient {
   Future<Map<String, Object?>> collectLogs() async {
     collectedLogs = true;
     return logs;
+  }
+
+  @override
+  Future<void> waitForEndOfFrame({required Duration timeout}) async {
+    endOfFrameTimeouts.add(timeout);
   }
 
   @override

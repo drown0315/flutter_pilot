@@ -16,6 +16,10 @@ class PilotRuntimeProtocol {
   static const String resolveFinderExtension =
       'ext.flutter_pilot.runtime.resolveFinder';
 
+  /// VM Service extension used to wait for the current or next frame.
+  static const String endOfFrameExtension =
+      'ext.flutter_pilot.runtime.endOfFrame';
+
   /// VM Service extension used to tap one resolved Runtime Handle.
   static const String tapExtension = 'ext.flutter_pilot.runtime.tap';
 
@@ -40,6 +44,9 @@ class PilotRuntimeProtocol {
   /// Capability name reported when visible Finder resolution is available.
   static const String resolveFinderCapability = 'runtime.finder.resolve';
 
+  /// Capability name reported when frame synchronization is available.
+  static const String endOfFrameCapability = 'runtime.frame.end';
+
   /// Capability name reported when tap replay is available.
   static const String tapCapability = 'runtime.action.tap';
 
@@ -59,6 +66,7 @@ class PilotRuntimeProtocol {
   static const Set<String> requiredCapabilities = <String>{
     handshakeCapability,
     resolveFinderCapability,
+    endOfFrameCapability,
     tapCapability,
     clearTextCapability,
     enterTextCapability,

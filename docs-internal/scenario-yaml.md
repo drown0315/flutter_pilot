@@ -233,7 +233,8 @@ Flutter Pilot supports five Scenario actions: `tap`, `type`, `scroll`,
 ```
 
 The Finder must resolve to exactly one Finder Match before the tap can execute.
-Zero matches fail the Step. Multiple matches fail the Step.
+Zero matches keep polling within the default `3000ms` budget. Multiple matches
+fail the Step immediately.
 
 ### type
 
@@ -260,9 +261,10 @@ The action clears existing text and enters the configured text.
 
 `deltaX` and `deltaY` default to `0`, but at least one must be non-zero.
 
-A Finder is optional. When omitted, Flutter Pilot targets the primary
-scrollable. When provided, the Finder must resolve to exactly one scrollable
-target.
+A Finder is optional. When omitted, Flutter Pilot selects the unique outermost
+visible scrollable on the dominant drag axis and ignores nested scrollables on
+that axis. Multiple peer candidates are ambiguous. When provided, the Finder
+must resolve to exactly one scrollable target.
 
 ```yaml
 - label: scroll_results
@@ -284,8 +286,13 @@ target.
 
 `timeoutMs` is optional and defaults to `3000`.
 
-`waitFor` waits until the Finder produces exactly one match. Zero matches keep
-waiting until timeout. Multiple matches fail the Step.
+`waitFor` first waits up to `500ms` for the current or next Flutter frame, then
+polls every `50ms` until the Finder produces exactly one match. Frame
+synchronization and polling share the `timeoutMs` budget. Zero matches keep
+waiting until timeout. Multiple matches fail the Step immediately.
+
+Finder-backed `tap`, `type`, and targeted `scroll` use the same synchronization
+and polling behavior with a default `3000ms` budget.
 
 ### capture
 

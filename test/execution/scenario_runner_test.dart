@@ -267,6 +267,7 @@ void main() {
 
       final ScenarioRunReport report = await ScenarioRunner(
         adapter: adapter,
+        finderTimeout: const Duration(milliseconds: 1),
         outputDirectory: outputDirectory,
       ).run(scenario, onProgress: progressEvents.add);
 
@@ -1027,6 +1028,7 @@ steps:
     await FileTestkit.runZoned(() async {
       final Directory outputDirectory = Directory('wait_for_success_output');
       final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        recordEndOfFrameWaits: true,
         finderResultSequences: <String, List<List<FinderMatch>>>{
           'loading_done': <List<FinderMatch>>[
             const <FinderMatch>[],
@@ -1060,8 +1062,49 @@ steps:
         adapter.events.map((FakeRuntimeEvent event) => event.operation),
         <RuntimeOperation>[
           RuntimeOperation.initialize,
+          RuntimeOperation.waitForEndOfFrame,
           RuntimeOperation.resolveFinder,
           RuntimeOperation.resolveFinder,
+          RuntimeOperation.dispose,
+        ],
+      );
+    });
+  });
+
+  test('waits for a unique Finder Match before tapping', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('tap_wait_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        finderResultSequences: <String, List<List<FinderMatch>>>{
+          'continue_button': <List<FinderMatch>>[
+            const <FinderMatch>[],
+            const <FinderMatch>[FinderMatch(id: 'continue-match')],
+          ],
+        },
+      );
+      final Scenario scenario = Scenario(
+        name: 'tap_after_widget_appears',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: TapAction(finder: Finder(byText: 'continue_button')),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      expect(report.status, ScenarioRunStatus.passed);
+      expect(
+        adapter.events.map((FakeRuntimeEvent event) => event.operation),
+        <RuntimeOperation>[
+          RuntimeOperation.initialize,
+          RuntimeOperation.resolveFinder,
+          RuntimeOperation.resolveFinder,
+          RuntimeOperation.performTap,
           RuntimeOperation.dispose,
         ],
       );
@@ -1389,6 +1432,54 @@ steps:
     });
   });
 
+  test('endOfFrame consumes the waitFor timeout budget', () async {
+    await FileTestkit.runZoned(() async {
+      final Directory outputDirectory = Directory('frame_budget_output');
+      final FakeRuntimeAdapter adapter = FakeRuntimeAdapter(
+        recordEndOfFrameWaits: true,
+        endOfFrameDelay: const Duration(milliseconds: 50),
+      );
+      final Scenario scenario = Scenario(
+        name: 'frame_consumes_wait_budget',
+        steps: const <ScenarioStep>[
+          ScenarioStep(
+            index: 1,
+            action: WaitForAction(
+              finder: Finder(byText: 'home'),
+              timeoutMs: 10,
+            ),
+          ),
+        ],
+      );
+
+      final ScenarioRunReport report = await ScenarioRunner(
+        adapter: adapter,
+        outputDirectory: outputDirectory,
+      ).run(scenario);
+
+      expect(report.status, ScenarioRunStatus.failed);
+      expect(
+        report.steps.single.failureReason,
+        'Finder matched no widgets before timeout.',
+      );
+      expect(
+        adapter.events.map((FakeRuntimeEvent event) => event.operation),
+        <RuntimeOperation>[
+          RuntimeOperation.initialize,
+          RuntimeOperation.waitForEndOfFrame,
+          RuntimeOperation.captureScreenshot,
+          RuntimeOperation.captureWidgetTree,
+          RuntimeOperation.collectLogs,
+          RuntimeOperation.dispose,
+        ],
+      );
+      expect(
+        adapter.events[1].duration,
+        lessThanOrEqualTo(const Duration(milliseconds: 10)),
+      );
+    });
+  });
+
   test('fails waitFor when multiple widgets match', () async {
     await FileTestkit.runZoned(() async {
       final Directory outputDirectory = Directory('wait_for_multiple_output');
@@ -1454,12 +1545,16 @@ steps:
 
       final ScenarioRunReport report = await ScenarioRunner(
         adapter: adapter,
+        finderTimeout: const Duration(milliseconds: 1),
         outputDirectory: outputDirectory,
       ).run(scenario);
 
       expect(report.status, ScenarioRunStatus.failed);
       expect(report.steps.single.status, StepStatus.failed);
-      expect(report.steps.single.failureReason, 'Finder matched no widgets.');
+      expect(
+        report.steps.single.failureReason,
+        'Finder matched no widgets before timeout.',
+      );
       expect(
         adapter.events.map((FakeRuntimeEvent event) => event.operation),
         <RuntimeOperation>[
@@ -1476,7 +1571,9 @@ steps:
       expect(reportFile.readAsStringSync(), contains('"status": "failed"'));
       expect(
         reportFile.readAsStringSync(),
-        contains('"failureReason": "Finder matched no widgets."'),
+        contains(
+          '"failureReason": "Finder matched no widgets before timeout."',
+        ),
       );
     });
   });
@@ -1534,13 +1631,17 @@ steps:
 
       final ScenarioRunReport report = await ScenarioRunner(
         adapter: adapter,
+        finderTimeout: const Duration(milliseconds: 1),
         outputDirectory: outputDirectory,
       ).run(scenario);
 
       expect(report.status, ScenarioRunStatus.failed);
       expect(report.steps, hasLength(1));
       expect(report.steps.single.status, StepStatus.failed);
-      expect(report.steps.single.failureReason, 'Finder matched no widgets.');
+      expect(
+        report.steps.single.failureReason,
+        'Finder matched no widgets before timeout.',
+      );
       expect(
         report.steps.single.artifacts.map(
           (ArtifactReport artifact) => artifact.type,
@@ -1625,11 +1726,15 @@ steps:
 
         final ScenarioRunReport report = await ScenarioRunner(
           adapter: adapter,
+          finderTimeout: const Duration(milliseconds: 1),
           outputDirectory: outputDirectory,
         ).run(scenario);
 
         expect(report.status, ScenarioRunStatus.failed);
-        expect(report.steps.single.failureReason, 'Finder matched no widgets.');
+        expect(
+          report.steps.single.failureReason,
+          'Finder matched no widgets before timeout.',
+        );
         expect(
           report.steps.single.diagnosticFailureReason,
           'Screenshot RPC failed.',
@@ -1644,7 +1749,9 @@ steps:
         final String reportJson = _runReportFile(report).readAsStringSync();
         expect(
           reportJson,
-          contains('"failureReason": "Finder matched no widgets."'),
+          contains(
+            '"failureReason": "Finder matched no widgets before timeout."',
+          ),
         );
         expect(
           reportJson,
@@ -1677,6 +1784,7 @@ steps:
 
       final ScenarioRunReport report = await ScenarioRunner(
         adapter: adapter,
+        finderTimeout: const Duration(milliseconds: 1),
         outputDirectory: outputDirectory,
       ).run(scenario);
 
@@ -1725,11 +1833,15 @@ steps:
 
       final ScenarioRunReport report = await ScenarioRunner(
         adapter: adapter,
+        finderTimeout: const Duration(milliseconds: 1),
         outputDirectory: outputDirectory,
       ).run(scenario);
 
       expect(report.status, ScenarioRunStatus.failed);
-      expect(report.steps.single.failureReason, 'Finder matched no widgets.');
+      expect(
+        report.steps.single.failureReason,
+        'Finder matched no widgets before timeout.',
+      );
 
       final File reportFile = _runReportFile(report);
       expect(

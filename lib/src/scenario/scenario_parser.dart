@@ -685,9 +685,9 @@ class ScenarioParser {
 
   /// Parse a scroll action using gesture drag deltas.
   ///
-  /// A Finder is optional. Without a Finder, the future runner should target
-  /// the primary scrollable. At least one of `deltaX` or `deltaY` must be
-  /// non-zero.
+  /// A Finder is optional. Without a Finder, the runner selects the unique
+  /// outermost visible scrollable on the dominant drag axis. At least one of
+  /// `deltaX` or `deltaY` must be non-zero.
   static ScrollAction? _parseScroll(
     YamlMap yaml,
     String path,

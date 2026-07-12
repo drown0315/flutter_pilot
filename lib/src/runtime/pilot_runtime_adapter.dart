@@ -51,6 +51,19 @@ class PilotRuntimeAdapter implements RuntimeAdapter {
   }
 
   @override
+  Future<void> waitForEndOfFrame({required Duration timeout}) async {
+    try {
+      await _client.waitForEndOfFrame(timeout: timeout);
+    } catch (error) {
+      throw RuntimeOperationException(
+        operation: RuntimeOperation.waitForEndOfFrame,
+        message: error.toString(),
+        cause: error,
+      );
+    }
+  }
+
+  @override
   Future<List<FinderMatch>> resolveFinder(Finder finder) async {
     final List<PilotRuntimeFinderMatch> matches = await _client.resolveFinder(
       byText: finder.byText,

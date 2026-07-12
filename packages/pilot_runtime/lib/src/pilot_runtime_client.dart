@@ -159,7 +159,7 @@ enum PilotRuntimeActionFailure {
   /// A resolved Runtime Handle cannot receive scroll drag gestures.
   notScrollable,
 
-  /// The primary scrollable is missing or ambiguous for untargeted scroll.
+  /// No unique outermost scrollable exists for untargeted scroll.
   primaryScrollableUnavailable,
 
   /// The app-side runtime returned an action failure code this client does not
@@ -616,6 +616,19 @@ class PilotRuntimeClient {
     return List<PilotRuntimeFinderMatch>.unmodifiable(matches);
   }
 
+  /// Wait for the Runtime Target's current or next Flutter frame to finish.
+  ///
+  /// `timeout` bounds the app-side wait. A frame timeout is a successful
+  /// synchronization attempt so callers can continue with condition polling.
+  Future<void> waitForEndOfFrame({required Duration timeout}) async {
+    await _vmService.callServiceExtension(
+      PilotRuntimeProtocol.endOfFrameExtension,
+      parameters: <String, Object?>{
+        'timeoutMs': timeout.inMilliseconds.clamp(1, 0x7fffffff),
+      },
+    );
+  }
+
   /// Tap one Runtime Handle returned by Finder resolution.
   ///
   /// Args:
@@ -663,11 +676,12 @@ class PilotRuntimeClient {
     _checkActionResponse(response, actionName: 'enterText');
   }
 
-  /// Scroll a Runtime Handle or the primary scrollable by drag deltas.
+  /// Scroll a Runtime Handle or an automatically selected scrollable.
   ///
   /// Args:
   /// - `handle`: Optional opaque Runtime Handle from a Finder Match. When
-  ///   omitted, the app-side runtime resolves the primary scrollable.
+  ///   omitted, the app-side runtime selects the unique outermost visible
+  ///   scrollable on the dominant drag axis.
   /// - `deltaX`: Horizontal drag distance in logical pixels.
   /// - `deltaY`: Vertical drag distance in logical pixels.
   Future<void> performScroll({

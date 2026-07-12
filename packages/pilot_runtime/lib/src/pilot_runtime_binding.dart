@@ -4,6 +4,7 @@ import 'dart:developer';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import 'finder_resolver.dart';
 import 'pilot_runtime_protocol.dart';
@@ -30,9 +31,9 @@ typedef PilotRuntimeExtensionRegistrar =
 /// App-side hook that exposes Flutter Pilot runtime service extensions.
 ///
 /// Target App Packages call `ensureInitialized()` from app startup while
-/// running in debug mode. The binding registers the protocol handshake
-/// extension once per isolate and returns without side effects when debug mode
-/// is disabled.
+/// running in debug mode. The binding registers the handshake, frame
+/// synchronization, Finder, action, and log extensions once per isolate and
+/// returns without side effects when debug mode is disabled.
 class PilotRuntimeBinding {
   PilotRuntimeBinding._();
 
@@ -75,6 +76,7 @@ class PilotRuntimeBinding {
       PilotRuntimeProtocol.resolveFinderExtension,
       _handleResolveFinder,
     );
+    registrar(PilotRuntimeProtocol.endOfFrameExtension, _handleEndOfFrame);
     registrar(PilotRuntimeProtocol.tapExtension, _handleTap);
     registrar(PilotRuntimeProtocol.clearTextExtension, _handleClearText);
     registrar(PilotRuntimeProtocol.enterTextExtension, _handleEnterText);
@@ -120,6 +122,24 @@ class PilotRuntimeBinding {
       byKey: _optionalString(parameters, 'byKey'),
       byWidget: _optionalString(parameters, 'byWidget'),
     );
+  }
+
+  /// Wait for the current or next Flutter frame within the requested timeout.
+  ///
+  /// The response reports timeout as data because Finder polling may continue
+  /// after the synchronization attempt reaches its bound.
+  static Future<Map<String, Object?>> _handleEndOfFrame(
+    Map<String, Object?> parameters,
+  ) async {
+    final int timeoutMs = _requiredInt(parameters, 'timeoutMs', 'endOfFrame');
+    bool timedOut = false;
+    await WidgetsBinding.instance.endOfFrame.timeout(
+      Duration(milliseconds: timeoutMs),
+      onTimeout: () {
+        timedOut = true;
+      },
+    );
+    return <String, Object?>{'ok': true, 'timedOut': timedOut};
   }
 
   static Future<Map<String, Object?>> _handleTap(
@@ -272,6 +292,26 @@ class PilotRuntimeBinding {
       }
     }
     throw FormatException('$operation parameter $field must be a number.');
+  }
+
+  static int _requiredInt(
+    Map<String, Object?> parameters,
+    String field,
+    String operation,
+  ) {
+    final Object? value = parameters[field];
+    if (value is int && value > 0) {
+      return value;
+    }
+    if (value is String) {
+      final int? parsed = int.tryParse(value);
+      if (parsed != null && parsed > 0) {
+        return parsed;
+      }
+    }
+    throw FormatException(
+      '$operation parameter $field must be a positive integer.',
+    );
   }
 
   static void _registerVmServiceExtension(

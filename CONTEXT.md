@@ -76,6 +76,10 @@ _Avoid_: Selector, locator, query
 A Runtime Target match produced by applying a Finder during a Scenario run. A valid Finder resolution requires exactly one Finder Match; zero matches or multiple matches fail the step, and action-specific capabilities such as tapping, typing, or scrolling are validated when the action executes.
 _Avoid_: First match, best match
 
+**Finder Action Budget**:
+The total time available for a Finder-backed action to synchronize with a Flutter frame and resolve exactly one Finder Match. `tap`, `type`, and targeted `scroll` use the runner's default 3000ms budget; `waitFor.timeoutMs` supplies the budget for that WaitFor Action. Frame synchronization consumes the same budget rather than adding a separate timeout.
+_Avoid_: Finder timeout plus frame timeout, retry count
+
 **Runtime Handle**:
 An opaque runtime token returned with a Finder Match and accepted back by the Runtime Adapter for the immediately following action. Flutter Pilot may record it for diagnostics, but must not parse it, construct it, or treat it as stable identity.
 _Avoid_: Widget id, key, Inspector id, stable reference
@@ -129,7 +133,7 @@ An action that waits until a Finder produces exactly one match. It does not wait
 _Avoid_: Wait assertion, sleep
 
 **Scroll Action**:
-An action that moves a scrollable area by configured gesture drag deltas. It may target a specific scrollable with a Finder, or use the primary scrollable when no Finder is provided.
+An action that moves a scrollable area by configured gesture drag deltas. It may target a specific scrollable with a Finder, or select the unique outermost visible scrollable on the dominant drag axis when no Finder is provided.
 _Avoid_: Swipe
 
 **Screenshot**:

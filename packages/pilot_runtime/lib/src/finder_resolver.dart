@@ -93,7 +93,7 @@ class PilotRuntimeFinderResolver {
   ///
   /// Runtime action performers use this to preserve the same visible-target
   /// rules as Finder resolution when they need to locate related widgets, such
-  /// as the primary scrollable for an untargeted Scroll Action.
+  /// as candidates for an untargeted Scroll Action.
   static void visitVisibleElements(void Function(Element element) visitor) {
     final Element? rootElement = WidgetsBinding.instance.rootElement;
     if (rootElement == null) {
