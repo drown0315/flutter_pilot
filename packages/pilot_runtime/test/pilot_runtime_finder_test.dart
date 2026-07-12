@@ -692,6 +692,109 @@ void main() {
       expect(controller.offset, greaterThan(0));
     });
 
+    testWidgets(
+      'untargeted scroll chooses an outer scrollable over a nested one',
+      (WidgetTester tester) async {
+        final Map<String, PilotRuntimeExtensionHandler> extensions =
+            _registerRuntimeExtensions();
+        final ScrollController outerController = ScrollController();
+        final ScrollController innerController = ScrollController();
+        addTearDown(outerController.dispose);
+        addTearDown(innerController.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                height: 300,
+                child: ListView(
+                  controller: outerController,
+                  children: <Widget>[
+                    const SizedBox(height: 120, child: Text('Header')),
+                    SizedBox(
+                      height: 140,
+                      child: ListView.builder(
+                        controller: innerController,
+                        itemCount: 20,
+                        itemBuilder: (BuildContext context, int index) {
+                          return SizedBox(
+                            height: 40,
+                            child: Text('Nested $index'),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 800, child: Text('Page tail')),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final Map<String, Object?> scrollResponse = await _scroll(
+          extensions,
+          deltaX: 0,
+          deltaY: -120,
+        );
+        await tester.pumpAndSettle();
+
+        expect(scrollResponse['ok'], true);
+        expect(outerController.offset, greaterThan(0));
+        expect(innerController.offset, 0);
+      },
+    );
+
+    testWidgets('untargeted scroll selects the scrollable matching its axis', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      final ScrollController horizontalController = ScrollController();
+      final ScrollController verticalController = ScrollController();
+      addTearDown(horizontalController.dispose);
+      addTearDown(verticalController.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Row(
+              children: <Widget>[
+                Expanded(
+                  child: ListView.builder(
+                    controller: horizontalController,
+                    scrollDirection: Axis.horizontal,
+                    itemCount: 20,
+                    itemBuilder: (BuildContext context, int index) {
+                      return SizedBox(width: 80, child: Text('Across $index'));
+                    },
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    controller: verticalController,
+                    itemCount: 20,
+                    itemBuilder: (BuildContext context, int index) {
+                      return SizedBox(height: 80, child: Text('Down $index'));
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> scrollResponse = await _scroll(
+        extensions,
+        deltaX: 0,
+        deltaY: -120,
+      );
+      await tester.pumpAndSettle();
+
+      expect(scrollResponse['ok'], true);
+      expect(horizontalController.offset, 0);
+      expect(verticalController.offset, greaterThan(0));
+    });
+
     testWidgets('scroll fails when primary scrollable is ambiguous', (
       WidgetTester tester,
     ) async {
