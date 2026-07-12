@@ -16,6 +16,8 @@ class FakeRuntimeAdapter implements RuntimeAdapter {
     WidgetTreeCapture? widgetTree,
     LogsCapture? logs,
     Map<RuntimeOperation, RuntimeOperationException>? failures,
+    this.recordEndOfFrameWaits = false,
+    this.endOfFrameDelay = Duration.zero,
   }) : finderResults = finderResults ?? <String, List<FinderMatch>>{},
        finderResultSequences =
            finderResultSequences ?? <String, List<List<FinderMatch>>>{},
@@ -45,6 +47,8 @@ class FakeRuntimeAdapter implements RuntimeAdapter {
   final WidgetTreeCapture widgetTree;
   final LogsCapture logs;
   final Map<RuntimeOperation, RuntimeOperationException> failures;
+  final bool recordEndOfFrameWaits;
+  final Duration endOfFrameDelay;
   final List<FakeRuntimeEvent> events = <FakeRuntimeEvent>[];
   final Map<String, int> _finderSequenceOffsets = <String, int>{};
 
@@ -58,6 +62,22 @@ class FakeRuntimeAdapter implements RuntimeAdapter {
   Future<void> dispose() async {
     _throwIfConfigured(RuntimeOperation.dispose);
     events.add(const FakeRuntimeEvent(operation: RuntimeOperation.dispose));
+  }
+
+  @override
+  Future<void> waitForEndOfFrame({required Duration timeout}) async {
+    _throwIfConfigured(RuntimeOperation.waitForEndOfFrame);
+    if (recordEndOfFrameWaits) {
+      events.add(
+        FakeRuntimeEvent(
+          operation: RuntimeOperation.waitForEndOfFrame,
+          duration: timeout,
+        ),
+      );
+    }
+    if (endOfFrameDelay > Duration.zero) {
+      await Future<void>.delayed(endOfFrameDelay);
+    }
   }
 
   @override
@@ -196,6 +216,7 @@ class FakeRuntimeEvent {
     this.text,
     this.deltaX,
     this.deltaY,
+    this.duration,
   });
 
   final RuntimeOperation operation;
@@ -204,4 +225,5 @@ class FakeRuntimeEvent {
   final String? text;
   final double? deltaX;
   final double? deltaY;
+  final Duration? duration;
 }

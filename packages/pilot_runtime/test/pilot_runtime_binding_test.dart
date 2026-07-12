@@ -24,6 +24,7 @@ void main() {
       expect(registeredExtensions, <String>[
         PilotRuntimeProtocol.handshakeExtension,
         PilotRuntimeProtocol.resolveFinderExtension,
+        PilotRuntimeProtocol.endOfFrameExtension,
         PilotRuntimeProtocol.tapExtension,
         PilotRuntimeProtocol.clearTextExtension,
         PilotRuntimeProtocol.enterTextExtension,
@@ -42,11 +43,37 @@ void main() {
             'runtime.action.scroll',
             'runtime.action.tap',
             'runtime.finder.resolve',
+            'runtime.frame.end',
             'runtime.handshake',
             'runtime.logs.collect',
           ],
         },
       );
+    });
+
+    testWidgets('bounds end-of-frame waiting by timeoutMs', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> registeredHandlers =
+          <String, PilotRuntimeExtensionHandler>{};
+      PilotRuntimeBinding.ensureInitialized(
+        debugMode: true,
+        registerExtension:
+            (String extensionName, PilotRuntimeExtensionHandler handler) {
+              registeredHandlers[extensionName] = handler;
+            },
+      );
+
+      final Map<String, Object?> response =
+          await tester.runAsync(
+            () => registeredHandlers[PilotRuntimeProtocol.endOfFrameExtension]!(
+              <String, Object?>{'timeoutMs': '1'},
+            ),
+          ) ??
+          <String, Object?>{};
+
+      expect(response['ok'], true);
+      expect(response['timedOut'], true);
     });
 
     test('is a no-op outside debug mode', () {

@@ -14,6 +14,7 @@ void main() {
             'runtime.action.scroll',
             'runtime.action.tap',
             'runtime.finder.resolve',
+            'runtime.frame.end',
             'runtime.handshake',
             'runtime.logs.collect',
           ],
@@ -26,6 +27,7 @@ void main() {
       expect(session.protocolVersion, 1);
       expect(session.capabilities, contains('runtime.handshake'));
       expect(session.capabilities, contains('runtime.finder.resolve'));
+      expect(session.capabilities, contains('runtime.frame.end'));
       expect(session.capabilities, contains('runtime.action.tap'));
       expect(session.capabilities, contains('runtime.action.clearText'));
       expect(session.capabilities, contains('runtime.action.enterText'));
@@ -118,6 +120,31 @@ void main() {
               ),
         ),
       );
+    });
+  });
+
+  group('PilotRuntimeClient frame synchronization', () {
+    test('passes the frame timeout to the runtime extension', () async {
+      final FakePilotRuntimeVmService vmService = FakePilotRuntimeVmService(
+        extensionResponses: <String, Map<String, Object?>>{
+          PilotRuntimeProtocol.endOfFrameExtension: <String, Object?>{
+            'ok': true,
+            'timedOut': false,
+          },
+        },
+      );
+      final PilotRuntimeClient client = PilotRuntimeClient(vmService);
+
+      await client.waitForEndOfFrame(
+        timeout: const Duration(milliseconds: 375),
+      );
+
+      expect(vmService.calledExtensions, <String>[
+        PilotRuntimeProtocol.endOfFrameExtension,
+      ]);
+      expect(vmService.calledParameters.single, <String, Object?>{
+        'timeoutMs': 375,
+      });
     });
   });
 

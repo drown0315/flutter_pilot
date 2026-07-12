@@ -616,6 +616,19 @@ class PilotRuntimeClient {
     return List<PilotRuntimeFinderMatch>.unmodifiable(matches);
   }
 
+  /// Wait for the Runtime Target's current or next Flutter frame to finish.
+  ///
+  /// `timeout` bounds the app-side wait. A frame timeout is a successful
+  /// synchronization attempt so callers can continue with condition polling.
+  Future<void> waitForEndOfFrame({required Duration timeout}) async {
+    await _vmService.callServiceExtension(
+      PilotRuntimeProtocol.endOfFrameExtension,
+      parameters: <String, Object?>{
+        'timeoutMs': timeout.inMilliseconds.clamp(1, 0x7fffffff),
+      },
+    );
+  }
+
   /// Tap one Runtime Handle returned by Finder resolution.
   ///
   /// Args:

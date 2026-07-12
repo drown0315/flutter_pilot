@@ -28,14 +28,17 @@ class ScenarioRunner {
     required this.adapter,
     this.recordingController,
     this.targetDevice,
+    this.finderTimeout = const Duration(seconds: 3),
     required this.outputDirectory,
   });
 
   static const Duration _waitForPollInterval = Duration(milliseconds: 50);
+  static const Duration _endOfFrameTimeout = Duration(milliseconds: 500);
 
   final RuntimeAdapter adapter;
   final RecordingController? recordingController;
   final TargetDevice? targetDevice;
+  final Duration finderTimeout;
   final Directory outputDirectory;
 
   /// Execute Scenario Steps and write a run report.
@@ -577,6 +580,7 @@ class ScenarioRunner {
     final FinderMatch match = await _resolveUniqueMatch(
       finder,
       actionName: actionName,
+      timeout: finderTimeout,
     );
     await operation(match);
     return const _ActionExecutionResult();
@@ -586,21 +590,52 @@ class ScenarioRunner {
   Future<FinderMatch> _resolveUniqueMatch(
     Finder finder, {
     required String actionName,
+    required Duration timeout,
   }) async {
-    final List<FinderMatch> matches = await adapter.resolveFinder(finder);
-    if (matches.isEmpty) {
-      throw _StepFailureException(
-        actionName: actionName,
-        message: 'Finder matched no widgets.',
-      );
+    final Stopwatch stopwatch = Stopwatch()..start();
+    await _waitForEndOfFrame(stopwatch: stopwatch, timeout: timeout);
+    while (true) {
+      if (stopwatch.elapsed >= timeout) {
+        throw _StepFailureException(
+          actionName: actionName,
+          message: 'Finder matched no widgets before timeout.',
+        );
+      }
+      final List<FinderMatch> matches = await adapter.resolveFinder(finder);
+      if (matches.length == 1) {
+        return matches.single;
+      }
+      if (matches.length > 1) {
+        throw _StepFailureException(
+          actionName: actionName,
+          message: 'Finder matched multiple widgets.',
+        );
+      }
+      if (stopwatch.elapsed >= timeout) {
+        throw _StepFailureException(
+          actionName: actionName,
+          message: 'Finder matched no widgets before timeout.',
+        );
+      }
+      await Future<void>.delayed(_waitForPollInterval);
     }
-    if (matches.length > 1) {
-      throw _StepFailureException(
-        actionName: actionName,
-        message: 'Finder matched multiple widgets.',
-      );
+  }
+
+  /// Wait for one frame without exceeding the Finder Action's total budget.
+  Future<void> _waitForEndOfFrame({
+    required Stopwatch stopwatch,
+    required Duration timeout,
+  }) async {
+    final Duration remaining = timeout - stopwatch.elapsed;
+    if (remaining <= Duration.zero) {
+      return;
     }
-    return matches.single;
+    final Duration frameTimeout = remaining < _endOfFrameTimeout
+        ? remaining
+        : _endOfFrameTimeout;
+    await adapter
+        .waitForEndOfFrame(timeout: frameTimeout)
+        .timeout(frameTimeout, onTimeout: () {});
   }
 
   /// Poll a Finder until it has one unique match or the timeout expires.
@@ -608,26 +643,8 @@ class ScenarioRunner {
     Finder finder, {
     required Duration timeout,
   }) async {
-    final Stopwatch stopwatch = Stopwatch()..start();
-    while (true) {
-      final List<FinderMatch> matches = await adapter.resolveFinder(finder);
-      if (matches.length == 1) {
-        return const _ActionExecutionResult();
-      }
-      if (matches.length > 1) {
-        throw _StepFailureException(
-          actionName: 'waitFor',
-          message: 'Finder matched multiple widgets.',
-        );
-      }
-      if (stopwatch.elapsed >= timeout) {
-        throw _StepFailureException(
-          actionName: 'waitFor',
-          message: 'Finder matched no widgets before timeout.',
-        );
-      }
-      await Future<void>.delayed(_waitForPollInterval);
-    }
+    await _resolveUniqueMatch(finder, actionName: 'waitFor', timeout: timeout);
+    return const _ActionExecutionResult();
   }
 
   /// Execute a scroll action, resolving its optional Finder when provided.
@@ -638,7 +655,11 @@ class ScenarioRunner {
   }) async {
     FinderMatch? match;
     if (finder != null) {
-      match = await _resolveUniqueMatch(finder, actionName: 'scroll');
+      match = await _resolveUniqueMatch(
+        finder,
+        actionName: 'scroll',
+        timeout: finderTimeout,
+      );
     }
     await adapter.performScroll(match: match, deltaX: deltaX, deltaY: deltaY);
     return const _ActionExecutionResult();

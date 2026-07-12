@@ -40,6 +40,12 @@ abstract interface class RuntimeAdapter {
   /// diagnostic based on whether the run had already failed.
   Future<void> dispose();
 
+  /// Wait for the current or next Flutter frame to finish.
+  ///
+  /// `timeout` bounds this synchronization attempt. Timing out is not a
+  /// Runtime operation failure; callers may continue with condition polling.
+  Future<void> waitForEndOfFrame({required Duration timeout});
+
   /// Return all widgets that satisfy a Flutter Pilot Finder.
   ///
   /// Args:
@@ -48,7 +54,8 @@ abstract interface class RuntimeAdapter {
   ///
   /// Returns:
   /// A complete list of Finder Matches. The runner applies cardinality rules:
-  /// zero matches fail, one match executes, and multiple matches fail.
+  /// zero matches keep polling until the Step budget expires, one match
+  /// executes, and multiple matches fail immediately.
   Future<List<FinderMatch>> resolveFinder(Finder finder);
 
   /// Tap the widget represented by a Finder Match from the current Step.
@@ -177,6 +184,7 @@ class LogsCapture {
 /// The enum keeps failure reporting stable and lets runner/report code group
 /// failures without comparing string literals.
 enum RuntimeOperation {
+  waitForEndOfFrame,
   resolveFinder,
   performTap,
   clearText,
