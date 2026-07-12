@@ -744,6 +744,54 @@ void main() {
       },
     );
 
+    testWidgets('untargeted scroll allows a cross-axis nested scrollable', (
+      WidgetTester tester,
+    ) async {
+      final Map<String, PilotRuntimeExtensionHandler> extensions =
+          _registerRuntimeExtensions();
+      final ScrollController outerController = ScrollController();
+      final ScrollController innerController = ScrollController();
+      addTearDown(outerController.dispose);
+      addTearDown(innerController.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 300,
+              child: ListView(
+                controller: outerController,
+                children: <Widget>[
+                  SizedBox(
+                    height: 300,
+                    child: ListView.builder(
+                      controller: innerController,
+                      scrollDirection: Axis.horizontal,
+                      itemCount: 20,
+                      itemBuilder: (BuildContext context, int index) {
+                        return SizedBox(width: 80, child: Text('Page $index'));
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 800, child: Text('Page tail')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final Map<String, Object?> scrollResponse = await _scroll(
+        extensions,
+        deltaX: 0,
+        deltaY: -120,
+      );
+      await tester.pumpAndSettle();
+
+      expect(scrollResponse['ok'], true);
+      expect(outerController.offset, greaterThan(0));
+      expect(innerController.offset, 0);
+    });
+
     testWidgets('untargeted scroll selects the scrollable matching its axis', (
       WidgetTester tester,
     ) async {

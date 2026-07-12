@@ -28,8 +28,11 @@ class PilotRuntimeScrollPerformer {
     required double deltaX,
     required double deltaY,
   }) async {
+    final Axis dragAxis = deltaY.abs() >= deltaX.abs()
+        ? Axis.vertical
+        : Axis.horizontal;
     final Element? scrollableElement = handle == null
-        ? _primaryScrollable(deltaX: deltaX, deltaY: deltaY)
+        ? _primaryScrollable(dragAxis)
         : _scrollableForHandle(handle);
     if (scrollableElement == null) {
       return handle == null
@@ -45,7 +48,7 @@ class PilotRuntimeScrollPerformer {
             );
     }
 
-    final Offset? dragStart = _dragStartFor(scrollableElement);
+    final Offset? dragStart = _dragStartFor(scrollableElement, dragAxis);
     if (dragStart == null) {
       return _failure(
         code: handle == null ? 'primaryScrollableUnavailable' : 'notScrollable',
@@ -132,18 +135,12 @@ class PilotRuntimeScrollPerformer {
     return scrollable;
   }
 
-  static Element? _primaryScrollable({
-    required double deltaX,
-    required double deltaY,
-  }) {
-    final Axis preferredAxis = deltaY.abs() >= deltaX.abs()
-        ? Axis.vertical
-        : Axis.horizontal;
+  static Element? _primaryScrollable(Axis dragAxis) {
     final List<Element> scrollables = <Element>[];
     PilotRuntimeFinderResolver.visitVisibleElements((Element element) {
       final Widget widget = element.widget;
       if (widget is Scrollable &&
-          axisDirectionToAxis(widget.axisDirection) == preferredAxis) {
+          axisDirectionToAxis(widget.axisDirection) == dragAxis) {
         scrollables.add(element);
       }
     });
@@ -168,7 +165,7 @@ class PilotRuntimeScrollPerformer {
     return outermostScrollables.single;
   }
 
-  static Offset? _dragStartFor(Element element) {
+  static Offset? _dragStartFor(Element element, Axis dragAxis) {
     final RenderObject? renderObject = element.renderObject;
     if (renderObject is! RenderBox || !renderObject.hasSize) {
       return null;
@@ -180,7 +177,7 @@ class PilotRuntimeScrollPerformer {
         renderObject.localToGlobal(Offset.zero) & renderObject.size;
     final List<Rect> nestedScrollableBounds = <Rect>[];
     element.visitChildren((Element child) {
-      _collectScrollableBounds(child, nestedScrollableBounds);
+      _collectScrollableBounds(child, dragAxis, nestedScrollableBounds);
     });
     final List<Offset> candidates = <Offset>[
       bounds.center,
@@ -199,16 +196,22 @@ class PilotRuntimeScrollPerformer {
     return null;
   }
 
-  static void _collectScrollableBounds(Element element, List<Rect> bounds) {
+  static void _collectScrollableBounds(
+    Element element,
+    Axis dragAxis,
+    List<Rect> bounds,
+  ) {
     final RenderObject? renderObject = element.renderObject;
-    if (element.widget is Scrollable &&
+    final Widget widget = element.widget;
+    if (widget is Scrollable &&
+        axisDirectionToAxis(widget.axisDirection) == dragAxis &&
         renderObject is RenderBox &&
         renderObject.hasSize &&
         !renderObject.size.isEmpty) {
       bounds.add(renderObject.localToGlobal(Offset.zero) & renderObject.size);
     }
     element.visitChildren((Element child) {
-      _collectScrollableBounds(child, bounds);
+      _collectScrollableBounds(child, dragAxis, bounds);
     });
   }
 
