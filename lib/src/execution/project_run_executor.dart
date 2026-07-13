@@ -1,11 +1,9 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:screen_recorder/screen_recorder.dart' as screen_recorder;
 
 import '../artifacts/artifact_store.dart';
 import '../reports/project_run_report.dart';
-import '../recording/screen_recorder_recording_controller.dart';
 import '../runtime/runtime_adapter_selector.dart';
 import '../scenario/project_scenario_discovery.dart';
 import 'scenario_runner.dart';
@@ -41,6 +39,7 @@ class DefaultProjectRunExecutor implements ProjectRunExecutor {
     this.outputDirectory,
     this.clock = DateTime.now,
     this.launchHeartbeatTicks,
+    this.recordingControllerFactory = defaultRecordingControllerFactory,
   }) : _sessionFactory = sessionFactory;
 
   /// Discovers Flutter and Recording Devices before app launch when needed.
@@ -66,6 +65,9 @@ class DefaultProjectRunExecutor implements ProjectRunExecutor {
 
   /// Optional heartbeat stream used by launch progress tests.
   final Stream<void>? launchHeartbeatTicks;
+
+  /// Creates the recording controller for the shared execution session.
+  final RecordingControllerFactory recordingControllerFactory;
 
   @override
   Future<ProjectRunResult> run(
@@ -119,11 +121,7 @@ class DefaultProjectRunExecutor implements ProjectRunExecutor {
             targetDevice: session.targetDevice,
             recordingController:
                 scenarioFile.scenario.recording?.enabled == true
-                ? ScreenRecorderRecordingController(
-                    recorder: screen_recorder.ScreenRecorder.defaultRecorder(),
-                    deviceSelector: session.targetDevice!.id,
-                    outputDirectory: Directory.current,
-                  )
+                ? session.recordingController
                 : null,
           );
         } on RuntimeAdapterSelectionException catch (error) {
@@ -166,6 +164,11 @@ class DefaultProjectRunExecutor implements ProjectRunExecutor {
         message: error.message,
       );
     } on TestExecutionLaunchException catch (error) {
+      environmentFailure = ProjectRunEnvironmentFailure(
+        phase: ProjectRunEnvironmentFailurePhase.launch,
+        message: error.message,
+      );
+    } on TestExecutionRecordingException catch (error) {
       environmentFailure = ProjectRunEnvironmentFailure(
         phase: ProjectRunEnvironmentFailurePhase.launch,
         message: error.message,
@@ -252,6 +255,7 @@ class DefaultProjectRunExecutor implements ProjectRunExecutor {
           interruptSignals: interruptSignals,
           launchHeartbeatTicks: launchHeartbeatTicks,
           launchClock: clock,
+          recordingControllerFactory: recordingControllerFactory,
         );
   }
 }

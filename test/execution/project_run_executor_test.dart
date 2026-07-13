@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:file_testkit/file_testkit.dart';
 import 'package:flutter_pilot/flutter_pilot.dart';
 import 'package:path/path.dart' as p;
+import 'package:screen_recorder/screen_recorder.dart' as screen_recorder;
 import 'package:test/test.dart';
 
 import '../support/test_command_fakes.dart';
@@ -33,6 +34,7 @@ void main() {
           ]),
           outputDirectory: Directory.current,
           clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
         );
         final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
           ProjectScenarioFile(
@@ -132,6 +134,7 @@ void main() {
           ]),
           outputDirectory: Directory.current,
           clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
         );
         final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
           ProjectScenarioFile(
@@ -201,6 +204,7 @@ void main() {
           ]),
           outputDirectory: Directory.current,
           clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
         );
         final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
           ProjectScenarioFile(
@@ -269,16 +273,16 @@ void main() {
         final FakeDeviceDiscovery deviceDiscovery = FakeDeviceDiscovery(
           flutterDevices: <FlutterDevice>[
             FlutterDevice(
-              id: 'pixel-8',
-              name: 'Pixel 8',
-              targetPlatform: 'android-arm64',
+              id: 'flutter-udid',
+              name: 'Test iPhone',
+              targetPlatform: 'ios',
               isSupported: true,
-              emulator: true,
-              sdk: 'Android 35',
+              emulator: false,
+              sdk: 'iOS 15.8.8',
             ),
           ],
           recordingDevices: <RecordingDeviceIdentity>[
-            RecordingDeviceIdentity(id: 'pixel-8'),
+            RecordingDeviceIdentity(id: 'avfoundation-id', name: 'Test iPhone'),
           ],
         );
         final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
@@ -289,6 +293,7 @@ void main() {
           ]),
           outputDirectory: Directory.current,
           clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
         );
         final List<TargetAppLaunchProgressEvent> launchEvents =
             <TargetAppLaunchProgressEvent>[];
@@ -343,10 +348,14 @@ void main() {
           'run',
           '--machine',
           '--device-id',
-          'pixel-8',
+          'flutter-udid',
         ]);
-        expect(runner.targetDevice?.id, 'pixel-8');
-        expect(runner.recordingController, isNotNull);
+        expect(runner.targetDevice?.id, 'flutter-udid');
+        expect(
+          (runner.recordingController as ScreenRecorderRecordingController)
+              .deviceSelector,
+          'avfoundation-id',
+        );
         final TargetAppLaunchStartedEvent startedEvent = launchEvents
             .whereType<TargetAppLaunchStartedEvent>()
             .single;
@@ -386,8 +395,8 @@ void main() {
             ),
           ],
           recordingDevices: <RecordingDeviceIdentity>[
-            const RecordingDeviceIdentity(id: 'pixel-8'),
-            const RecordingDeviceIdentity(id: 'iphone-15'),
+            const RecordingDeviceIdentity(id: 'pixel-8', name: 'Pixel 8'),
+            const RecordingDeviceIdentity(id: 'iphone-15', name: 'iPhone 15'),
           ],
         );
         final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
@@ -398,6 +407,7 @@ void main() {
           ]),
           outputDirectory: Directory.current,
           clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
         );
         final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
           ProjectScenarioFile(
@@ -839,4 +849,23 @@ void main() {
       expect(secondRunner.onProgress, isNull);
     });
   });
+}
+
+RecordingController _fakeRecordingControllerFactory({
+  required String deviceSelector,
+  required Directory outputDirectory,
+}) {
+  return ScreenRecorderRecordingController(
+    recorder: screen_recorder.ScreenRecorder.fake(
+      devices: <screen_recorder.RecordingDevice>[
+        screen_recorder.RecordingDevice(
+          id: deviceSelector,
+          name: deviceSelector,
+          platform: screen_recorder.RecordingDevicePlatform.android,
+        ),
+      ],
+    ),
+    deviceSelector: deviceSelector,
+    outputDirectory: outputDirectory,
+  );
 }

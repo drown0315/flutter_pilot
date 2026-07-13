@@ -37,6 +37,41 @@ void main() {
     });
   });
 
+  test(
+    'prepares before starting a screen_recorder Recording Session',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final Directory outputDirectory = Directory('screen_recording_output');
+        final ScreenRecorderRecordingController controller =
+            ScreenRecorderRecordingController(
+              recorder: screen_recorder.ScreenRecorder.fake(
+                devices: const <screen_recorder.RecordingDevice>[
+                  screen_recorder.RecordingDevice(
+                    id: 'device-1',
+                    name: 'Pixel 8',
+                    platform: screen_recorder.RecordingDevicePlatform.android,
+                  ),
+                ],
+              ),
+              deviceSelector: 'Pixel',
+              outputDirectory: outputDirectory,
+            );
+
+        await controller.prepare();
+        await controller.start(
+          const Scenario(name: 'prepared_run', steps: <ScenarioStep>[]),
+        );
+        final RecordingResult result = await controller.stop();
+        await controller.dispose();
+        await controller.dispose();
+
+        expect(result.path, endsWith('prepared_run.mp4'));
+        expect(result.mimeType, 'video/mp4');
+        expect(File(result.path).existsSync(), isTrue);
+      });
+    },
+  );
+
   test('normalizes screen_recorder startup failures', () async {
     await FileTestkit.runZoned(() async {
       final ScreenRecorderRecordingController controller =

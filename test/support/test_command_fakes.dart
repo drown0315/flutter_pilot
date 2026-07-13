@@ -215,13 +215,24 @@ class FakeTestExecutionSessionFactory implements TestExecutionSessionFactory {
 }
 
 class FakeTestExecutionSession implements TestExecutionSession {
-  FakeTestExecutionSession({required this.runtimeTarget, this.targetDevice});
+  FakeTestExecutionSession({
+    required this.runtimeTarget,
+    this.targetDevice,
+    this.recordingDeviceSelector,
+    this.recordingController,
+  });
 
   @override
   final RuntimeTarget runtimeTarget;
 
   @override
   final TargetDevice? targetDevice;
+
+  @override
+  final String? recordingDeviceSelector;
+
+  @override
+  final RecordingController? recordingController;
 
   int runWithInterruptCount = 0;
   int closeCount = 0;

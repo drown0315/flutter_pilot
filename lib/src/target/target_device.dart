@@ -42,17 +42,20 @@ class FlutterDevice {
   final String sdk;
 }
 
-/// Recording Device identity used for id-only Target Device alignment.
+/// Recording Device identity used for Target Device alignment.
 ///
 /// This keeps Target Device resolution independent from `screen_recorder`
-/// backend objects while preserving the only field needed for consistency:
-/// the Recording Device id.
+/// backend objects while preserving the id and display name needed to align
+/// Flutter and recording discovery results.
 class RecordingDeviceIdentity {
   /// Creates a Recording Device identity for Target Device matching.
-  const RecordingDeviceIdentity({required this.id});
+  const RecordingDeviceIdentity({required this.id, required this.name});
 
   /// Backend-specific Recording Device id.
   final String id;
+
+  /// Human-readable Recording Device name.
+  final String name;
 }
 
 /// Target Device selected for a Scenario test run.
@@ -83,6 +86,25 @@ class TargetDevice {
 
   /// Flutter-reported SDK description.
   final String sdk;
+}
+
+/// A selected Target Device and its matching Recording Device, when available.
+///
+/// Non-recording selection retains the Target Device with a `null` Recording
+/// Device identity. Recording-required selection fails instead of returning an
+/// unmatched Target Device.
+class ResolvedTargetDevice {
+  /// Creates the result of Target Device selection and recording alignment.
+  const ResolvedTargetDevice({
+    required this.targetDevice,
+    required this.recordingDevice,
+  });
+
+  /// Target Device selected for app launch.
+  final TargetDevice targetDevice;
+
+  /// Recording Device paired by exact id or unique exact name.
+  final RecordingDeviceIdentity? recordingDevice;
 }
 
 /// Failure raised when Target Device resolution cannot select exactly one device.
@@ -166,15 +188,15 @@ class TargetDeviceResolver {
   ///
   /// Args:
   /// `selector` is the optional user `--device` value.
-  /// `recordingRequired` tells whether Scenario Recording requires id alignment
+  /// `recordingRequired` tells whether Scenario Recording requires alignment
   /// with a Recording Device.
   /// `flutterDevices` are devices discovered from Flutter tooling.
   /// `recordingDevices` are Recording Device identities available for capture.
   ///
   /// Returns:
-  /// A Target Device, or `null` when no selector is provided and recording is
-  /// not required.
-  static TargetDevice? resolve({
+  /// A resolved Target Device pairing, or `null` when no selector is provided
+  /// and recording is not required.
+  static ResolvedTargetDevice? resolve({
     required String? selector,
     required bool recordingRequired,
     required List<FlutterDevice> flutterDevices,
@@ -187,25 +209,34 @@ class TargetDeviceResolver {
       for (final FlutterDevice device in flutterDevices)
         if (device.isSupported) device,
     ];
-    final Set<String> recordingDeviceIds = <String>{
-      for (final RecordingDeviceIdentity device in recordingDevices) device.id,
-    };
     if (selector == null && recordingRequired) {
-      final List<FlutterDevice> recordableDevices = <FlutterDevice>[
-        for (final FlutterDevice device in supportedDevices)
-          if (recordingDeviceIds.contains(device.id)) device,
-      ];
+      final List<ResolvedTargetDevice> recordableDevices =
+          <ResolvedTargetDevice>[
+            for (final FlutterDevice device in supportedDevices)
+              if (_recordingDeviceFor(device, recordingDevices)
+                  case final RecordingDeviceIdentity recordingDevice)
+                ResolvedTargetDevice(
+                  targetDevice: _targetFromFlutterDevice(device),
+                  recordingDevice: recordingDevice,
+                ),
+          ];
       if (recordableDevices.length == 1) {
-        return _targetFromFlutterDevice(recordableDevices.single);
+        return recordableDevices.single;
       }
+      final List<FlutterDevice> recordableFlutterDevices = <FlutterDevice>[
+        for (final ResolvedTargetDevice device in recordableDevices)
+          supportedDevices.singleWhere(
+            (FlutterDevice candidate) => candidate.id == device.targetDevice.id,
+          ),
+      ];
       if (recordableDevices.isEmpty) {
         throw const TargetDeviceResolutionException(
-          'No recordable Target Device is available. Pass --device with a Flutter Device id that is also a Recording Device id.',
+          'No recordable Target Device is available. Flutter and Recording Devices must share an exact id or a unique exact name.',
         );
       }
       throw TargetDeviceResolutionException(
         'Multiple recordable Target Devices are available. Pass --device with one of: '
-        '${_formatCandidates(recordableDevices)}.',
+        '${_formatCandidates(recordableFlutterDevices)}.',
       );
     }
     final String? normalizedSelector = selector?.trim();
@@ -219,12 +250,18 @@ class TargetDeviceResolver {
       supportedDevices,
     );
     if (selectedDevice case _SelectedTargetDeviceMatch(:final device)) {
-      if (recordingRequired && !recordingDeviceIds.contains(device.id)) {
+      final RecordingDeviceIdentity? recordingDevice = recordingRequired
+          ? _recordingDeviceFor(device, recordingDevices)
+          : null;
+      if (recordingRequired && recordingDevice == null) {
         throw TargetDeviceResolutionException(
           'Target Device ${device.id} (${device.name}) is not available as a Recording Device.',
         );
       }
-      return _targetFromFlutterDevice(device);
+      return ResolvedTargetDevice(
+        targetDevice: _targetFromFlutterDevice(device),
+        recordingDevice: recordingDevice,
+      );
     }
     final bool unsupportedExactMatch = flutterDevices.any(
       (FlutterDevice device) =>
@@ -246,6 +283,34 @@ class TargetDeviceResolver {
     throw TargetDeviceResolutionException(
       'No Target Device matches "$normalizedSelector".',
     );
+  }
+
+  /// Pair one Flutter Device with a Recording Device.
+  ///
+  /// Exact ids take precedence. When ids differ, one exact name match is
+  /// accepted; multiple exact name matches are rejected as ambiguous.
+  static RecordingDeviceIdentity? _recordingDeviceFor(
+    FlutterDevice flutterDevice,
+    List<RecordingDeviceIdentity> recordingDevices,
+  ) {
+    for (final RecordingDeviceIdentity recordingDevice in recordingDevices) {
+      if (recordingDevice.id == flutterDevice.id) {
+        return recordingDevice;
+      }
+    }
+    final List<RecordingDeviceIdentity> nameMatches = <RecordingDeviceIdentity>[
+      for (final RecordingDeviceIdentity recordingDevice in recordingDevices)
+        if (recordingDevice.name == flutterDevice.name) recordingDevice,
+    ];
+    if (nameMatches.length == 1) {
+      return nameMatches.single;
+    }
+    if (nameMatches.length > 1) {
+      throw TargetDeviceResolutionException(
+        'ambiguous Recording Device name "${flutterDevice.name}".',
+      );
+    }
+    return null;
   }
 
   /// Resolve a non-empty selector against supported Flutter Devices.

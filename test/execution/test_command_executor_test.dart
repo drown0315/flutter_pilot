@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:file_testkit/file_testkit.dart';
 import 'package:flutter_pilot/flutter_pilot.dart';
+import 'package:screen_recorder/screen_recorder.dart' as screen_recorder;
 import 'package:test/test.dart';
 
 import '../support/test_command_fakes.dart';
@@ -327,20 +329,24 @@ void main() {
           deviceDiscovery: FakeDeviceDiscovery(
             flutterDevices: <FlutterDevice>[
               FlutterDevice(
-                id: 'pixel-8',
-                name: 'Pixel 8',
-                targetPlatform: 'android-arm64',
+                id: 'flutter-udid',
+                name: 'Test iPhone',
+                targetPlatform: 'ios',
                 isSupported: true,
-                emulator: true,
-                sdk: 'Android 35',
+                emulator: false,
+                sdk: 'iOS 15.8.8',
               ),
             ],
             recordingDevices: <RecordingDeviceIdentity>[
-              RecordingDeviceIdentity(id: 'pixel-8'),
+              RecordingDeviceIdentity(
+                id: 'avfoundation-id',
+                name: 'Test iPhone',
+              ),
             ],
           ),
           launcher: TargetAppLauncher(starter: starter),
           runnerFactory: FakeScenarioRunnerFactory(runner),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
         );
         final Scenario scenario = Scenario(
           name: 'recorded',
@@ -381,10 +387,14 @@ void main() {
           'run',
           '--machine',
           '--device-id',
-          'pixel-8',
+          'flutter-udid',
         ]);
-        expect(runner.targetDevice?.id, 'pixel-8');
-        expect(runner.recordingController, isNotNull);
+        expect(runner.targetDevice?.id, 'flutter-udid');
+        expect(
+          (runner.recordingController as ScreenRecorderRecordingController)
+              .deviceSelector,
+          'avfoundation-id',
+        );
       });
     },
   );
@@ -415,6 +425,7 @@ void main() {
           ),
           launcher: TargetAppLauncher(starter: starter),
           runnerFactory: FakeScenarioRunnerFactory(runner),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
         );
         final Scenario scenario = Scenario(
           name: 'explicit_device',
@@ -493,11 +504,12 @@ void main() {
               ),
             ],
             recordingDevices: <RecordingDeviceIdentity>[
-              RecordingDeviceIdentity(id: 'pixel-8'),
+              RecordingDeviceIdentity(id: 'pixel-8', name: 'Pixel 8'),
             ],
           ),
           launcher: TargetAppLauncher(starter: starter),
           runnerFactory: FakeScenarioRunnerFactory(runner),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
         );
         final Scenario scenario = Scenario(
           name: 'recorded',
@@ -809,4 +821,23 @@ void main() {
       await interruptController.close();
     });
   });
+}
+
+RecordingController _fakeRecordingControllerFactory({
+  required String deviceSelector,
+  required Directory outputDirectory,
+}) {
+  return ScreenRecorderRecordingController(
+    recorder: screen_recorder.ScreenRecorder.fake(
+      devices: <screen_recorder.RecordingDevice>[
+        screen_recorder.RecordingDevice(
+          id: deviceSelector,
+          name: deviceSelector,
+          platform: screen_recorder.RecordingDevicePlatform.android,
+        ),
+      ],
+    ),
+    deviceSelector: deviceSelector,
+    outputDirectory: outputDirectory,
+  );
 }

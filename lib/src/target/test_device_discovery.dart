@@ -45,7 +45,7 @@ class DefaultTestDeviceDiscovery implements TestDeviceDiscovery {
         .listDevices();
     return <RecordingDeviceIdentity>[
       for (final screen_recorder.RecordingDevice device in devices)
-        RecordingDeviceIdentity(id: device.id),
+        RecordingDeviceIdentity(id: device.id, name: device.name),
     ];
   }
 }

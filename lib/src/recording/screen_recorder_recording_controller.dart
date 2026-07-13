@@ -20,17 +20,46 @@ class ScreenRecorderRecordingController implements RecordingController {
   final screen_recorder.ScreenRecorder _recorder;
   final String deviceSelector;
   final Directory outputDirectory;
+  screen_recorder.PreparedCapture? _capture;
   screen_recorder.RecordingSession? _session;
+  bool _disposed = false;
+
+  @override
+  Future<void> prepare() async {
+    if (_capture != null) {
+      return;
+    }
+    try {
+      _capture = await _recorder.prepare(deviceSelector: deviceSelector);
+      _disposed = false;
+    } on screen_recorder.ScreenRecorderException catch (error) {
+      throw RecordingException(
+        operation: RecordingOperation.prepare,
+        message: error.message,
+        cause: error,
+      );
+    }
+  }
 
   @override
   Future<void> start(Scenario scenario) async {
     try {
-      _session = await _recorder.startRecord(
-        deviceSelector: deviceSelector,
-        outputDirectory: outputDirectory.path,
-        outputName: scenario.name,
-        overwrite: true,
-      );
+      final screen_recorder.PreparedCapture? capture = _capture;
+      if (capture != null) {
+        _session = await _recorder.startRecord(
+          preparedCapture: capture,
+          outputDirectory: outputDirectory.path,
+          outputName: scenario.name,
+          overwrite: true,
+        );
+      } else {
+        _session = await _recorder.startRecord(
+          deviceSelector: deviceSelector,
+          outputDirectory: outputDirectory.path,
+          outputName: scenario.name,
+          overwrite: true,
+        );
+      }
     } on screen_recorder.ScreenRecorderException catch (error) {
       throw RecordingException(
         operation: RecordingOperation.start,
@@ -62,6 +91,28 @@ class ScreenRecorderRecordingController implements RecordingController {
     } on screen_recorder.ScreenRecorderException catch (error) {
       throw RecordingException(
         operation: RecordingOperation.stop,
+        message: error.message,
+        cause: error,
+      );
+    }
+  }
+
+  @override
+  Future<void> dispose() async {
+    if (_disposed) {
+      return;
+    }
+    _disposed = true;
+    final screen_recorder.PreparedCapture? capture = _capture;
+    _capture = null;
+    if (capture == null) {
+      return;
+    }
+    try {
+      await _recorder.dispose(capture);
+    } on screen_recorder.ScreenRecorderException catch (error) {
+      throw RecordingException(
+        operation: RecordingOperation.dispose,
         message: error.message,
         cause: error,
       );

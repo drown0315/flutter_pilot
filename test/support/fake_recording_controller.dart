@@ -30,6 +30,19 @@ class FakeRecordingController implements RecordingController {
   final List<FakeRecordingEvent> events = <FakeRecordingEvent>[];
 
   @override
+  Future<void> prepare() async {
+    if (failure?.operation == RecordingOperation.prepare) {
+      throw failure!;
+    }
+    events.add(
+      FakeRecordingEvent(
+        operation: RecordingOperation.prepare,
+        runtimeEventCountAtStart: runtimeEvents.length,
+      ),
+    );
+  }
+
+  @override
   Future<void> start(Scenario scenario) async {
     if (failure?.operation == RecordingOperation.start) {
       throw failure!;
@@ -60,6 +73,19 @@ class FakeRecordingController implements RecordingController {
       recordingFile.writeAsBytesSync(<int>[0]);
     }
     return result;
+  }
+
+  @override
+  Future<void> dispose() async {
+    if (failure?.operation == RecordingOperation.dispose) {
+      throw failure!;
+    }
+    events.add(
+      FakeRecordingEvent(
+        operation: RecordingOperation.dispose,
+        runtimeEventCountAtStart: runtimeEvents.length,
+      ),
+    );
   }
 }
 

@@ -13,7 +13,7 @@ void main() {
     test(
       'returns null when no selector is provided and recording is not required',
       () {
-        final TargetDevice? device = TargetDeviceResolver.resolve(
+        final ResolvedTargetDevice? device = TargetDeviceResolver.resolve(
           selector: null,
           recordingRequired: false,
           flutterDevices: const <FlutterDevice>[],
@@ -44,28 +44,29 @@ void main() {
         ),
       ];
 
-      final TargetDevice byId = TargetDeviceResolver.resolve(
+      final ResolvedTargetDevice byId = TargetDeviceResolver.resolve(
         selector: 'emulator-5554',
         recordingRequired: false,
         flutterDevices: devices,
         recordingDevices: const <RecordingDeviceIdentity>[],
       )!;
-      final TargetDevice byName = TargetDeviceResolver.resolve(
+      final ResolvedTargetDevice byName = TargetDeviceResolver.resolve(
         selector: 'Drown iPhone',
         recordingRequired: false,
         flutterDevices: devices,
         recordingDevices: const <RecordingDeviceIdentity>[],
       )!;
-      final TargetDevice byPrefix = TargetDeviceResolver.resolve(
+      final ResolvedTargetDevice byPrefix = TargetDeviceResolver.resolve(
         selector: 'Pixel',
         recordingRequired: false,
         flutterDevices: devices,
         recordingDevices: const <RecordingDeviceIdentity>[],
       )!;
 
-      expect(byId.id, 'emulator-5554');
-      expect(byName.id, '00008110-001C2D');
-      expect(byPrefix.name, 'Pixel 8');
+      expect(byId.targetDevice.id, 'emulator-5554');
+      expect(byName.targetDevice.id, '00008110-001C2D');
+      expect(byPrefix.targetDevice.name, 'Pixel 8');
+      expect(byId.recordingDevice, isNull);
     });
 
     test('rejects empty, ambiguous, unsupported, and missing selectors', () {
@@ -152,57 +153,125 @@ void main() {
       );
     });
 
-    test(
-      'requires recording devices to match the resolved Flutter Device id',
-      () {
-        const List<FlutterDevice> devices = <FlutterDevice>[
-          FlutterDevice(
-            id: 'pixel-8',
-            name: 'Pixel 8',
-            targetPlatform: 'android-arm64',
-            isSupported: true,
-            emulator: true,
-            sdk: 'Android 35',
-          ),
-          FlutterDevice(
-            id: 'iphone-15',
-            name: 'iPhone 15',
-            targetPlatform: 'ios',
-            isSupported: true,
-            emulator: true,
-            sdk: 'iOS 18.5',
-          ),
-        ];
+    test('pairs a Recording Device by exact id before exact name', () {
+      const List<FlutterDevice> devices = <FlutterDevice>[
+        FlutterDevice(
+          id: 'pixel-8',
+          name: 'Pixel 8',
+          targetPlatform: 'android-arm64',
+          isSupported: true,
+          emulator: true,
+          sdk: 'Android 35',
+        ),
+        FlutterDevice(
+          id: 'iphone-15',
+          name: 'iPhone 15',
+          targetPlatform: 'ios',
+          isSupported: true,
+          emulator: true,
+          sdk: 'iOS 18.5',
+        ),
+      ];
 
-        final TargetDevice selected = TargetDeviceResolver.resolve(
-          selector: 'Pixel 8',
+      final ResolvedTargetDevice selected = TargetDeviceResolver.resolve(
+        selector: 'Pixel 8',
+        recordingRequired: true,
+        flutterDevices: devices,
+        recordingDevices: const <RecordingDeviceIdentity>[
+          RecordingDeviceIdentity(id: 'pixel-8', name: 'Wrong name'),
+          RecordingDeviceIdentity(id: 'other-id', name: 'Pixel 8'),
+        ],
+      )!;
+
+      expect(selected.targetDevice.id, 'pixel-8');
+      expect(selected.recordingDevice?.id, 'pixel-8');
+    });
+
+    test('pairs a Recording Device by a unique exact name', () {
+      const FlutterDevice flutterDevice = FlutterDevice(
+        id: '00008110-001C2D',
+        name: 'Drown iPhone',
+        targetPlatform: 'ios',
+        isSupported: true,
+        emulator: false,
+        sdk: 'iOS 18.5',
+      );
+
+      final ResolvedTargetDevice selected = TargetDeviceResolver.resolve(
+        selector: flutterDevice.id,
+        recordingRequired: true,
+        flutterDevices: const <FlutterDevice>[flutterDevice],
+        recordingDevices: const <RecordingDeviceIdentity>[
+          RecordingDeviceIdentity(
+            id: 'screen-recorder-ios-id',
+            name: 'Drown iPhone',
+          ),
+        ],
+      )!;
+
+      expect(selected.targetDevice.id, flutterDevice.id);
+      expect(selected.recordingDevice?.id, 'screen-recorder-ios-id');
+      expect(selected.recordingDevice?.name, 'Drown iPhone');
+    });
+
+    test('rejects duplicate exact Recording Device names as ambiguous', () {
+      expect(
+        () => TargetDeviceResolver.resolve(
+          selector: 'Drown iPhone',
           recordingRequired: true,
-          flutterDevices: devices,
-          recordingDevices: const <RecordingDeviceIdentity>[
-            RecordingDeviceIdentity(id: 'pixel-8'),
-          ],
-        )!;
-
-        expect(selected.id, 'pixel-8');
-        expect(
-          () => TargetDeviceResolver.resolve(
-            selector: 'iPhone 15',
-            recordingRequired: true,
-            flutterDevices: devices,
-            recordingDevices: const <RecordingDeviceIdentity>[
-              RecordingDeviceIdentity(id: 'Pixel 8'),
-            ],
-          ),
-          throwsA(
-            isA<TargetDeviceResolutionException>().having(
-              (TargetDeviceResolutionException error) => error.message,
-              'message',
-              contains('is not available as a Recording Device'),
+          flutterDevices: const <FlutterDevice>[
+            FlutterDevice(
+              id: 'flutter-ios-id',
+              name: 'Drown iPhone',
+              targetPlatform: 'ios',
+              isSupported: true,
+              emulator: false,
+              sdk: 'iOS 18.5',
             ),
+          ],
+          recordingDevices: const <RecordingDeviceIdentity>[
+            RecordingDeviceIdentity(id: 'recorder-1', name: 'Drown iPhone'),
+            RecordingDeviceIdentity(id: 'recorder-2', name: 'Drown iPhone'),
+          ],
+        ),
+        throwsA(
+          isA<TargetDeviceResolutionException>().having(
+            (TargetDeviceResolutionException error) => error.message,
+            'message',
+            contains('ambiguous Recording Device'),
           ),
-        );
-      },
-    );
+        ),
+      );
+    });
+
+    test('rejects an unmatched recording-required Target Device', () {
+      expect(
+        () => TargetDeviceResolver.resolve(
+          selector: 'iphone-15',
+          recordingRequired: true,
+          flutterDevices: const <FlutterDevice>[
+            FlutterDevice(
+              id: 'iphone-15',
+              name: 'iPhone 15',
+              targetPlatform: 'ios',
+              isSupported: true,
+              emulator: true,
+              sdk: 'iOS 18.5',
+            ),
+          ],
+          recordingDevices: const <RecordingDeviceIdentity>[
+            RecordingDeviceIdentity(id: 'other', name: 'Other iPhone'),
+          ],
+        ),
+        throwsA(
+          isA<TargetDeviceResolutionException>().having(
+            (TargetDeviceResolutionException error) => error.message,
+            'message',
+            contains('is not available as a Recording Device'),
+          ),
+        ),
+      );
+    });
 
     test('auto-selects only one recordable supported Flutter Device', () {
       const List<FlutterDevice> devices = <FlutterDevice>[
@@ -232,17 +301,18 @@ void main() {
         ),
       ];
 
-      final TargetDevice selected = TargetDeviceResolver.resolve(
+      final ResolvedTargetDevice selected = TargetDeviceResolver.resolve(
         selector: null,
         recordingRequired: true,
         flutterDevices: devices,
         recordingDevices: const <RecordingDeviceIdentity>[
-          RecordingDeviceIdentity(id: 'iphone-15'),
-          RecordingDeviceIdentity(id: 'macos'),
+          RecordingDeviceIdentity(id: 'iphone-15', name: 'iPhone 15'),
+          RecordingDeviceIdentity(id: 'macos', name: 'macOS'),
         ],
       )!;
 
-      expect(selected.id, 'iphone-15');
+      expect(selected.targetDevice.id, 'iphone-15');
+      expect(selected.recordingDevice?.id, 'iphone-15');
       expect(
         () => TargetDeviceResolver.resolve(
           selector: null,
@@ -264,8 +334,8 @@ void main() {
           recordingRequired: true,
           flutterDevices: devices,
           recordingDevices: const <RecordingDeviceIdentity>[
-            RecordingDeviceIdentity(id: 'pixel-8'),
-            RecordingDeviceIdentity(id: 'iphone-15'),
+            RecordingDeviceIdentity(id: 'pixel-8', name: 'Pixel 8'),
+            RecordingDeviceIdentity(id: 'iphone-15', name: 'iPhone 15'),
           ],
         ),
         throwsA(
