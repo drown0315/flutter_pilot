@@ -51,7 +51,9 @@ and may contain letters, digits, `_`, or `-`.
 `scenario.description` is optional and must be a string.
 
 Scenario Recording is optional run-level metadata under `scenario.recording`.
-It is not a Step action.
+It is not a Step action. When enabled, Flutter Pilot may prepare device capture
+before app launch, then starts the saved video segment before the first Step and
+stores the result as a run-level Device Video Recording artifact.
 
 ```yaml scenario
 scenario:

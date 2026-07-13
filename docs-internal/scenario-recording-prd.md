@@ -11,15 +11,17 @@ Teams that already have the `screen_recorder` package need Flutter Pilot to
 optionally create a Device Video Recording for the full Scenario Run without
 turning recording into a Step or mixing it into Capture Action semantics.
 Users need a strict Scenario DSL option that enables run-scoped recording,
-starts before the first Step executes, stops after the run completes, and fails
-clearly when recording was requested but cannot be started.
+starts the saved video segment before the first Step executes, stops after the
+run completes, and fails clearly when recording was requested but cannot be
+started.
 
 ## Solution
 
 Add a Scenario-level recording option under `scenario.recording`. The option is
 part of Scenario metadata, not a Step Action. When enabled, Flutter Pilot
-creates one Recording Session for the full Scenario Run: it starts recording
-before Step execution begins and stops recording during run shutdown.
+creates one Recording Session for the full Scenario Run: it may prepare device
+capture before Target App launch, starts the saved segment before Step
+execution begins, and stops recording during run shutdown.
 
 The first slice supports only a strict recording toggle in the YAML Scenario
 schema. The accepted forms are:
@@ -42,7 +44,7 @@ backend availability.
 
 1. As a Flutter developer, I want a Scenario to request full-run device video recording, so that I can review the entire visual flow around a bug.
 2. As a Flutter developer, I want recording to be configured in Scenario metadata, so that it is clearly separate from Step behavior.
-3. As a Flutter developer, I want recording to start before the first Step, so that the video includes pre-interaction context.
+3. As a Flutter developer, I want the saved recording segment to start before the first Step, so that the video includes pre-interaction context without Flutter build or launch time.
 4. As a Flutter developer, I want recording to stop after the run finishes, so that the final artifact covers the complete Scenario Run.
 5. As a Flutter developer, I want recording to remain optional, so that ordinary runs do not pay recording cost by default.
 6. As a Flutter developer, I want `scenario.recording: {}` to enable default recording behavior, so that simple Scenarios stay compact.
@@ -114,7 +116,7 @@ backend availability.
 - CLI validation tests should verify that valid recording DSL passes `validate`.
 - CLI validation tests should verify that invalid recording DSL reports structured field paths.
 - Runner tests should use a fake recording boundary in the same spirit as existing fake Runtime Adapter tests.
-- Runner tests should verify that recording starts before Step execution when enabled.
+- Runner tests should verify that recording preparation can happen before launch and that the saved Recording Session starts before Step execution when enabled.
 - Runner tests should verify that recording is not started when recording is omitted or explicitly disabled.
 - Runner tests should verify that startup failure ends the run before any Step executes.
 - Runner tests should verify that a successful run saves a run-level Device Video Recording artifact.

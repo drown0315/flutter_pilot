@@ -28,8 +28,10 @@ class ScreenRecorderService {
 
   /// Starts recording the selected Recording Device.
   ///
+  /// Provide exactly one of `deviceSelector` or `preparedCapture`.
   /// `deviceSelector` matches the backend-specific device id, the exact device
-  /// name, or a case-insensitive device-name prefix. `outputDirectory` is the
+  /// name, or a case-insensitive device-name prefix. `preparedCapture` starts
+  /// a segment from a capture returned by [prepare]. `outputDirectory` is the
   /// local directory where the final video will be saved. `outputName` omits
   /// any extension because the backend chooses the native format.
   Future<RecordingSession> startRecord({

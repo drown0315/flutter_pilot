@@ -36,11 +36,11 @@ The command supports common Flutter app launch options:
 - `--target` / `-t` selects the Flutter app entrypoint file.
 
 When Scenario Recording is enabled, Flutter Pilot requires the Target Device to
-also be available as a Recording Device with the same device id. If the user
-does not pass `--device`, Flutter Pilot automatically selects a Target Device
-only when exactly one supported Flutter Device id is also present in the
-Recording Device list. Zero or multiple recordable Target Devices fail before
-launch and ask the user to pass `--device`.
+pair with a Recording Device by exact id or by a unique exact name match. If the
+user does not pass `--device`, Flutter Pilot automatically selects a Target
+Device only when exactly one supported Flutter Device has a paired Recording
+Device. Zero or multiple recordable Target Devices fail before launch and ask
+the user to pass `--device`.
 
 The existing `run` command and user-supplied VM service URI mode are removed
 from the CLI. Runtime Target remains an internal model produced by the `test`
@@ -80,7 +80,7 @@ launch flow, not a user-provided command option.
 1. As a Flutter developer, I want Scenario Recording to record the same device that runs the app, so that the Device Video Recording reflects the actual Scenario Run.
 1. As a Flutter developer, I want recording-enabled Scenarios to fail when no recordable Target Device exists, so that requested video artifacts are never silently skipped.
 1. As a Flutter developer, I want recording-enabled Scenarios to fail when multiple recordable Target Devices exist and I did not pass `--device`, so that Flutter Pilot does not choose the wrong device.
-1. As a Flutter developer, I want recording-enabled Scenarios to auto-select the Target Device when exactly one supported Flutter Device id is also a Recording Device id, so that single-device setups stay convenient.
+1. As a Flutter developer, I want recording-enabled Scenarios to auto-select the Target Device when exactly one supported Flutter Device pairs with a Recording Device, so that single-device setups stay convenient.
 1. As a Flutter developer, I want `scenario.recording.enabled: false` to behave like no recording, so that templates can disable recording without triggering device discovery.
 1. As a Flutter developer, I want recording-disabled Scenarios to run on macOS or Chrome when Flutter supports them, so that ordinary Scenario execution is not limited by screen recording.
 1. As a Flutter developer, I want recording-enabled Scenarios to reject macOS and Chrome Target Devices, so that unsupported recording platforms fail clearly.
@@ -106,7 +106,7 @@ launch flow, not a user-provided command option.
 1. As a Flutter developer, I want `validate` to remain schema-only, so that I can lint Scenario YAML without devices or Flutter app launch.
 1. As a Flutter developer, I want `report` and `diff` to continue working on run directories, so that post-run workflows are preserved.
 1. As a CI user, I want `test` to fail non-interactively when Target Device selection is ambiguous, so that pipelines do not hang waiting for input.
-1. As a CI user, I want to pass an explicit Target Device id, so that the same device is used for Flutter launch and recording.
+1. As a CI user, I want to pass an explicit Target Device id, so that Flutter launch uses that device and recording uses its paired Recording Device.
 1. As an AI coding agent, I want `test` to be the deterministic reproduction command, so that I can run one command to launch the app and collect artifacts.
 1. As an AI coding agent, I want Target Device resolution errors before app launch, so that I can fix command inputs before Scenario execution begins.
 1. As a maintainer, I want the existing ScenarioRunner reused by `test`, so that `test` and prior Scenario execution behavior do not diverge.
@@ -116,7 +116,7 @@ launch flow, not a user-provided command option.
 1. As a maintainer, I want Target Device to remain separate from Recording Device, so that screen recording backend details do not become the app launch model.
 1. As a maintainer, I want the `run` command removed rather than kept as an alias, so that the CLI surface has one Scenario execution path.
 1. As a maintainer, I want old `run` invocations to fail as unknown commands, so that the code does not preserve deprecated behavior.
-1. As a maintainer, I want physical iOS Recording Device discovery to include devices visible through `xcrun xctrace list devices`, so that Flutter-visible physical iPhones can participate in Target Device matching.
+1. As a maintainer, I want physical iOS Recording Device discovery to expose only devices that the AVFoundation helper can record, so that Flutter-visible physical iPhones pair by unique exact name when their Flutter UDID differs from their recording id.
 1. As a maintainer, I want Device Video Recording path metadata to be run-directory-relative, so that reports and HTML timeline links remain portable.
 1. As a maintainer, I want Project Run discovery and aggregation to stay narrow in the first version, so that it adds batch execution without suite configuration, parallel orchestration, or a second report format.
 
@@ -175,11 +175,11 @@ launch flow, not a user-provided command option.
 - If the user does not pass `--device` and Scenario Recording is disabled or omitted, `test` does not discover devices and lets Flutter choose its default device.
 - If the user passes `--device`, `test` discovers Flutter Devices and resolves the selector to exactly one supported Flutter Device.
 - Unsupported Flutter Devices are excluded from Target Device resolution.
-- If Scenario Recording is enabled, Target Device resolution also requires a Recording Device with the same device id.
-- Recording Device matching is id-only. Recording Device name is not used as a fallback for Target Device consistency.
-- If the user does not pass `--device` and Scenario Recording is enabled, `test` builds the id intersection of supported Flutter Devices and Recording Devices.
-- If the recording-required device id intersection has exactly one device, `test` auto-selects that Target Device.
-- If the recording-required device id intersection has zero or multiple devices, `test` fails with exit code `64` before launching Flutter.
+- If Scenario Recording is enabled, Target Device resolution also requires a Recording Device paired by exact id or by a unique exact name match.
+- Recording Device exact id matching takes precedence. Recording Device exact name matching is accepted only when it resolves to one Recording Device.
+- If the user does not pass `--device` and Scenario Recording is enabled, `test` builds the set of supported Flutter Devices that have a paired Recording Device.
+- If the recording-required paired-device set has exactly one device, `test` auto-selects that Target Device.
+- If the recording-required paired-device set has zero or multiple devices, `test` fails with exit code `64` before launching Flutter.
 - Single-file Target Device resolution failures do not create Scenario Run directories. Project Run Target Device resolution failures create the batch directory and `project_run_report.json` with an environment-level failure.
 - Scenario Recording preparation happens after Target Device and Recording Device pairing. Backends that need pre-launch capture setup, such as physical iOS, prepare before Flutter app launch.
 - Scenario Recording segment startup failure after a Runtime Target URI is available is a Scenario Run failure and creates a run report.
@@ -228,9 +228,9 @@ launch flow, not a user-provided command option.
 - The existing ScenarioRunner remains responsible for Scenario execution, Step behavior, capture behavior, Scenario Recording lifecycle, and run report generation.
 - The Runtime Adapter remains responsible only for operations against the Runtime Target.
 - A Target App Launcher module should encapsulate `flutter run --machine` process management, VM URI extraction, stderr buffering, and cleanup.
-- A Target Device module should encapsulate Flutter Device parsing, Target Device modeling, Recording Device id matching, and device resolution errors.
+- A Target Device module should encapsulate Flutter Device parsing, Target Device modeling, Recording Device id/name matching, and device resolution errors.
 - The Target Device module may directly depend on the `screen_recorder` public API, but it outputs Flutter Pilot's Target Device model rather than exposing `screen_recorder` types as the app launch model.
-- Physical iOS Recording Device discovery should merge physical iOS devices from `xcrun xctrace list devices` with helper-discovered devices, excluding simulators and offline devices.
+- Physical iOS Recording Device discovery should expose helper-discovered AVFoundation devices only. `xctrace` devices that the helper cannot record must not be added as Recording Devices.
 - The ADR for this CLI decision is maintained in `docs-internal/adr/0003-split-runtime-uri-run-from-target-device-test.md`.
 
 ## Testing Decisions
@@ -244,7 +244,7 @@ launch flow, not a user-provided command option.
 - Project Run executor tests should cover launch reuse, hot restart between Scenarios, continuing after Scenario failures, stopping on hot restart failure, project-level report output, and final exit status.
 - Complex `test` success paths should be covered through injectable modules or command-level tests rather than subprocess tests that would start a real Flutter app.
 - Existing ScenarioRunner tests should remain the primary coverage for Scenario execution, Step lifecycle, capture, failure handling, `--until`, `--print`, and Scenario Recording lifecycle.
-- Screen recorder package tests should cover physical iOS discovery through `xcrun xctrace list devices`.
+- Screen recorder package tests should cover physical iOS helper discovery without adding `xctrace`-only devices.
 - Artifact/report tests should cover Device Video Recording as a run-level artifact with run-directory-relative paths.
 - Prior art for parser and CLI behavior is the existing Scenario parser tests and CLI subprocess tests.
 - Prior art for runner behavior is the fake Runtime Adapter-based ScenarioRunner test style.
@@ -275,8 +275,8 @@ launch flow, not a user-provided command option.
 - Custom recording output directories.
 - Desktop or web screen recording support.
 - macOS, Windows, Linux, or Chrome Recording Device backends.
-- Device id/name cross-table ambiguity handling beyond id-only Recording Device matching.
-- Recording Flutter build or app launch before `app.debugPort.wsUri` is available.
+- User-facing device id/name cross-table ambiguity handling beyond exact id and unique exact name Recording Device matching.
+- Including Flutter build, install, or app cold-start time in the saved Device Video Recording segment.
 - Saving full `flutter run --machine` logs as run artifacts in the first version.
 - Printing Flutter or Flutter Pilot version information at command start.
 - Adding Target Device id or name to run directory names.
@@ -289,13 +289,13 @@ launch flow, not a user-provided command option.
   Scenarios against a running Flutter app instance obtained from `flutter run`.
 - `test` is intentionally a convenience orchestration layer over the existing
   ScenarioRunner. It should not fork Scenario execution semantics.
-- The Target Device and Recording Device id alignment was calibrated locally
-  after updating physical iOS discovery: Android, iOS Simulator, and physical
-  iOS devices all matched by device id in the observed environment.
-- Physical iOS discovery through `xcrun xctrace list devices` makes the device
-  visible for Target Device matching. Actual physical iOS recording still
-  depends on the `screen_recorder` backend being able to start a Recording
-  Session for that device; startup failure remains a Scenario Recording failure.
+- The Target Device and Recording Device pairing rule was calibrated locally:
+  Android and iOS Simulator matched by id, while physical iOS required exact
+  name pairing because Flutter uses the device UDID and AVFoundation exposes a
+  different recording id.
+- Physical iOS Recording Device discovery must come from the AVFoundation
+  helper. `xctrace` can show devices that Flutter can launch but the helper
+  cannot record, so `xctrace`-only devices are not valid Recording Devices.
 - The issue tracker integration and triage label configuration are not present
   in the local workspace, so this PRD is currently maintained as a local
   document rather than published with a `ready-for-agent` label.

@@ -7,6 +7,8 @@ package rather than as part of the Flutter Pilot Runtime Adapter.
 The package owns device-level recording concepts:
 
 - a Recording Device selected through recording backend discovery
+- an optional Prepared Capture that opens backend capture resources before a
+  saved segment starts
 - a Recording Session started with `startRecord`
 - explicit `stopRecord` and discard behavior
 - a stop result that returns the final saved video path
@@ -36,8 +38,10 @@ by default unless overwrite is explicitly requested.
 
 Physical iOS recording will use an in-package Swift helper based on the
 CMIO/AVFoundation approach already validated in the local `ios_screen`
-prototype. The `screen_recorder` package will not shell out to that prototype or
-depend on files outside its own package.
+prototype. The helper supports prepared capture so AVFoundation can be opened
+before a saved `.mov` segment begins and then disposed explicitly after the
+segment is finalized. The `screen_recorder` package will not shell out to that
+prototype or depend on files outside its own package.
 
 This keeps Flutter Pilot's Runtime Target model focused on Flutter app runtime
 communication through `mcp_flutter`, while `screen_recorder` remains a

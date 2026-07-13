@@ -112,6 +112,8 @@ class ScreenRecorder {
   }
 
   /// Starts recording the selected Recording Device.
+  ///
+  /// Provide exactly one of `deviceSelector` or `preparedCapture`.
   Future<RecordingSession> startRecord({
     String? deviceSelector,
     PreparedCapture? preparedCapture,

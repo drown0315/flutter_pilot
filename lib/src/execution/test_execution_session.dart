@@ -48,9 +48,9 @@ abstract interface class TestExecutionSessionFactory {
   /// Launch the Target App Package and return a session ready for Scenarios.
   ///
   /// `deviceSelector`, `flavor`, and `target` are command-line inputs.
-  /// `recordingRequired` forces Target Device resolution before launch so
-  /// Scenario Recording can use the same device. `onLaunchProgress` receives
-  /// Target App Launch Progress events when human-readable output is enabled.
+  /// `recordingRequired` forces Target Device resolution and Recording Device
+  /// pairing before launch. `onLaunchProgress` receives Target App Launch
+  /// Progress events when human-readable output is enabled.
   Future<TestExecutionSession> start({
     required String? deviceSelector,
     required String? flavor,

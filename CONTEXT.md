@@ -53,7 +53,7 @@ User-facing feedback shown while Flutter Pilot prepares the Target App Package f
 _Avoid_: Step progress, Scenario progress, Flutter build progress
 
 **Target Device**:
-The device selected for a high-level Flutter Pilot test run. It may be selected explicitly by the user or automatically when Scenario Recording requires one recordable device. The Target App Package runs on this device, and any Scenario Recording for that run must record the same device.
+The device selected for a high-level Flutter Pilot test run. It may be selected explicitly by the user or automatically when Scenario Recording requires one recordable device. The Target App Package runs on this Flutter Device. Scenario Recording for that run must use the paired Recording Device for the same physical or virtual device, matched by exact id or by unique exact name.
 _Avoid_: Runtime Target, Recording Device
 
 **Runtime Adapter**:

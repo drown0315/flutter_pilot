@@ -26,6 +26,11 @@ flutter_pilot test scenarios/login.yaml --target lib/main_staging.dart
 `--device` selects the Target Device. `--target` selects the Flutter app
 entrypoint file.
 
+When Scenario Recording is enabled, the Target Device must pair with a
+Recording Device by exact id or by a unique exact name match. Flutter Pilot uses
+the Flutter Device id for app launch and the paired Recording Device id for
+device video recording.
+
 ## Stop at a checkpoint
 
 Use `--until` with a Step number or Step label:
