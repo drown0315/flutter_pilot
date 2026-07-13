@@ -3,3 +3,4 @@ include: package:lints/recommended.yaml
 analyzer:
   exclude:
     - examples/smoke_app/**
+    - packages/pilot_runtime/test/**
