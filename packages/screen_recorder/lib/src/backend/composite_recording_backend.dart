@@ -1,15 +1,19 @@
 import '../common/screen_recorder_exception.dart';
 import '../model/recording_device.dart';
+import '../model/prepared_capture.dart';
 import '../model/recording_session.dart';
 import 'recording_backend.dart';
 
 /// Recording backend that resolves devices across backend priority order.
 
-class CompositeRecordingBackend implements RecordingBackend {
+class CompositeRecordingBackend
+    implements RecordingBackend, PreparedCaptureBackend {
   CompositeRecordingBackend(this._backends);
 
   final List<RecordingBackend> _backends;
   final Map<String, RecordingBackend> _sessionBackends =
+      <String, RecordingBackend>{};
+  final Map<String, RecordingBackend> _captureBackends =
       <String, RecordingBackend>{};
 
   @override
@@ -98,5 +102,83 @@ class CompositeRecordingBackend implements RecordingBackend {
       );
     }
     await backend.discard(session);
+  }
+
+  @override
+  Future<bool> prepare(PreparedCapture capture) async {
+    final RecordingBackend backend = _backendForDevice(capture.device);
+    _captureBackends[capture.id] = backend;
+    if (backend is PreparedCaptureBackend) {
+      return backend.prepare(capture);
+    }
+    return false;
+  }
+
+  @override
+  Future<void> startRecord(
+    PreparedCapture capture,
+    RecordingSession session, {
+    required bool overwrite,
+  }) async {
+    final RecordingBackend backend = _backendForCapture(capture);
+    _sessionBackends[session.id] = backend;
+    if (backend is PreparedCaptureBackend) {
+      await backend.startRecord(capture, session, overwrite: overwrite);
+      return;
+    }
+    await backend.start(session, overwrite: overwrite);
+  }
+
+  @override
+  Future<void> stopRecord(
+    PreparedCapture capture,
+    RecordingSession session,
+  ) async {
+    final RecordingBackend backend = _backendForCapture(capture);
+    _sessionBackends.remove(session.id);
+    if (backend is PreparedCaptureBackend) {
+      await backend.stopRecord(capture, session);
+      return;
+    }
+    await backend.stop(session);
+  }
+
+  @override
+  Future<void> discardRecord(
+    PreparedCapture capture,
+    RecordingSession session,
+  ) async {
+    final RecordingBackend backend = _backendForCapture(capture);
+    _sessionBackends.remove(session.id);
+    if (backend is PreparedCaptureBackend) {
+      await backend.discardRecord(capture, session);
+      return;
+    }
+    await backend.discard(session);
+  }
+
+  @override
+  Future<void> dispose(PreparedCapture capture) async {
+    final RecordingBackend? backend = _captureBackends.remove(capture.id);
+    if (backend is PreparedCaptureBackend) {
+      await backend.dispose(capture);
+    }
+  }
+
+  RecordingBackend _backendForDevice(RecordingDevice device) {
+    for (final RecordingBackend backend in _backends) {
+      if (backend.platform == device.platform) {
+        return backend;
+      }
+    }
+    throw ScreenRecorderException(
+      code: ScreenRecorderErrorCode.startFailed,
+      message: 'No backend was found for ${device.name}.',
+      deviceSelector: device.id,
+    );
+  }
+
+  RecordingBackend _backendForCapture(PreparedCapture capture) {
+    return _captureBackends[capture.id] ?? _backendForDevice(capture.device);
   }
 }

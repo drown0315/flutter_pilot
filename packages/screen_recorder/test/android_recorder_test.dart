@@ -155,6 +155,36 @@ offline-1\toffline
     });
 
     test(
+        'prepared capture does not start Android recording until segment start',
+        () async {
+      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+        ..addAndroidDeviceList(<String, String>{'PHK110': 'OnePlus 13'});
+      final ScreenRecorder recorder = ScreenRecorder.android(
+        commandRunner: commandRunner,
+      );
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_android_test_')
+          .path;
+
+      final PreparedCapture capture = await recorder.prepare(
+        deviceSelector: 'PHK110',
+      );
+
+      expect(commandRunner.startedCommands, isEmpty);
+
+      final RecordingSession session = await recorder.startRecord(
+        preparedCapture: capture,
+        outputDirectory: outputDirectory,
+        outputName: 'prepared_android',
+        overwrite: true,
+      );
+      final RecordingResult result = await recorder.stopRecord(session);
+
+      expect(result.outputPath, endsWith('prepared_android.mp4'));
+      expect(commandRunner.startedCommands, contains(contains('scrcpy')));
+    });
+
+    test(
       'falls back to native screenrecord when scrcpy exits immediately',
       () async {
         final _FakeCommandRunner commandRunner = _FakeCommandRunner()
@@ -622,6 +652,15 @@ class _FakeScreenRecorderProcess implements ScreenRecorderProcess {
 
   @override
   Future<String> get stderr async => _stderr;
+
+  @override
+  Stream<String> get stdoutLines => const Stream<String>.empty();
+
+  @override
+  void writeLine(String line) {}
+
+  @override
+  Future<void> closeStdin() async {}
 
   @override
   bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {

@@ -11,12 +11,14 @@ import 'backend/ios_physical_recording_backend.dart';
 import 'backend/ios_simulator_recording_backend.dart';
 import 'backend/recording_backend.dart';
 import 'model/recording_device.dart';
+import 'model/prepared_capture.dart';
 import 'model/recording_result.dart';
 import 'model/recording_session.dart';
 import 'process/command_runner.dart';
 import 'service/screen_recorder_service.dart';
 
 export 'common/screen_recorder_exception.dart';
+export 'model/prepared_capture.dart';
 export 'model/recording_device.dart';
 export 'model/recording_result.dart';
 export 'model/recording_session.dart';
@@ -111,17 +113,26 @@ class ScreenRecorder {
 
   /// Starts recording the selected Recording Device.
   Future<RecordingSession> startRecord({
-    required String deviceSelector,
+    String? deviceSelector,
+    PreparedCapture? preparedCapture,
     required String outputDirectory,
     String? outputName,
     bool overwrite = false,
   }) {
     return _service.startRecord(
       deviceSelector: deviceSelector,
+      preparedCapture: preparedCapture,
       outputDirectory: outputDirectory,
       outputName: outputName,
       overwrite: overwrite,
     );
+  }
+
+  /// Prepares the selected Recording Device for one or more later sessions.
+  Future<PreparedCapture> prepare({
+    required String deviceSelector,
+  }) {
+    return _service.prepare(deviceSelector: deviceSelector);
   }
 
   /// Stops an active Recording Session and returns saved video metadata.
@@ -132,5 +143,10 @@ class ScreenRecorder {
   /// Stops an active Recording Session and discards any local output file.
   Future<void> discardRecord(RecordingSession session) {
     return _service.discardRecord(session);
+  }
+
+  /// Releases a prepared capture. Calling this more than once is harmless.
+  Future<void> dispose(PreparedCapture capture) {
+    return _service.dispose(capture);
   }
 }

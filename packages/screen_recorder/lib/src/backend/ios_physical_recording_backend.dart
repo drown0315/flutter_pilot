@@ -1,23 +1,32 @@
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 
 import '../common/screen_recorder_exception.dart';
 import '../model/recording_device.dart';
+import '../model/prepared_capture.dart';
 import '../model/recording_session.dart';
 import '../process/command_runner.dart';
 import 'recording_backend.dart';
 
 /// Physical iOS recording backend implemented through the in-package Swift helper.
 
-class IosPhysicalRecordingBackend implements RecordingBackend {
+class IosPhysicalRecordingBackend
+    implements RecordingBackend, PreparedCaptureBackend {
   IosPhysicalRecordingBackend(this._commandRunner);
 
   static const String _backendKind = 'iosPhysical';
+  static const Duration _startProbeTimeout = Duration(seconds: 1);
+  static const Duration _readyTimeout = Duration(seconds: 15);
+  static const Duration _protocolTimeout = Duration(seconds: 10);
   static const Duration _stopTimeout = Duration(seconds: 10);
 
   final ScreenRecorderCommandRunner _commandRunner;
-  final Map<String, ScreenRecorderProcess> _recordings =
-      <String, ScreenRecorderProcess>{};
+  final Map<String, PreparedCapture> _standaloneCaptures =
+      <String, PreparedCapture>{};
+  final Map<String, _IosPreparedCaptureState> _preparedCaptures =
+      <String, _IosPreparedCaptureState>{};
   String? _helperPath;
 
   @override
@@ -31,19 +40,7 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
       <String>['list'],
       ScreenRecorderErrorCode.permissionDenied,
     );
-    final List<RecordingDevice> devices = _parseDevices(result.stdout);
-    try {
-      final ScreenRecorderCommandResult xctraceResult = await _commandRunner
-          .run('xcrun', <String>['xctrace', 'list', 'devices']);
-      if (xctraceResult.exitCode == 0) {
-        _addMissingDevices(devices, _parseXctraceDevices(xctraceResult.stdout));
-      }
-    } on Object {
-      // The helper remains the source of recordable AVFoundation devices.
-      // xctrace discovery is best-effort metadata for physical devices that
-      // Xcode can run but AVFoundation does not expose as capture sources.
-    }
-    return devices;
+    return _parseDevices(result.stdout);
   }
 
   @override
@@ -72,32 +69,139 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
     RecordingSession session, {
     required bool overwrite,
   }) async {
+    final PreparedCapture capture = PreparedCapture(
+      id: 'standalone-${session.id}',
+      device: session.device,
+    );
+    await prepare(capture);
+    _standaloneCaptures[session.id] = capture;
+    await startRecord(capture, session, overwrite: overwrite);
+  }
+
+  Future<int?> _probeImmediateExit(ScreenRecorderProcess process) async {
+    final Completer<int?> exitCode = Completer<int?>();
+    final Timer timer = Timer(_startProbeTimeout, () {
+      if (!exitCode.isCompleted) {
+        exitCode.complete(null);
+      }
+    });
+    process.exitCode.then((int value) {
+      if (!exitCode.isCompleted) {
+        exitCode.complete(value);
+      }
+    });
+    final int? result = await exitCode.future;
+    timer.cancel();
+    return result;
+  }
+
+  @override
+  Future<bool> prepare(PreparedCapture capture) async {
+    if (_preparedCaptures.containsKey(capture.id)) {
+      return true;
+    }
     final String helperPath = await _ensureHelperBuilt();
     try {
       final ScreenRecorderProcess process =
           await _commandRunner.start(helperPath, <String>[
-        'record',
+        'serve',
         '--device-id',
-        session.device.id,
-        '--output',
-        session.expectedOutputPath,
+        capture.device.id,
       ]);
-      _recordings[session.id] = process;
+      final _IosPreparedCaptureState state = _IosPreparedCaptureState(
+        capture: capture,
+        process: process,
+        events: StreamIterator<String>(process.stdoutLines),
+      );
+      _preparedCaptures[capture.id] = state;
+      await _waitForEvent(
+        state,
+        'ready',
+        timeout: _readyTimeout,
+        failureCode: ScreenRecorderErrorCode.startFailed,
+      );
+      return true;
+    } on ScreenRecorderException {
+      rethrow;
     } on Object catch (error) {
       throw ScreenRecorderException(
         code: ScreenRecorderErrorCode.startFailed,
-        message: 'Failed to start physical iOS helper recording.',
+        message: 'Failed to prepare physical iOS helper capture.',
         backendKind: _backendKind,
-        deviceSelector: session.device.id,
+        deviceSelector: capture.device.id,
         cause: error,
       );
     }
   }
 
   @override
+  Future<void> startRecord(
+    PreparedCapture capture,
+    RecordingSession session, {
+    required bool overwrite,
+  }) async {
+    final _IosPreparedCaptureState state = _requirePrepared(capture);
+    if (state.activeSessionId != null) {
+      throw ScreenRecorderException(
+        code: ScreenRecorderErrorCode.alreadyRecording,
+        message: 'Physical iOS prepared capture already has an active segment.',
+        backendKind: _backendKind,
+        deviceSelector: capture.device.id,
+      );
+    }
+    state.activeSessionId = session.id;
+    state.process.writeLine(
+      jsonEncode(<String, String>{
+        'operation': 'start',
+        'outputPath': session.expectedOutputPath,
+      }),
+    );
+    try {
+      await _waitForEvent(
+        state,
+        'started',
+        timeout: _protocolTimeout,
+        failureCode: ScreenRecorderErrorCode.startFailed,
+      );
+    } on Object {
+      state.activeSessionId = null;
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> stopRecord(
+    PreparedCapture capture,
+    RecordingSession session,
+  ) async {
+    final _IosPreparedCaptureState state = _requirePrepared(capture);
+    if (state.activeSessionId != session.id) {
+      throw ScreenRecorderException(
+        code: ScreenRecorderErrorCode.stopFailed,
+        message: 'Physical iOS prepared capture did not own ${session.id}.',
+        backendKind: _backendKind,
+        deviceSelector: session.device.id,
+      );
+    }
+    state.process.writeLine(jsonEncode(<String, String>{'operation': 'stop'}));
+    await _waitForEvent(
+      state,
+      'saved',
+      timeout: _stopTimeout,
+      failureCode: ScreenRecorderErrorCode.stopFailed,
+    );
+    state.activeSessionId = null;
+    _verifyOutputFile(session);
+  }
+
+  static String _joinDiagnostics(List<String> lines) {
+    return lines.where((String line) => line.isNotEmpty).join('\n');
+  }
+
+  @override
   Future<void> stop(RecordingSession session) async {
-    final ScreenRecorderProcess? process = _recordings.remove(session.id);
-    if (process == null) {
+    final PreparedCapture? capture = _standaloneCaptures.remove(session.id);
+    if (capture == null) {
       throw ScreenRecorderException(
         code: ScreenRecorderErrorCode.stopFailed,
         message:
@@ -106,39 +210,14 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
         deviceSelector: session.device.id,
       );
     }
-    process.kill();
-    final int exitCode = await process.exitCode.timeout(
-      _stopTimeout + Duration(seconds: 5),
-      onTimeout: () {
-        process.kill(ProcessSignal.sigkill);
-        return -1;
-      },
-    );
-    final String stdout = await process.stdout;
-    final String stderr = await process.stderr;
-    final File outputFile = File(session.expectedOutputPath);
-    if (!outputFile.existsSync() || outputFile.lengthSync() == 0) {
-      throw ScreenRecorderException(
-        code: ScreenRecorderErrorCode.stopFailed,
-        message: 'Physical iOS recording output was not created.',
-        backendKind: _backendKind,
-        deviceSelector: session.device.id,
-        rawOutput: [
-          'helper exitCode: $exitCode',
-          'output exists: ${outputFile.existsSync()}',
-          if (outputFile.existsSync())
-            'output size: ${outputFile.lengthSync()}',
-          stdout,
-          stderr,
-        ].where((String s) => s.isNotEmpty).join('\n'),
-      );
-    }
+    await stopRecord(capture, session);
+    await dispose(capture);
   }
 
   @override
   Future<void> discard(RecordingSession session) async {
-    final ScreenRecorderProcess? process = _recordings.remove(session.id);
-    if (process == null) {
+    final PreparedCapture? capture = _standaloneCaptures.remove(session.id);
+    if (capture == null) {
       throw ScreenRecorderException(
         code: ScreenRecorderErrorCode.discardFailed,
         message:
@@ -147,17 +226,153 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
         deviceSelector: session.device.id,
       );
     }
-    process.kill();
-    await process.exitCode.timeout(
-      _stopTimeout + Duration(seconds: 5),
-      onTimeout: () {
-        process.kill(ProcessSignal.sigkill);
-        return -1;
-      },
-    );
+    await discardRecord(capture, session);
+    await dispose(capture);
+  }
+
+  @override
+  Future<void> discardRecord(
+    PreparedCapture capture,
+    RecordingSession session,
+  ) async {
+    final _IosPreparedCaptureState state = _requirePrepared(capture);
+    if (state.activeSessionId == session.id) {
+      state.process.writeLine(
+        jsonEncode(<String, String>{'operation': 'stop'}),
+      );
+      await _waitForEvent(
+        state,
+        'saved',
+        timeout: _stopTimeout,
+        failureCode: ScreenRecorderErrorCode.discardFailed,
+      );
+      state.activeSessionId = null;
+    }
     final File outputFile = File(session.expectedOutputPath);
     if (outputFile.existsSync()) {
       outputFile.deleteSync();
+    }
+  }
+
+  @override
+  Future<void> dispose(PreparedCapture capture) async {
+    final _IosPreparedCaptureState? state = _preparedCaptures.remove(
+      capture.id,
+    );
+    if (state == null || state.disposed) {
+      return;
+    }
+    state.disposed = true;
+    state.process.writeLine(
+      jsonEncode(<String, String>{'operation': 'shutdown'}),
+    );
+    final int exitCode = await state.process.exitCode.timeout(
+      _stopTimeout + Duration(seconds: 5),
+      onTimeout: () {
+        state.process.kill(ProcessSignal.sigkill);
+        return -1;
+      },
+    );
+    if (exitCode != 0) {
+      throw ScreenRecorderException(
+        code: ScreenRecorderErrorCode.stopFailed,
+        message: 'Physical iOS helper shutdown failed.',
+        backendKind: _backendKind,
+        deviceSelector: capture.device.id,
+        rawOutput: _joinDiagnostics(<String>[
+          'helper exitCode: $exitCode',
+          await state.process.stdout,
+          await state.process.stderr,
+        ]),
+      );
+    }
+  }
+
+  _IosPreparedCaptureState _requirePrepared(PreparedCapture capture) {
+    final _IosPreparedCaptureState? state = _preparedCaptures[capture.id];
+    if (state == null || state.disposed) {
+      throw ScreenRecorderException(
+        code: ScreenRecorderErrorCode.sessionNotFound,
+        message: 'Physical iOS prepared capture is not active: ${capture.id}',
+        backendKind: _backendKind,
+        deviceSelector: capture.device.id,
+      );
+    }
+    return state;
+  }
+
+  Future<void> _waitForEvent(
+    _IosPreparedCaptureState state,
+    String expectedEvent, {
+    required Duration timeout,
+    required ScreenRecorderErrorCode failureCode,
+  }) async {
+    final bool received = await state.events.moveNext().timeout(
+          timeout,
+          onTimeout: () => false,
+        );
+    if (!received) {
+      final int? immediateExitCode = await _probeImmediateExit(state.process);
+      throw ScreenRecorderException(
+        code: failureCode,
+        message: 'Timed out waiting for physical iOS helper $expectedEvent.',
+        backendKind: _backendKind,
+        deviceSelector: state.capture.device.id,
+        rawOutput: _joinDiagnostics(<String>[
+          if (immediateExitCode != null) 'helper exitCode: $immediateExitCode',
+          await state.process.stdout.timeout(
+            Duration(milliseconds: 100),
+            onTimeout: () => '',
+          ),
+          await state.process.stderr.timeout(
+            Duration(milliseconds: 100),
+            onTimeout: () => '',
+          ),
+        ]),
+      );
+    }
+    final String line = state.events.current;
+    final Object? decoded = jsonDecode(line);
+    if (decoded is Map<String, Object?> && decoded['event'] == expectedEvent) {
+      return;
+    }
+    if (decoded
+        case <String, Object?>{
+          'event': 'error',
+          'message': final Object? message,
+        }) {
+      throw ScreenRecorderException(
+        code: failureCode,
+        message: 'Physical iOS helper reported an error.',
+        backendKind: _backendKind,
+        deviceSelector: state.capture.device.id,
+        rawOutput: message?.toString(),
+      );
+    }
+    throw ScreenRecorderException(
+      code: failureCode,
+      message:
+          'Physical iOS helper emitted unexpected event while waiting for $expectedEvent.',
+      backendKind: _backendKind,
+      deviceSelector: state.capture.device.id,
+      rawOutput: line,
+    );
+  }
+
+  void _verifyOutputFile(RecordingSession session) {
+    final File outputFile = File(session.expectedOutputPath);
+    if (!outputFile.existsSync() || outputFile.lengthSync() == 0) {
+      throw ScreenRecorderException(
+        code: ScreenRecorderErrorCode.stopFailed,
+        message: 'Physical iOS recording output was not created.',
+        backendKind: _backendKind,
+        deviceSelector: session.device.id,
+        rawOutput: <String>[
+          'output exists: ${outputFile.existsSync()}',
+          if (outputFile.existsSync())
+            'output size: ${outputFile.lengthSync()}',
+        ].join('\n'),
+      );
     }
   }
 
@@ -259,50 +474,18 @@ class IosPhysicalRecordingBackend implements RecordingBackend {
     }
     return devices;
   }
+}
 
-  static List<RecordingDevice> _parseXctraceDevices(String output) {
-    final List<RecordingDevice> devices = <RecordingDevice>[];
-    var inDevicesSection = false;
-    for (final String line in output.split('\n')) {
-      final String trimmedLine = line.trim();
-      if (trimmedLine == '== Devices ==') {
-        inDevicesSection = true;
-        continue;
-      }
-      if (trimmedLine.startsWith('== ') && trimmedLine.endsWith(' ==')) {
-        inDevicesSection = false;
-        continue;
-      }
-      if (!inDevicesSection || trimmedLine.isEmpty) {
-        continue;
-      }
-      final RegExpMatch? match = RegExp(
-        r'^(.*?)(?: \([^)]+\))? \(([0-9a-fA-F]{40})\)$',
-      ).firstMatch(trimmedLine);
-      if (match == null) {
-        continue;
-      }
-      devices.add(
-        RecordingDevice(
-          id: match.group(2)!,
-          name: match.group(1)!.trim(),
-          platform: RecordingDevicePlatform.iosPhysical,
-        ),
-      );
-    }
-    return devices;
-  }
+class _IosPreparedCaptureState {
+  _IosPreparedCaptureState({
+    required this.capture,
+    required this.process,
+    required this.events,
+  });
 
-  static void _addMissingDevices(
-    List<RecordingDevice> target,
-    List<RecordingDevice> additions,
-  ) {
-    final Set<String> existingIds =
-        target.map((RecordingDevice device) => device.id).toSet();
-    for (final RecordingDevice device in additions) {
-      if (existingIds.add(device.id)) {
-        target.add(device);
-      }
-    }
-  }
+  final PreparedCapture capture;
+  final ScreenRecorderProcess process;
+  final StreamIterator<String> events;
+  String? activeSessionId;
+  bool disposed = false;
 }

@@ -155,6 +155,53 @@ void main() {
       },
     );
 
+    test(
+        'prepared capture does not start simulator recording until segment start',
+        () async {
+      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+        ..addSimulatorDeviceList(<String, String>{
+          '11111111-1111-1111-1111-111111111111': 'iPhone 16 Pro',
+        });
+      final ScreenRecorder recorder = ScreenRecorder.iosSimulator(
+        commandRunner: commandRunner,
+      );
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_simulator_test_')
+          .path;
+
+      final PreparedCapture capture = await recorder.prepare(
+        deviceSelector: 'iPhone 16 Pro',
+      );
+
+      expect(commandRunner.startedCommands, isEmpty);
+
+      final RecordingSession session = await recorder.startRecord(
+        preparedCapture: capture,
+        outputDirectory: outputDirectory,
+        outputName: 'prepared_sim',
+        overwrite: true,
+      );
+      commandRunner.completeProcessWithFile(
+        outputPath: session.expectedOutputPath,
+        bytes: <int>[9, 8, 7, 6],
+      );
+      final RecordingResult result = await recorder.stopRecord(session);
+
+      expect(result.outputPath, endsWith('prepared_sim.mov'));
+      expect(
+        commandRunner.startedCommands,
+        contains(
+          equals(<String>[
+            commandRunner.simctlPath,
+            'io',
+            '11111111-1111-1111-1111-111111111111',
+            'recordVideo',
+            session.expectedOutputPath,
+          ]),
+        ),
+      );
+    });
+
     test('discards simulator recording and removes local output', () async {
       final _FakeCommandRunner commandRunner = _FakeCommandRunner()
         ..addSimulatorDeviceList(<String, String>{
@@ -351,6 +398,15 @@ class _FakeScreenRecorderProcess implements ScreenRecorderProcess {
 
   @override
   Future<String> get stderr async => '';
+
+  @override
+  Stream<String> get stdoutLines => const Stream<String>.empty();
+
+  @override
+  void writeLine(String line) {}
+
+  @override
+  Future<void> closeStdin() async {}
 
   @override
   bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {

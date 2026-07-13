@@ -58,17 +58,37 @@ func printDeviceList() {
 }
 
 final class MovieRecorder: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+    enum Mode {
+        case record
+        case serve
+    }
+
+    enum State {
+        case preparing
+        case ready
+        case recording
+        case finalizing
+        case closed
+    }
+
     private let session = AVCaptureSession()
     private let videoOutput = AVCaptureVideoDataOutput()
     private let queue = DispatchQueue(label: "screen-recorder.ios-physical.video")
+    private let mode: Mode
     private var writer: AVAssetWriter?
     private var writerInput: AVAssetWriterInput?
     private var outputURL: URL?
-    private var stopping = false
+    private var state: State = .preparing
+    private var shutdownRequested = false
     private var finished = false
     private var wroteFrames = false
+    private var startedEmitted = false
 
-    func start(device: AVCaptureDevice, outputURL: URL) throws {
+    init(mode: Mode) {
+        self.mode = mode
+    }
+
+    func start(device: AVCaptureDevice, outputURL: URL?) throws {
         self.outputURL = outputURL
 
         session.beginConfiguration()
@@ -88,54 +108,167 @@ final class MovieRecorder: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         session.addOutput(videoOutput)
         session.commitConfiguration()
 
-        if FileManager.default.fileExists(atPath: outputURL.path) {
+        if let outputURL, FileManager.default.fileExists(atPath: outputURL.path) {
             try FileManager.default.removeItem(at: outputURL)
         }
 
         signal(SIGTERM) { _ in
-            RecorderSignalBridge.shared.stop()
+            RecorderSignalBridge.shared.shutdown()
         }
         signal(SIGINT) { _ in
-            RecorderSignalBridge.shared.stop()
+            RecorderSignalBridge.shared.shutdown()
         }
         RecorderSignalBridge.shared.recorder = self
 
         session.startRunning()
+        if mode == .serve {
+            readCommands()
+        }
         RunLoop.main.run()
     }
 
-    func stop() {
+    func shutdown() {
         queue.async { [weak self] in
             guard let self else { return }
-            if self.stopping { return }
-            self.stopping = true
-            self.videoOutput.setSampleBufferDelegate(nil, queue: nil)
-            guard let writer = self.writer else {
-                eprint("No video frames were received from the iOS capture device.")
-                self.finish(exitCode: 7)
+            if self.finished { return }
+            self.shutdownRequested = true
+            switch self.state {
+            case .recording:
+                self.stopSegment(exitWhenFinished: true)
+            case .finalizing:
+                return
+            default:
+                self.finish(exitCode: 0)
+            }
+        }
+    }
+
+    private func readCommands() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            while let line = readLine() {
+                self?.handleCommandLine(line)
+            }
+        }
+    }
+
+    private func handleCommandLine(_ line: String) {
+        guard let data = line.data(using: .utf8) else {
+            emitError("Command was not valid UTF-8.")
+            return
+        }
+        do {
+            guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let operation = object["operation"] as? String else {
+                emitError("Command must be a JSON object with an operation.")
                 return
             }
-            self.writerInput?.markAsFinished()
-            DispatchQueue.global().asyncAfter(deadline: .now() + 10) { [weak self] in
-                guard let self, !self.finished else { return }
-                eprint("Timed out while finalizing the movie file.")
-                writer.cancelWriting()
-                self.finish(exitCode: 8)
-            }
-            writer.finishWriting { [weak self] in
-                guard let self else { return }
-                if let error = writer.error {
-                    eprint("Movie finalization failed: \(error.localizedDescription)")
-                    self.finish(exitCode: 8)
+            switch operation {
+            case "start":
+                guard let outputPath = object["outputPath"] as? String else {
+                    emitError("start command requires outputPath.")
                     return
                 }
-                self.finish(exitCode: self.wroteFrames ? 0 : 7)
+                startSegment(outputURL: URL(fileURLWithPath: outputPath))
+            case "stop":
+                queue.async { [weak self] in
+                    self?.stopSegment(exitWhenFinished: false)
+                }
+            case "shutdown":
+                shutdown()
+            default:
+                emitError("Unsupported operation: \(operation)")
+            }
+        } catch {
+            emitError("Command JSON parse failed: \(error.localizedDescription)")
+        }
+    }
+
+    private func startSegment(outputURL: URL) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            guard self.state == .ready else {
+                self.emitError("Cannot start segment while state is \(self.state).")
+                return
+            }
+            do {
+                if FileManager.default.fileExists(atPath: outputURL.path) {
+                    try FileManager.default.removeItem(at: outputURL)
+                }
+                self.outputURL = outputURL
+                self.writer = nil
+                self.writerInput = nil
+                self.wroteFrames = false
+                self.startedEmitted = false
+                self.state = .recording
+            } catch {
+                self.emitError("Failed to prepare output file: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func stopSegment(exitWhenFinished: Bool) {
+        guard state == .recording else {
+            if mode == .record {
+                eprint("No video frames were received from the iOS capture device.")
+                finish(exitCode: 7)
+            } else {
+                emitError("Cannot stop segment while state is \(state).")
+            }
+            return
+        }
+        state = .finalizing
+        guard let writer = writer else {
+            if mode == .record {
+                eprint("No video frames were received from the iOS capture device.")
+                finish(exitCode: 7)
+            } else {
+                emitError("No video frames were received from the iOS capture device.")
+                state = .ready
+            }
+            return
+        }
+        writerInput?.markAsFinished()
+        DispatchQueue.global().asyncAfter(deadline: .now() + 10) { [weak self] in
+            guard let self, !self.finished, self.state == .finalizing else { return }
+            eprint("Timed out while finalizing the movie file.")
+            writer.cancelWriting()
+            self.finish(exitCode: 8)
+        }
+        writer.finishWriting { [weak self] in
+            guard let self else { return }
+            self.queue.async {
+                if let error = writer.error {
+                    if self.mode == .record {
+                        eprint("Movie finalization failed: \(error.localizedDescription)")
+                        self.finish(exitCode: 8)
+                    } else {
+                        self.emitError("Movie finalization failed: \(error.localizedDescription)")
+                        self.state = .ready
+                    }
+                    return
+                }
+                let savedURL = self.outputURL
+                self.writer = nil
+                self.writerInput = nil
+                self.outputURL = nil
+                self.state = .ready
+                if self.mode == .record || exitWhenFinished || self.shutdownRequested {
+                    self.finish(exitCode: self.wroteFrames ? 0 : 7)
+                    return
+                }
+                if self.wroteFrames {
+                    self.emitEvent(["event": "saved", "outputPath": savedURL?.path ?? ""])
+                } else {
+                    self.emitError("No video frames were received from the iOS capture device.")
+                }
             }
         }
     }
 
     private func finish(exitCode: Int32) {
         finished = true
+        state = .closed
+        videoOutput.setSampleBufferDelegate(nil, queue: nil)
         session.stopRunning()
         DispatchQueue.main.async {
             Foundation.exit(exitCode)
@@ -176,22 +309,55 @@ final class MovieRecorder: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
     }
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        if stopping { return }
         do {
+            if state == .preparing {
+                state = .ready
+                if mode == .serve {
+                    emitEvent(["event": "ready"])
+                    return
+                }
+                state = .recording
+            }
+            guard state == .recording else { return }
             try prepareWriter(sampleBuffer: sampleBuffer)
             guard let input = writerInput, input.isReadyForMoreMediaData else {
                 return
             }
+            if mode == .serve && !startedEmitted {
+                emitEvent(["event": "started"])
+                startedEmitted = true
+            }
             if !input.append(sampleBuffer) {
                 eprint("Failed to append video frame: \(writer?.error?.localizedDescription ?? "unknown error")")
-                stop()
+                if mode == .record {
+                    shutdown()
+                } else {
+                    emitError("Failed to append video frame: \(writer?.error?.localizedDescription ?? "unknown error")")
+                }
             } else {
                 wroteFrames = true
             }
         } catch {
             eprint("Recording failed: \(error.localizedDescription)")
-            stop()
+            if mode == .record {
+                shutdown()
+            } else {
+                emitError("Recording failed: \(error.localizedDescription)")
+            }
         }
+    }
+
+    private func emitError(_ message: String) {
+        emitEvent(["event": "error", "message": message])
+    }
+
+    private func emitEvent(_ object: [String: String]) {
+        guard let data = try? JSONSerialization.data(withJSONObject: object),
+              let line = String(data: data, encoding: .utf8) else {
+            return
+        }
+        print(line)
+        fflush(stdout)
     }
 }
 
@@ -199,8 +365,8 @@ final class RecorderSignalBridge {
     static let shared = RecorderSignalBridge()
     weak var recorder: MovieRecorder?
 
-    func stop() {
-        recorder?.stop()
+    func shutdown() {
+        recorder?.shutdown()
     }
 }
 
@@ -222,6 +388,7 @@ func usage() -> Never {
     Usage:
       ios_physical_capture list
       ios_physical_capture record --device-id ID --output PATH
+      ios_physical_capture serve --device-id ID
     """)
     exit(2)
 }
@@ -242,10 +409,25 @@ case "record":
         exit(4)
     }
     do {
-        let recorder = MovieRecorder()
+        let recorder = MovieRecorder(mode: .record)
         try recorder.start(device: selected.device, outputURL: URL(fileURLWithPath: outputPath))
     } catch {
         eprint("Recording failed: \(error.localizedDescription)")
+        exit(6)
+    }
+
+case "serve":
+    guard let deviceID = value(after: "--device-id", in: args) else { usage() }
+    let devices = discoverIOSDevices()
+    guard let selected = devices.first(where: { $0.id == deviceID }) else {
+        eprint("No physical iOS capture device matched id \(deviceID).")
+        exit(4)
+    }
+    do {
+        let recorder = MovieRecorder(mode: .serve)
+        try recorder.start(device: selected.device, outputURL: nil)
+    } catch {
+        eprint("Capture failed: \(error.localizedDescription)")
         exit(6)
     }
 

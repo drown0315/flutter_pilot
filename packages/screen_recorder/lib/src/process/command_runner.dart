@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -58,6 +59,19 @@ abstract interface class ScreenRecorderProcess {
 
   /// Captured stderr emitted before the process exits.
   Future<String> get stderr;
+
+  /// Text stdout emitted by the process as individual lines.
+  ///
+  /// Backends use this stream for long-running helper protocols that signal
+  /// readiness before the process exits. The complete stdout remains available
+  /// through [stdout] for diagnostics.
+  Stream<String> get stdoutLines;
+
+  /// Writes one protocol line to the process stdin.
+  void writeLine(String line);
+
+  /// Closes stdin after all protocol commands have been written.
+  Future<void> closeStdin();
 }
 
 /// Boundary for running host commands and starting long-running processes.
@@ -125,24 +139,79 @@ class ProcessCommandRunner implements ScreenRecorderCommandRunner {
 
 class _DartIoScreenRecorderProcess implements ScreenRecorderProcess {
   _DartIoScreenRecorderProcess(this._process)
-      : _stdout = utf8.decodeStream(_process.stdout),
-        _stderr = utf8.decodeStream(_process.stderr);
+      : _stderr = utf8.decodeStream(_process.stderr) {
+    _process.stdout.transform(utf8.decoder).listen(
+          _handleStdoutChunk,
+          onError: _handleStdoutError,
+          onDone: _handleStdoutDone,
+        );
+  }
 
   final Process _process;
-  final Future<String> _stdout;
+  final Completer<String> _stdout = Completer<String>();
   final Future<String> _stderr;
+  final StreamController<String> _stdoutLines = StreamController<String>();
+  final StringBuffer _stdoutBuffer = StringBuffer();
+  String _pendingStdoutLine = '';
 
   @override
   Future<int> get exitCode => _process.exitCode;
 
   @override
-  Future<String> get stdout => _stdout;
+  Future<String> get stdout => _stdout.future;
 
   @override
   Future<String> get stderr => _stderr;
 
   @override
+  Stream<String> get stdoutLines => _stdoutLines.stream;
+
+  @override
   bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
     return _process.kill(signal);
+  }
+
+  @override
+  void writeLine(String line) {
+    _process.stdin.writeln(line);
+  }
+
+  @override
+  Future<void> closeStdin() async {
+    await _process.stdin.close();
+  }
+
+  void _handleStdoutChunk(String chunk) {
+    _stdoutBuffer.write(chunk);
+    _pendingStdoutLine += chunk;
+    int newlineIndex = _pendingStdoutLine.indexOf('\n');
+    while (newlineIndex != -1) {
+      String line = _pendingStdoutLine.substring(0, newlineIndex);
+      if (line.endsWith('\r')) {
+        line = line.substring(0, line.length - 1);
+      }
+      _stdoutLines.add(line);
+      _pendingStdoutLine = _pendingStdoutLine.substring(newlineIndex + 1);
+      newlineIndex = _pendingStdoutLine.indexOf('\n');
+    }
+  }
+
+  void _handleStdoutError(Object error, StackTrace stackTrace) {
+    if (!_stdout.isCompleted) {
+      _stdout.completeError(error, stackTrace);
+    }
+    _stdoutLines.addError(error, stackTrace);
+    unawaited(_stdoutLines.close());
+  }
+
+  void _handleStdoutDone() {
+    if (_pendingStdoutLine.isNotEmpty) {
+      _stdoutLines.add(_pendingStdoutLine);
+      _pendingStdoutLine = '';
+    }
+    if (!_stdout.isCompleted) {
+      _stdout.complete(_stdoutBuffer.toString());
+    }
+    unawaited(_stdoutLines.close());
   }
 }
