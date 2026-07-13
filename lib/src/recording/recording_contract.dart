@@ -6,6 +6,12 @@ import '../scenario/scenario.dart';
 /// device display rather than Flutter UI semantics. Implementations should
 /// normalize platform recording startup and shutdown into this small contract.
 abstract interface class RecordingController {
+  /// Prepare the Recording Device before the Target App Package launches.
+  ///
+  /// Implementations that do not have a separate prepared mode may treat this
+  /// as a no-op and keep using direct recording in [start].
+  Future<void> prepare();
+
   /// Start a Recording Session for a Scenario Run.
   ///
   /// Args:
@@ -25,10 +31,15 @@ abstract interface class RecordingController {
   /// Throws:
   /// `RecordingException` when the active session cannot be stopped.
   Future<RecordingResult> stop();
+
+  /// Release any prepared capture state after Target App cleanup.
+  ///
+  /// Calling dispose more than once should be harmless.
+  Future<void> dispose();
 }
 
 /// Recording operation names used for normalized run-level failures.
-enum RecordingOperation { start, stop }
+enum RecordingOperation { prepare, start, stop, dispose }
 
 /// Final Device Video Recording produced by a Recording Session.
 ///

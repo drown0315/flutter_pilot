@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:file_testkit/file_testkit.dart';
 import 'package:flutter_pilot/flutter_pilot.dart';
+import 'package:screen_recorder/screen_recorder.dart' as screen_recorder;
 import 'package:test/test.dart';
 
 import '../support/test_command_fakes.dart';
@@ -125,6 +127,127 @@ void main() {
       expect(sessionFactory.target, 'lib/main_staging.dart');
       expect(runner.runtimeTarget.deviceId, 'pixel-8');
       expect(session.runWithInterruptCount, 1);
+      expect(session.closeCount, 1);
+    },
+  );
+
+  test(
+    'default executor reports close recording failure after successful run',
+    () async {
+      final FakeTestExecutionSession session = FakeTestExecutionSession(
+        runtimeTarget: RuntimeTarget(
+          vmServiceUri: Uri.parse('ws://127.0.0.1:1234/token=/ws'),
+          deviceId: 'pixel-8',
+        ),
+        closeException: const TestExecutionRecordingException(
+          'recording dispose failed',
+        ),
+      );
+      final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
+        sessionFactory: FakeTestExecutionSessionFactory(session),
+        runnerFactory: FakeScenarioRunnerFactory(
+          FakeScenarioRunner(passedScenarioRunReport()),
+        ),
+      );
+
+      await expectLater(
+        executor.run(
+          TestCommandOptions(
+            scenario: scenarioFixture('close_recording_failure'),
+            device: null,
+            flavor: null,
+            target: null,
+            stopPoint: null,
+            printDiagnostics: const <PrintDiagnostic>{},
+            jsonOutput: false,
+          ),
+        ),
+        throwsA(
+          isA<TestCommandException>().having(
+            (TestCommandException error) => error.message,
+            'message',
+            'recording dispose failed',
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'default executor preserves primary failure when close recording fails',
+    () async {
+      final FakeTestExecutionSession session = FakeTestExecutionSession(
+        runtimeTarget: RuntimeTarget(
+          vmServiceUri: Uri.parse('ws://127.0.0.1:1234/token=/ws'),
+          deviceId: 'pixel-8',
+        ),
+        closeException: const TestExecutionRecordingException(
+          'recording dispose failed',
+        ),
+      );
+      final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
+        sessionFactory: FakeTestExecutionSessionFactory(session),
+        runnerFactory: const ThrowingScenarioRunnerFactory(
+          RuntimeAdapterSelectionException('runtime selection failed'),
+        ),
+      );
+
+      await expectLater(
+        executor.run(
+          TestCommandOptions(
+            scenario: scenarioFixture('primary_failure'),
+            device: null,
+            flavor: null,
+            target: null,
+            stopPoint: null,
+            printDiagnostics: const <PrintDiagnostic>{},
+            jsonOutput: false,
+          ),
+        ),
+        throwsA(
+          isA<TestCommandException>().having(
+            (TestCommandException error) => error.message,
+            'message',
+            'runtime selection failed',
+          ),
+        ),
+      );
+      expect(session.closeCount, 1);
+    },
+  );
+
+  test(
+    'default executor preserves failed Scenario report when close recording fails',
+    () async {
+      final FakeTestExecutionSession session = FakeTestExecutionSession(
+        runtimeTarget: RuntimeTarget(
+          vmServiceUri: Uri.parse('ws://127.0.0.1:1234/token=/ws'),
+          deviceId: 'pixel-8',
+        ),
+        closeException: const TestExecutionRecordingException(
+          'recording dispose failed',
+        ),
+      );
+      final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
+        sessionFactory: FakeTestExecutionSessionFactory(session),
+        runnerFactory: FakeScenarioRunnerFactory(
+          FakeScenarioRunner(failingScenarioRunReportFor('scenario_failure')),
+        ),
+      );
+
+      final ScenarioRunReport report = await executor.run(
+        TestCommandOptions(
+          scenario: scenarioFixture('scenario_failure'),
+          device: null,
+          flavor: null,
+          target: null,
+          stopPoint: null,
+          printDiagnostics: const <PrintDiagnostic>{},
+          jsonOutput: false,
+        ),
+      );
+
+      expect(report.status, ScenarioRunStatus.failed);
       expect(session.closeCount, 1);
     },
   );
@@ -327,20 +450,24 @@ void main() {
           deviceDiscovery: FakeDeviceDiscovery(
             flutterDevices: <FlutterDevice>[
               FlutterDevice(
-                id: 'pixel-8',
-                name: 'Pixel 8',
-                targetPlatform: 'android-arm64',
+                id: 'flutter-udid',
+                name: 'Test iPhone',
+                targetPlatform: 'ios',
                 isSupported: true,
-                emulator: true,
-                sdk: 'Android 35',
+                emulator: false,
+                sdk: 'iOS 15.8.8',
               ),
             ],
             recordingDevices: <RecordingDeviceIdentity>[
-              RecordingDeviceIdentity(id: 'pixel-8'),
+              RecordingDeviceIdentity(
+                id: 'avfoundation-id',
+                name: 'Test iPhone',
+              ),
             ],
           ),
           launcher: TargetAppLauncher(starter: starter),
           runnerFactory: FakeScenarioRunnerFactory(runner),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
         );
         final Scenario scenario = Scenario(
           name: 'recorded',
@@ -381,10 +508,14 @@ void main() {
           'run',
           '--machine',
           '--device-id',
-          'pixel-8',
+          'flutter-udid',
         ]);
-        expect(runner.targetDevice?.id, 'pixel-8');
-        expect(runner.recordingController, isNotNull);
+        expect(runner.targetDevice?.id, 'flutter-udid');
+        expect(
+          (runner.recordingController as ScreenRecorderRecordingController)
+              .deviceSelector,
+          'avfoundation-id',
+        );
       });
     },
   );
@@ -415,6 +546,7 @@ void main() {
           ),
           launcher: TargetAppLauncher(starter: starter),
           runnerFactory: FakeScenarioRunnerFactory(runner),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
         );
         final Scenario scenario = Scenario(
           name: 'explicit_device',
@@ -493,11 +625,12 @@ void main() {
               ),
             ],
             recordingDevices: <RecordingDeviceIdentity>[
-              RecordingDeviceIdentity(id: 'pixel-8'),
+              RecordingDeviceIdentity(id: 'pixel-8', name: 'Pixel 8'),
             ],
           ),
           launcher: TargetAppLauncher(starter: starter),
           runnerFactory: FakeScenarioRunnerFactory(runner),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
         );
         final Scenario scenario = Scenario(
           name: 'recorded',
@@ -809,4 +942,23 @@ void main() {
       await interruptController.close();
     });
   });
+}
+
+RecordingController _fakeRecordingControllerFactory({
+  required String deviceSelector,
+  required Directory outputDirectory,
+}) {
+  return ScreenRecorderRecordingController(
+    recorder: screen_recorder.ScreenRecorder.fake(
+      devices: <screen_recorder.RecordingDevice>[
+        screen_recorder.RecordingDevice(
+          id: deviceSelector,
+          name: deviceSelector,
+          platform: screen_recorder.RecordingDevicePlatform.android,
+        ),
+      ],
+    ),
+    deviceSelector: deviceSelector,
+    outputDirectory: outputDirectory,
+  );
 }

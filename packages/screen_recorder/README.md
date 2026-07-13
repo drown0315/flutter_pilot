@@ -9,11 +9,14 @@ use Flutter VM service discovery.
 ## Core API
 
 - `listDevices`: return Recording Devices visible to the configured backend.
+- `prepare`: prepare a Recording Device for one or more later Recording
+  Sessions when a backend supports a separate prepared capture lifecycle.
 - `startRecord`: start a Recording Session for a selected device.
 - `stopRecord`: stop a Recording Session and return a Recording Result with the
   saved file path, timestamps, duration, file size, and MIME type.
 - `discardRecord`: stop a Recording Session and remove backend/local artifacts
   without returning a saved recording.
+- `dispose`: release a prepared capture.
 
 ```dart
 final ScreenRecorder recorder = ScreenRecorder.defaultRecorder();
@@ -25,6 +28,24 @@ final RecordingSession session = await recorder.startRecord(
 );
 
 final RecordingResult result = await recorder.stopRecord(session);
+print(result.outputPath);
+```
+
+Prepared capture is optional. Backends without a separate prepared mode keep
+their direct recording behavior; physical iOS uses preparation to start native
+device capture before the saved movie segment begins.
+
+```dart
+final PreparedCapture capture = await recorder.prepare(deviceSelector: 'iPhone');
+
+final RecordingSession session = await recorder.startRecord(
+  preparedCapture: capture,
+  outputDirectory: '/tmp',
+  outputName: 'login_flow',
+);
+
+final RecordingResult result = await recorder.stopRecord(session);
+await recorder.dispose(capture);
 print(result.outputPath);
 ```
 
@@ -121,8 +142,10 @@ Physical iOS:
   device
 
 The physical iOS backend builds and runs the in-package Swift helper at
-`tool/ios_physical/ios_physical_capture.swift`. It does not depend on any local
-prototype directory.
+`tool/ios_physical/ios_physical_capture.swift`. Its prepared mode starts a
+stateful helper, waits until native capture has produced a real frame, writes a
+saved `.mov` segment only between `startRecord` and `stopRecord`, and shuts the
+helper down on `dispose`. It does not depend on any local prototype directory.
 
 ## Manual Smoke Checklist
 

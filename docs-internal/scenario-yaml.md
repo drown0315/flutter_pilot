@@ -113,16 +113,17 @@ scenario:
   recording: true
 ```
 
-When recording is enabled, `flutter_pilot test` starts a Recording Session before
-executing the first Step and stops it during run shutdown. If recording startup
-fails, the run fails before any Step executes. The final Device Video Recording
-is reported as a run-level artifact in `run_report.json`; it is not attached to
-an individual Step.
+When recording is enabled, `flutter_pilot test` may prepare device capture
+before Target App launch, starts the saved Recording Session before executing
+the first Step, and stops it during run shutdown. If recording preparation or
+startup fails, the run fails before any Step executes. The final Device Video
+Recording is reported as a run-level artifact in `run_report.json`; it is not
+attached to an individual Step.
 
 `test` records the same Target Device that runs the app. The selected Target
-Device must also be available as a Recording Device with the same device id.
-Without `--device`, Flutter Pilot auto-selects only when exactly one supported
-Flutter Device id is also recordable.
+Device must pair with a Recording Device by exact id or by a unique exact name
+match. Without `--device`, Flutter Pilot auto-selects only when exactly one
+supported Flutter Device has a paired Recording Device.
 
 ## Steps
 

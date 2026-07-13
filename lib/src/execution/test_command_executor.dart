@@ -1,9 +1,5 @@
 import 'dart:async';
-import 'dart:io';
 
-import 'package:screen_recorder/screen_recorder.dart' as screen_recorder;
-
-import '../recording/screen_recorder_recording_controller.dart';
 import '../runtime/runtime_adapter_selector.dart';
 import '../runtime/runtime_contract.dart';
 import 'scenario_runner.dart';
@@ -44,6 +40,7 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
     this.interruptSignals,
     this.launchHeartbeatTicks,
     this.launchClock = DateTime.now,
+    this.recordingControllerFactory = defaultRecordingControllerFactory,
   }) : _sessionFactory = sessionFactory;
 
   final TestDeviceDiscovery deviceDiscovery;
@@ -53,6 +50,7 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
   final Stream<void>? interruptSignals;
   final Stream<void>? launchHeartbeatTicks;
   final TargetAppLaunchClock launchClock;
+  final RecordingControllerFactory recordingControllerFactory;
 
   @override
   Future<ScenarioRunReport> run(
@@ -80,8 +78,11 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
         exitCode: 1,
         alreadyRendered: error.alreadyRendered,
       );
+    } on TestExecutionRecordingException catch (error) {
+      throw TestCommandException(message: error.message, exitCode: 1);
     }
 
+    bool completedNormally = false;
     try {
       final TestScenarioRunner runner;
       try {
@@ -89,11 +90,7 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
           runtimeTarget: session.runtimeTarget,
           targetDevice: session.targetDevice,
           recordingController: recordingRequired
-              ? ScreenRecorderRecordingController(
-                  recorder: screen_recorder.ScreenRecorder.defaultRecorder(),
-                  deviceSelector: session.targetDevice!.id,
-                  outputDirectory: Directory.current,
-                )
+              ? session.recordingController
               : null,
         );
       } on RuntimeAdapterSelectionException catch (error) {
@@ -105,11 +102,28 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
         printDiagnostics: options.printDiagnostics,
         onProgress: onProgress,
       );
-      return await session.runWithInterrupt(runFuture);
+      final ScenarioRunReport report = await session.runWithInterrupt(
+        runFuture,
+      );
+      completedNormally = report.status == ScenarioRunStatus.passed;
+      return report;
     } on RuntimeOperationException catch (error) {
       throw TestCommandException(message: error.message, exitCode: 1);
     } finally {
+      await _closeSession(session, reportFailure: completedNormally);
+    }
+  }
+
+  Future<void> _closeSession(
+    TestExecutionSession session, {
+    required bool reportFailure,
+  }) async {
+    try {
       await session.close();
+    } on TestExecutionRecordingException catch (error) {
+      if (reportFailure) {
+        throw TestCommandException(message: error.message, exitCode: 1);
+      }
     }
   }
 
@@ -121,6 +135,7 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
           interruptSignals: interruptSignals,
           launchHeartbeatTicks: launchHeartbeatTicks,
           launchClock: launchClock,
+          recordingControllerFactory: recordingControllerFactory,
         );
   }
 }

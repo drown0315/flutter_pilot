@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:screen_recorder/screen_recorder.dart' as screen_recorder;
+
+import '../recording/recording_contract.dart';
+import '../recording/screen_recorder_recording_controller.dart';
 import '../runtime/runtime_contract.dart';
 import '../target/test_target_device_selection.dart';
 import '../target/target_app_launch_progress_renderer.dart';
@@ -9,14 +13,44 @@ import '../target/target_device.dart';
 import 'test_command_models.dart';
 import '../target/test_device_discovery.dart';
 
+/// Builds the Scenario Recording controller for a paired Recording Device.
+typedef RecordingControllerFactory =
+    RecordingController Function({
+      required String deviceSelector,
+      required Directory outputDirectory,
+    });
+
+/// Default recording controller factory used by production executors.
+RecordingController defaultRecordingControllerFactory({
+  required String deviceSelector,
+  required Directory outputDirectory,
+}) {
+  return ScreenRecorderRecordingController(
+    recorder: screen_recorder.ScreenRecorder.defaultRecorder(),
+    deviceSelector: deviceSelector,
+    outputDirectory: outputDirectory,
+  );
+}
+
+Future<RecordingException?> _disposeRecordingController(
+  RecordingController? recordingController,
+) async {
+  try {
+    await recordingController?.dispose();
+    return null;
+  } on RecordingException catch (error) {
+    return error;
+  }
+}
+
 /// Starts the shared execution lifetime used by `flutter_pilot test`.
 abstract interface class TestExecutionSessionFactory {
   /// Launch the Target App Package and return a session ready for Scenarios.
   ///
   /// `deviceSelector`, `flavor`, and `target` are command-line inputs.
-  /// `recordingRequired` forces Target Device resolution before launch so
-  /// Scenario Recording can use the same device. `onLaunchProgress` receives
-  /// Target App Launch Progress events when human-readable output is enabled.
+  /// `recordingRequired` forces Target Device resolution and Recording Device
+  /// pairing before launch. `onLaunchProgress` receives Target App Launch
+  /// Progress events when human-readable output is enabled.
   Future<TestExecutionSession> start({
     required String? deviceSelector,
     required String? flavor,
@@ -34,6 +68,12 @@ abstract interface class TestExecutionSession {
 
   /// Target Device selected before launch, when Flutter Pilot selected one.
   TargetDevice? get targetDevice;
+
+  /// Backend-specific Recording Device id paired with the Target Device.
+  String? get recordingDeviceSelector;
+
+  /// Prepared Scenario Recording controller owned by this session.
+  RecordingController? get recordingController;
 
   /// Run `operation` and complete with interruption when Ctrl-C is received.
   Future<T> runWithInterrupt<T>(Future<T> operation);
@@ -77,6 +117,13 @@ final class TestExecutionLaunchException extends TestExecutionSessionException {
   final bool alreadyRendered;
 }
 
+/// Failure raised when Scenario Recording cannot be prepared or disposed.
+final class TestExecutionRecordingException
+    extends TestExecutionSessionException {
+  /// Creates a recording lifecycle failure.
+  const TestExecutionRecordingException(super.message);
+}
+
 /// Default Test Execution Session factory for the `test` command.
 class DefaultTestExecutionSessionFactory
     implements TestExecutionSessionFactory {
@@ -87,6 +134,7 @@ class DefaultTestExecutionSessionFactory
     this.interruptSignals,
     this.launchHeartbeatTicks,
     this.launchClock = DateTime.now,
+    this.recordingControllerFactory = defaultRecordingControllerFactory,
   });
 
   /// Discovers Flutter and Recording Devices before launch when needed.
@@ -104,6 +152,9 @@ class DefaultTestExecutionSessionFactory
   /// Clock used for Target App Launch Progress events.
   final TargetAppLaunchClock launchClock;
 
+  /// Creates the recording controller after Target/Recording Device pairing.
+  final RecordingControllerFactory recordingControllerFactory;
+
   @override
   Future<TestExecutionSession> start({
     required String? deviceSelector,
@@ -113,10 +164,26 @@ class DefaultTestExecutionSessionFactory
     required bool launchHeartbeatEnabled,
     void Function(TargetAppLaunchProgressEvent event)? onLaunchProgress,
   }) async {
-    final TargetDevice? targetDevice = await _resolveTargetDevice(
-      deviceSelector: deviceSelector,
-      recordingRequired: recordingRequired,
-    );
+    final ResolvedTargetDevice? resolvedTargetDevice =
+        await _resolveTargetDevice(
+          deviceSelector: deviceSelector,
+          recordingRequired: recordingRequired,
+        );
+    final TargetDevice? targetDevice = resolvedTargetDevice?.targetDevice;
+    RecordingController? recordingController;
+    if (recordingRequired) {
+      final RecordingDeviceIdentity recordingDevice =
+          resolvedTargetDevice!.recordingDevice!;
+      recordingController = recordingControllerFactory(
+        deviceSelector: recordingDevice.id,
+        outputDirectory: Directory.current,
+      );
+      try {
+        await recordingController.prepare();
+      } on RecordingException catch (error) {
+        throw TestExecutionRecordingException(error.message);
+      }
+    }
     final DateTime launchStartedAt = launchClock();
     final TargetAppLaunchChoices launchChoices = TargetAppLaunchChoices(
       targetDevice: targetDevice,
@@ -163,6 +230,8 @@ class DefaultTestExecutionSessionFactory
       return _DefaultTestExecutionSession(
         launch: launch,
         targetDevice: targetDevice,
+        recordingDeviceSelector: resolvedTargetDevice?.recordingDevice?.id,
+        recordingController: recordingController,
         interruptSignals: interruptSignals,
       );
     } on TargetAppLaunchException catch (error) {
@@ -176,6 +245,7 @@ class DefaultTestExecutionSessionFactory
         ),
       );
       await launchHeartbeat?.stop();
+      await _disposeRecordingController(recordingController);
       final String stderrContext =
           onLaunchProgress == null && error.stderrLines.isNotEmpty
           ? '\n${error.stderrLines.join('\n')}'
@@ -188,7 +258,7 @@ class DefaultTestExecutionSessionFactory
     }
   }
 
-  Future<TargetDevice?> _resolveTargetDevice({
+  Future<ResolvedTargetDevice?> _resolveTargetDevice({
     required String? deviceSelector,
     required bool recordingRequired,
   }) async {
@@ -219,6 +289,8 @@ class _DefaultTestExecutionSession implements TestExecutionSession {
   _DefaultTestExecutionSession({
     required TargetAppLaunch launch,
     required this.targetDevice,
+    required this.recordingDeviceSelector,
+    required this.recordingController,
     required this.interruptSignals,
   }) : _launch = launch,
        runtimeTarget = RuntimeTarget(
@@ -234,6 +306,12 @@ class _DefaultTestExecutionSession implements TestExecutionSession {
 
   @override
   final TargetDevice? targetDevice;
+
+  @override
+  final String? recordingDeviceSelector;
+
+  @override
+  final RecordingController? recordingController;
 
   @override
   Future<T> runWithInterrupt<T>(Future<T> operation) async {
@@ -276,7 +354,16 @@ class _DefaultTestExecutionSession implements TestExecutionSession {
   }
 
   @override
-  Future<void> close() {
-    return _launch.cleanup();
+  Future<void> close() async {
+    try {
+      await _launch.cleanup();
+    } finally {
+      final RecordingException? error = await _disposeRecordingController(
+        recordingController,
+      );
+      if (error != null) {
+        throw TestExecutionRecordingException(error.message);
+      }
+    }
   }
 }

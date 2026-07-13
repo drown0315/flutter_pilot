@@ -13,9 +13,10 @@ Flutter app entrypoint file, while `--device` selects the Target Device and
 `--flavor` selects the Flutter flavor.
 
 Scenario Recording under `test` makes Target Device a first-class concept. When
-recording is enabled, the selected Target Device must be both a supported
-Flutter Device and a Recording Device with the same device id, and Flutter Pilot
-uses that resolved id for both app launch and device recording. The trade-off is
-that workflows which want to connect to an already-running app, such as an IDE
-debug session or an externally supplied VM service URI, are out of the first
-CLI contract and would require a future command if they become important again.
+recording is enabled, the selected Target Device must be a supported Flutter
+Device paired with a Recording Device by exact id or by a unique exact name
+match. Flutter Pilot uses the Flutter Device id for app launch and the paired
+Recording Device id for device recording. The trade-off is that workflows which
+want to connect to an already-running app, such as an IDE debug session or an
+externally supplied VM service URI, are out of the first CLI contract and would
+require a future command if they become important again.

@@ -356,6 +356,15 @@ class _FakeScreenRecorderProcess implements ScreenRecorderProcess {
   Future<String> get stderr async => '';
 
   @override
+  Stream<String> get stdoutLines => const Stream<String>.empty();
+
+  @override
+  void writeLine(String line) {}
+
+  @override
+  Future<void> closeStdin() async {}
+
+  @override
   bool kill([ProcessSignal signal = ProcessSignal.sigterm]) {
     final String? outputPath = outputPathOnKill;
     if (outputPath != null) {

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:file_testkit/file_testkit.dart';
 import 'package:flutter_pilot/flutter_pilot.dart';
 import 'package:path/path.dart' as p;
+import 'package:screen_recorder/screen_recorder.dart' as screen_recorder;
 import 'package:test/test.dart';
 
 import '../support/test_command_fakes.dart';
@@ -33,6 +34,7 @@ void main() {
           ]),
           outputDirectory: Directory.current,
           clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
         );
         final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
           ProjectScenarioFile(
@@ -132,6 +134,7 @@ void main() {
           ]),
           outputDirectory: Directory.current,
           clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
         );
         final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
           ProjectScenarioFile(
@@ -171,6 +174,98 @@ void main() {
   );
 
   test(
+    'default Project Run records close recording failure after successful runs',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTestExecutionSession session = FakeTestExecutionSession(
+          runtimeTarget: RuntimeTarget(
+            vmServiceUri: Uri.parse('ws://127.0.0.1:1234/token=/ws'),
+            deviceId: 'pixel-8',
+          ),
+          closeException: const TestExecutionRecordingException(
+            'recording dispose failed',
+          ),
+        );
+        final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
+          sessionFactory: FakeTestExecutionSessionFactory(session),
+          runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+            FakeScenarioRunner(passedScenarioRunReportFor('login')),
+          ]),
+          outputDirectory: Directory.current,
+          clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
+        );
+
+        final ProjectRunResult result = await executor.run(
+          ProjectRunOptions(
+            discoveryRootPath: 'pilot',
+            scenarios: <ProjectScenarioFile>[
+              ProjectScenarioFile(
+                path: 'pilot/login.yaml',
+                relativePath: 'login.yaml',
+                scenario: scenarioFixture('login'),
+              ),
+            ],
+            device: null,
+            flavor: null,
+            target: null,
+            jsonOutput: false,
+          ),
+        );
+
+        expect(result.status, ProjectRunStatus.environmentFailed);
+        expect(session.closeCount, 1);
+      });
+    },
+  );
+
+  test(
+    'default Project Run preserves Scenario failure when close recording fails',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTestExecutionSession session = FakeTestExecutionSession(
+          runtimeTarget: RuntimeTarget(
+            vmServiceUri: Uri.parse('ws://127.0.0.1:1234/token=/ws'),
+            deviceId: 'pixel-8',
+          ),
+          closeException: const TestExecutionRecordingException(
+            'recording dispose failed',
+          ),
+        );
+        final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
+          sessionFactory: FakeTestExecutionSessionFactory(session),
+          runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+            FailingScenarioRunner(failingScenarioRunReportFor('login')),
+          ]),
+          outputDirectory: Directory.current,
+          clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
+        );
+
+        final ProjectRunResult result = await executor.run(
+          ProjectRunOptions(
+            discoveryRootPath: 'pilot',
+            scenarios: <ProjectScenarioFile>[
+              ProjectScenarioFile(
+                path: 'pilot/login.yaml',
+                relativePath: 'login.yaml',
+                scenario: scenarioFixture('login'),
+              ),
+            ],
+            device: null,
+            flavor: null,
+            target: null,
+            jsonOutput: false,
+          ),
+        );
+
+        expect(result.status, ProjectRunStatus.failed);
+        expect(session.closeCount, 1);
+      });
+    },
+  );
+
+  test(
     'default Project Run executor resolves explicit Target Device before launch',
     () async {
       await FileTestkit.runZoned(() async {
@@ -201,6 +296,7 @@ void main() {
           ]),
           outputDirectory: Directory.current,
           clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
         );
         final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
           ProjectScenarioFile(
@@ -269,16 +365,16 @@ void main() {
         final FakeDeviceDiscovery deviceDiscovery = FakeDeviceDiscovery(
           flutterDevices: <FlutterDevice>[
             FlutterDevice(
-              id: 'pixel-8',
-              name: 'Pixel 8',
-              targetPlatform: 'android-arm64',
+              id: 'flutter-udid',
+              name: 'Test iPhone',
+              targetPlatform: 'ios',
               isSupported: true,
-              emulator: true,
-              sdk: 'Android 35',
+              emulator: false,
+              sdk: 'iOS 15.8.8',
             ),
           ],
           recordingDevices: <RecordingDeviceIdentity>[
-            RecordingDeviceIdentity(id: 'pixel-8'),
+            RecordingDeviceIdentity(id: 'avfoundation-id', name: 'Test iPhone'),
           ],
         );
         final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
@@ -289,6 +385,7 @@ void main() {
           ]),
           outputDirectory: Directory.current,
           clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
         );
         final List<TargetAppLaunchProgressEvent> launchEvents =
             <TargetAppLaunchProgressEvent>[];
@@ -343,10 +440,14 @@ void main() {
           'run',
           '--machine',
           '--device-id',
-          'pixel-8',
+          'flutter-udid',
         ]);
-        expect(runner.targetDevice?.id, 'pixel-8');
-        expect(runner.recordingController, isNotNull);
+        expect(runner.targetDevice?.id, 'flutter-udid');
+        expect(
+          (runner.recordingController as ScreenRecorderRecordingController)
+              .deviceSelector,
+          'avfoundation-id',
+        );
         final TargetAppLaunchStartedEvent startedEvent = launchEvents
             .whereType<TargetAppLaunchStartedEvent>()
             .single;
@@ -386,8 +487,8 @@ void main() {
             ),
           ],
           recordingDevices: <RecordingDeviceIdentity>[
-            const RecordingDeviceIdentity(id: 'pixel-8'),
-            const RecordingDeviceIdentity(id: 'iphone-15'),
+            const RecordingDeviceIdentity(id: 'pixel-8', name: 'Pixel 8'),
+            const RecordingDeviceIdentity(id: 'iphone-15', name: 'iPhone 15'),
           ],
         );
         final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
@@ -398,6 +499,7 @@ void main() {
           ]),
           outputDirectory: Directory.current,
           clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
         );
         final List<ProjectScenarioFile> scenarios = <ProjectScenarioFile>[
           ProjectScenarioFile(
@@ -839,4 +941,23 @@ void main() {
       expect(secondRunner.onProgress, isNull);
     });
   });
+}
+
+RecordingController _fakeRecordingControllerFactory({
+  required String deviceSelector,
+  required Directory outputDirectory,
+}) {
+  return ScreenRecorderRecordingController(
+    recorder: screen_recorder.ScreenRecorder.fake(
+      devices: <screen_recorder.RecordingDevice>[
+        screen_recorder.RecordingDevice(
+          id: deviceSelector,
+          name: deviceSelector,
+          platform: screen_recorder.RecordingDevicePlatform.android,
+        ),
+      ],
+    ),
+    deviceSelector: deviceSelector,
+    outputDirectory: outputDirectory,
+  );
 }

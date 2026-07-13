@@ -23,9 +23,10 @@ widgets to tap, where to type, what to wait for, when to scroll, and where to
 capture diagnostic artifacts.
 
 Scenario metadata can also request full-run device video recording with
-`scenario.recording`. Recording is run-level context: it starts before the first
-Step, stops during run shutdown, and is reported as a Device Video Recording
-artifact rather than a Step artifact.
+`scenario.recording`. Recording is run-level context: Flutter Pilot may prepare
+device capture before app launch, starts the saved video segment before the
+first Step, stops it during run shutdown, and reports it as a Device Video
+Recording artifact rather than a Step artifact.
 
 Runtime connection details are not stored in YAML. The same Scenario can be
 validated, shared, committed, and replayed against different Runtime Targets by
@@ -236,9 +237,10 @@ vocabulary and selects the app entrypoint file; it does not accept a VM service
 URI.
 
 When `scenario.recording` is enabled, Flutter Pilot records the resolved Target
-Device. The Target Device must also be available as a Recording Device with the
-same device id. If `--device` is omitted, Flutter Pilot auto-selects only when
-exactly one supported Flutter Device id is also recordable.
+Device. The Target Device must also pair with a Recording Device by exact id or
+by a unique exact name match. If `--device` is omitted, Flutter Pilot
+auto-selects only when exactly one supported Flutter Device has a paired
+Recording Device.
 
 ## Artifacts
 
