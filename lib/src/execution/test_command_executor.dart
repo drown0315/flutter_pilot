@@ -105,7 +105,7 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
       final ScenarioRunReport report = await session.runWithInterrupt(
         runFuture,
       );
-      completedNormally = true;
+      completedNormally = report.status == ScenarioRunStatus.passed;
       return report;
     } on RuntimeOperationException catch (error) {
       throw TestCommandException(message: error.message, exitCode: 1);

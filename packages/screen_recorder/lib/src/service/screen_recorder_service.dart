@@ -261,11 +261,11 @@ class ScreenRecorderService {
         state.activeSessionId = null;
       }
     }
-    state.disposed = true;
-    _preparedCaptures.remove(capture.id);
     if (state.backendPrepared) {
       await (_backend as PreparedCaptureBackend).dispose(capture);
     }
+    state.disposed = true;
+    _preparedCaptures.remove(capture.id);
   }
 
   /// Removes an active Recording Session from this recorder instance.

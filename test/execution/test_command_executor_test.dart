@@ -217,6 +217,42 @@ void main() {
   );
 
   test(
+    'default executor preserves failed Scenario report when close recording fails',
+    () async {
+      final FakeTestExecutionSession session = FakeTestExecutionSession(
+        runtimeTarget: RuntimeTarget(
+          vmServiceUri: Uri.parse('ws://127.0.0.1:1234/token=/ws'),
+          deviceId: 'pixel-8',
+        ),
+        closeException: const TestExecutionRecordingException(
+          'recording dispose failed',
+        ),
+      );
+      final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
+        sessionFactory: FakeTestExecutionSessionFactory(session),
+        runnerFactory: FakeScenarioRunnerFactory(
+          FakeScenarioRunner(failingScenarioRunReportFor('scenario_failure')),
+        ),
+      );
+
+      final ScenarioRunReport report = await executor.run(
+        TestCommandOptions(
+          scenario: scenarioFixture('scenario_failure'),
+          device: null,
+          flavor: null,
+          target: null,
+          stopPoint: null,
+          printDiagnostics: const <PrintDiagnostic>{},
+          jsonOutput: false,
+        ),
+      );
+
+      expect(report.status, ScenarioRunStatus.failed);
+      expect(session.closeCount, 1);
+    },
+  );
+
+  test(
     'default executor reports invalid hidden runtime switch values',
     () async {
       await FileTestkit.runZoned(() async {

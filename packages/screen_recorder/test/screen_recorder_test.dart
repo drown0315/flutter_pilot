@@ -1,6 +1,9 @@
 import 'dart:io';
 
 import 'package:screen_recorder/screen_recorder.dart';
+import 'package:screen_recorder/src/backend/composite_recording_backend.dart';
+import 'package:screen_recorder/src/backend/recording_backend.dart';
+import 'package:screen_recorder/src/service/screen_recorder_service.dart';
 import 'package:test/test.dart';
 
 /// Verifies the public screen_recorder API using an in-memory recording backend.
@@ -264,6 +267,28 @@ void main() {
         await owner.discardRecord(ownerSession);
       },
     );
+
+    test('keeps prepared capture retryable when backend dispose fails',
+        () async {
+      final _FailingDisposePreparedBackend backend =
+          _FailingDisposePreparedBackend();
+      final ScreenRecorderService recorder = ScreenRecorderService(
+        CompositeRecordingBackend(<RecordingBackend>[backend]),
+      );
+      final PreparedCapture capture = await recorder.prepare(
+        deviceSelector: 'ios-device-1',
+      );
+
+      await expectLater(
+        recorder.dispose(capture),
+        throwsA(_hasCode(ScreenRecorderErrorCode.discardFailed)),
+      );
+
+      backend.disposeShouldFail = false;
+      await recorder.dispose(capture);
+
+      expect(backend.disposeCount, 2);
+    });
   });
 }
 
@@ -283,4 +308,76 @@ Matcher _hasCode(ScreenRecorderErrorCode code) {
     'code',
     code,
   );
+}
+
+class _FailingDisposePreparedBackend
+    implements RecordingBackend, PreparedCaptureBackend {
+  final RecordingDevice _device = const RecordingDevice(
+    id: 'ios-device-1',
+    name: 'Drown iPhone',
+    platform: RecordingDevicePlatform.iosPhysical,
+  );
+
+  bool disposeShouldFail = true;
+  int disposeCount = 0;
+
+  @override
+  RecordingDevicePlatform get platform => RecordingDevicePlatform.iosPhysical;
+
+  @override
+  Future<List<RecordingDevice>> listDevices() async {
+    return <RecordingDevice>[_device];
+  }
+
+  @override
+  Future<RecordingDevice> resolveDevice(String selector) async {
+    return _device;
+  }
+
+  @override
+  Future<bool> prepare(PreparedCapture capture) async {
+    return true;
+  }
+
+  @override
+  Future<void> start(
+    RecordingSession session, {
+    required bool overwrite,
+  }) async {}
+
+  @override
+  Future<void> startRecord(
+    PreparedCapture capture,
+    RecordingSession session, {
+    required bool overwrite,
+  }) async {}
+
+  @override
+  Future<void> stop(RecordingSession session) async {}
+
+  @override
+  Future<void> stopRecord(
+    PreparedCapture capture,
+    RecordingSession session,
+  ) async {}
+
+  @override
+  Future<void> discard(RecordingSession session) async {}
+
+  @override
+  Future<void> discardRecord(
+    PreparedCapture capture,
+    RecordingSession session,
+  ) async {}
+
+  @override
+  Future<void> dispose(PreparedCapture capture) async {
+    disposeCount++;
+    if (disposeShouldFail) {
+      throw const ScreenRecorderException(
+        code: ScreenRecorderErrorCode.discardFailed,
+        message: 'Dispose failed.',
+      );
+    }
+  }
 }

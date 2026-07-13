@@ -102,14 +102,15 @@ class ScreenRecorderRecordingController implements RecordingController {
     if (_disposed) {
       return;
     }
-    _disposed = true;
     final screen_recorder.PreparedCapture? capture = _capture;
-    _capture = null;
     if (capture == null) {
+      _disposed = true;
       return;
     }
     try {
       await _recorder.dispose(capture);
+      _capture = null;
+      _disposed = true;
     } on screen_recorder.ScreenRecorderException catch (error) {
       throw RecordingException(
         operation: RecordingOperation.dispose,

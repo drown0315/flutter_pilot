@@ -68,7 +68,12 @@ class CompositeRecordingBackend
         continue;
       }
       _sessionBackends[session.id] = backend;
-      await backend.start(session, overwrite: overwrite);
+      try {
+        await backend.start(session, overwrite: overwrite);
+      } on Object {
+        _sessionBackends.remove(session.id);
+        rethrow;
+      }
       return;
     }
     throw ScreenRecorderException(
@@ -80,7 +85,7 @@ class CompositeRecordingBackend
 
   @override
   Future<void> stop(RecordingSession session) async {
-    final RecordingBackend? backend = _sessionBackends.remove(session.id);
+    final RecordingBackend? backend = _sessionBackends[session.id];
     if (backend == null) {
       throw ScreenRecorderException(
         code: ScreenRecorderErrorCode.stopFailed,
@@ -89,11 +94,12 @@ class CompositeRecordingBackend
       );
     }
     await backend.stop(session);
+    _sessionBackends.remove(session.id);
   }
 
   @override
   Future<void> discard(RecordingSession session) async {
-    final RecordingBackend? backend = _sessionBackends.remove(session.id);
+    final RecordingBackend? backend = _sessionBackends[session.id];
     if (backend == null) {
       throw ScreenRecorderException(
         code: ScreenRecorderErrorCode.discardFailed,
@@ -102,6 +108,7 @@ class CompositeRecordingBackend
       );
     }
     await backend.discard(session);
+    _sessionBackends.remove(session.id);
   }
 
   @override
@@ -123,10 +130,20 @@ class CompositeRecordingBackend
     final RecordingBackend backend = _backendForCapture(capture);
     _sessionBackends[session.id] = backend;
     if (backend is PreparedCaptureBackend) {
-      await backend.startRecord(capture, session, overwrite: overwrite);
+      try {
+        await backend.startRecord(capture, session, overwrite: overwrite);
+      } on Object {
+        _sessionBackends.remove(session.id);
+        rethrow;
+      }
       return;
     }
-    await backend.start(session, overwrite: overwrite);
+    try {
+      await backend.start(session, overwrite: overwrite);
+    } on Object {
+      _sessionBackends.remove(session.id);
+      rethrow;
+    }
   }
 
   @override
@@ -135,12 +152,13 @@ class CompositeRecordingBackend
     RecordingSession session,
   ) async {
     final RecordingBackend backend = _backendForCapture(capture);
-    _sessionBackends.remove(session.id);
     if (backend is PreparedCaptureBackend) {
       await backend.stopRecord(capture, session);
+      _sessionBackends.remove(session.id);
       return;
     }
     await backend.stop(session);
+    _sessionBackends.remove(session.id);
   }
 
   @override
@@ -149,20 +167,22 @@ class CompositeRecordingBackend
     RecordingSession session,
   ) async {
     final RecordingBackend backend = _backendForCapture(capture);
-    _sessionBackends.remove(session.id);
     if (backend is PreparedCaptureBackend) {
       await backend.discardRecord(capture, session);
+      _sessionBackends.remove(session.id);
       return;
     }
     await backend.discard(session);
+    _sessionBackends.remove(session.id);
   }
 
   @override
   Future<void> dispose(PreparedCapture capture) async {
-    final RecordingBackend? backend = _captureBackends.remove(capture.id);
+    final RecordingBackend? backend = _captureBackends[capture.id];
     if (backend is PreparedCaptureBackend) {
       await backend.dispose(capture);
     }
+    _captureBackends.remove(capture.id);
   }
 
   RecordingBackend _backendForDevice(RecordingDevice device) {
