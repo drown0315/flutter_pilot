@@ -174,6 +174,98 @@ void main() {
   );
 
   test(
+    'default Project Run records close recording failure after successful runs',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTestExecutionSession session = FakeTestExecutionSession(
+          runtimeTarget: RuntimeTarget(
+            vmServiceUri: Uri.parse('ws://127.0.0.1:1234/token=/ws'),
+            deviceId: 'pixel-8',
+          ),
+          closeException: const TestExecutionRecordingException(
+            'recording dispose failed',
+          ),
+        );
+        final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
+          sessionFactory: FakeTestExecutionSessionFactory(session),
+          runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+            FakeScenarioRunner(passedScenarioRunReportFor('login')),
+          ]),
+          outputDirectory: Directory.current,
+          clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
+        );
+
+        final ProjectRunResult result = await executor.run(
+          ProjectRunOptions(
+            discoveryRootPath: 'pilot',
+            scenarios: <ProjectScenarioFile>[
+              ProjectScenarioFile(
+                path: 'pilot/login.yaml',
+                relativePath: 'login.yaml',
+                scenario: scenarioFixture('login'),
+              ),
+            ],
+            device: null,
+            flavor: null,
+            target: null,
+            jsonOutput: false,
+          ),
+        );
+
+        expect(result.status, ProjectRunStatus.environmentFailed);
+        expect(session.closeCount, 1);
+      });
+    },
+  );
+
+  test(
+    'default Project Run preserves Scenario failure when close recording fails',
+    () async {
+      await FileTestkit.runZoned(() async {
+        final FakeTestExecutionSession session = FakeTestExecutionSession(
+          runtimeTarget: RuntimeTarget(
+            vmServiceUri: Uri.parse('ws://127.0.0.1:1234/token=/ws'),
+            deviceId: 'pixel-8',
+          ),
+          closeException: const TestExecutionRecordingException(
+            'recording dispose failed',
+          ),
+        );
+        final DefaultProjectRunExecutor executor = DefaultProjectRunExecutor(
+          sessionFactory: FakeTestExecutionSessionFactory(session),
+          runnerFactory: QueueScenarioRunnerFactory(<FakeScenarioRunner>[
+            FailingScenarioRunner(failingScenarioRunReportFor('login')),
+          ]),
+          outputDirectory: Directory.current,
+          clock: () => DateTime.utc(2026, 7, 1, 9, 30),
+          recordingControllerFactory: _fakeRecordingControllerFactory,
+        );
+
+        final ProjectRunResult result = await executor.run(
+          ProjectRunOptions(
+            discoveryRootPath: 'pilot',
+            scenarios: <ProjectScenarioFile>[
+              ProjectScenarioFile(
+                path: 'pilot/login.yaml',
+                relativePath: 'login.yaml',
+                scenario: scenarioFixture('login'),
+              ),
+            ],
+            device: null,
+            flavor: null,
+            target: null,
+            jsonOutput: false,
+          ),
+        );
+
+        expect(result.status, ProjectRunStatus.failed);
+        expect(session.closeCount, 1);
+      });
+    },
+  );
+
+  test(
     'default Project Run executor resolves explicit Target Device before launch',
     () async {
       await FileTestkit.runZoned(() async {

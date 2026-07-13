@@ -98,7 +98,12 @@ class ScreenRecorderService {
     );
     _activeSessions[session.id] = session;
     _activeDeviceIds.add(device.id);
-    await _backend.start(session, overwrite: overwrite);
+    try {
+      await _backend.start(session, overwrite: overwrite);
+    } on Object {
+      _releaseActiveSession(session);
+      rethrow;
+    }
     return session;
   }
 
@@ -191,7 +196,7 @@ class ScreenRecorderService {
 
   /// Stops an active Recording Session and returns saved video metadata.
   Future<RecordingResult> stopRecord(RecordingSession session) async {
-    final RecordingSession sessionToStop = _takeActiveSession(session);
+    final RecordingSession sessionToStop = _requireActiveSession(session);
     final _PreparedCaptureState? preparedState =
         _preparedStateForSession(sessionToStop);
     if (preparedState != null && preparedState.backendPrepared) {
@@ -204,6 +209,7 @@ class ScreenRecorderService {
       await _backend.stop(sessionToStop);
       preparedState?.activeSessionId = null;
     }
+    _releaseActiveSession(sessionToStop);
     final File outputFile = File(sessionToStop.expectedOutputPath);
     final DateTime stopTime = DateTime.now().toUtc();
     final int fileSizeBytes =
@@ -224,7 +230,7 @@ class ScreenRecorderService {
   /// Discard is used for canceled recordings. It cleans up backend artifacts and
   /// does not return a Recording Result because no saved video should remain.
   Future<void> discardRecord(RecordingSession session) async {
-    final RecordingSession sessionToDiscard = _takeActiveSession(session);
+    final RecordingSession sessionToDiscard = _requireActiveSession(session);
     final _PreparedCaptureState? preparedState =
         _preparedStateForSession(sessionToDiscard);
     if (preparedState != null && preparedState.backendPrepared) {
@@ -237,6 +243,7 @@ class ScreenRecorderService {
       await _backend.discard(sessionToDiscard);
       preparedState?.activeSessionId = null;
     }
+    _releaseActiveSession(sessionToDiscard);
   }
 
   /// Releases a prepared capture. Repeated disposal is harmless.
@@ -266,16 +273,20 @@ class ScreenRecorderService {
   /// A session must belong to this recorder and still be active. Sessions from
   /// another recorder, already stopped sessions, and already discarded sessions
   /// fail with `sessionNotFound`.
-  RecordingSession _takeActiveSession(RecordingSession session) {
-    final RecordingSession? activeSession = _activeSessions.remove(session.id);
+  RecordingSession _requireActiveSession(RecordingSession session) {
+    final RecordingSession? activeSession = _activeSessions[session.id];
     if (activeSession == null) {
       throw ScreenRecorderException(
         code: ScreenRecorderErrorCode.sessionNotFound,
         message: 'Recording Session is not active: ${session.id}',
       );
     }
-    _activeDeviceIds.remove(activeSession.device.id);
     return activeSession;
+  }
+
+  void _releaseActiveSession(RecordingSession session) {
+    _activeSessions.remove(session.id);
+    _activeDeviceIds.remove(session.device.id);
   }
 
   _PreparedCaptureState _requirePreparedCapture(

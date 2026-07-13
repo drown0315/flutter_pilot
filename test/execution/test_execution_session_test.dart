@@ -196,6 +196,72 @@ void main() {
       ]);
     },
   );
+
+  test('wraps recording dispose failures during close', () async {
+    final FakeTargetAppProcess process = FakeTargetAppProcess();
+    final FakeTargetAppProcessStarter starter = FakeTargetAppProcessStarter(
+      process,
+    );
+    final TestExecutionSessionFactory factory =
+        DefaultTestExecutionSessionFactory(
+          deviceDiscovery: FakeDeviceDiscovery(
+            flutterDevices: const <FlutterDevice>[
+              FlutterDevice(
+                id: 'flutter-udid',
+                name: 'Test iPhone',
+                targetPlatform: 'ios',
+                isSupported: true,
+                emulator: false,
+                sdk: 'iOS 15.8.8',
+              ),
+            ],
+            recordingDevices: const <RecordingDeviceIdentity>[
+              RecordingDeviceIdentity(
+                id: 'avfoundation-id',
+                name: 'Test iPhone',
+              ),
+            ],
+          ),
+          launcher: TargetAppLauncher(starter: starter),
+          recordingControllerFactory:
+              ({
+                required String deviceSelector,
+                required Directory outputDirectory,
+              }) => _EventRecordingController(
+                <String>[],
+                disposeException: const RecordingException(
+                  operation: RecordingOperation.dispose,
+                  message: 'dispose failed',
+                ),
+              ),
+        );
+
+    final Future<TestExecutionSession> sessionFuture = factory.start(
+      deviceSelector: 'flutter-udid',
+      flavor: null,
+      target: null,
+      recordingRequired: true,
+      launchHeartbeatEnabled: false,
+    );
+    process.emitStdout(
+      jsonEncode(<String, Object?>{
+        'event': 'app.debugPort',
+        'params': <String, Object?>{'wsUri': 'ws://127.0.0.1:1234/token=/ws'},
+      }),
+    );
+    final TestExecutionSession session = await sessionFuture;
+
+    await expectLater(
+      session.close(),
+      throwsA(
+        isA<TestExecutionRecordingException>().having(
+          (TestExecutionRecordingException error) => error.message,
+          'message',
+          'dispose failed',
+        ),
+      ),
+    );
+  });
 }
 
 class FakeDeviceDiscovery implements TestDeviceDiscovery {
@@ -282,9 +348,10 @@ class FakeTargetAppProcess implements TargetAppProcess {
 }
 
 class _EventRecordingController implements RecordingController {
-  _EventRecordingController(this.events);
+  _EventRecordingController(this.events, {this.disposeException});
 
   final List<String> events;
+  final RecordingException? disposeException;
 
   @override
   Future<void> prepare() async {
@@ -302,5 +369,9 @@ class _EventRecordingController implements RecordingController {
   @override
   Future<void> dispose() async {
     events.add('dispose');
+    final RecordingException? exception = disposeException;
+    if (exception != null) {
+      throw exception;
+    }
   }
 }

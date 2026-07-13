@@ -82,6 +82,7 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
       throw TestCommandException(message: error.message, exitCode: 1);
     }
 
+    bool completedNormally = false;
     try {
       final TestScenarioRunner runner;
       try {
@@ -101,11 +102,28 @@ class DefaultTestCommandExecutor implements TestCommandExecutor {
         printDiagnostics: options.printDiagnostics,
         onProgress: onProgress,
       );
-      return await session.runWithInterrupt(runFuture);
+      final ScenarioRunReport report = await session.runWithInterrupt(
+        runFuture,
+      );
+      completedNormally = true;
+      return report;
     } on RuntimeOperationException catch (error) {
       throw TestCommandException(message: error.message, exitCode: 1);
     } finally {
+      await _closeSession(session, reportFailure: completedNormally);
+    }
+  }
+
+  Future<void> _closeSession(
+    TestExecutionSession session, {
+    required bool reportFailure,
+  }) async {
+    try {
       await session.close();
+    } on TestExecutionRecordingException catch (error) {
+      if (reportFailure) {
+        throw TestCommandException(message: error.message, exitCode: 1);
+      }
     }
   }
 

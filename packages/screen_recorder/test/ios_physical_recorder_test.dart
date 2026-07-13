@@ -287,6 +287,43 @@ iPhone 17 Simulator (26.4) (58CC29EF-4758-4E4E-A79A-398E4A26C91F)
       );
     });
 
+    test('cleans up standalone helper when segment start fails', () async {
+      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+        ..addSwiftBuild()
+        ..addHelperList(
+          const ScreenRecorderCommandResult(
+            exitCode: 0,
+            stdout: '''
+id\tname\tmodel\tmanufacturer
+ios-device-1\tDrown iPhone\tiOS Device\tApple Inc.
+''',
+            stderr: '',
+          ),
+        );
+      final ScreenRecorder recorder = ScreenRecorder.iosPhysical(
+        commandRunner: commandRunner,
+      );
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_physical_ios_test_')
+          .path;
+
+      final Future<RecordingSession> start = recorder.startRecord(
+        deviceSelector: 'ios-device-1',
+        outputDirectory: outputDirectory,
+        outputName: 'start_failure',
+      );
+      await Future<void>.delayed(Duration.zero);
+      commandRunner.emitStdoutLine('{"event":"ready"}');
+      await Future<void>.delayed(Duration.zero);
+      commandRunner.emitStdoutLine(
+        '{"event":"error","message":"start failed"}',
+      );
+
+      await expectLater(start, throwsA(isA<ScreenRecorderException>()));
+      expect(commandRunner.writtenOperations, <String>['start', 'shutdown']);
+      expect(commandRunner.lastProcess?.hasExited, isTrue);
+    });
+
     test('cleans up helper when prepared capture readiness fails', () async {
       final _FakeCommandRunner commandRunner = _FakeCommandRunner()
         ..addSwiftBuild()
@@ -321,6 +358,73 @@ ios-device-1\tDrown iPhone\tiOS Device\tApple Inc.
         ),
       );
       expect(commandRunner.writtenOperations, <String>['shutdown']);
+      expect(commandRunner.lastProcess?.hasExited, isTrue);
+    });
+
+    test('keeps standalone helper owned when stop fails', () async {
+      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+        ..addSwiftBuild()
+        ..addPhysicalDeviceList(<String, String>{
+          'ios-device-1': 'Drown iPhone',
+        });
+      final ScreenRecorder recorder = ScreenRecorder.iosPhysical(
+        commandRunner: commandRunner,
+      );
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_physical_ios_test_')
+          .path;
+      final RecordingSession session = await recorder.startRecord(
+        deviceSelector: 'ios-device-1',
+        outputDirectory: outputDirectory,
+        outputName: 'missing_output',
+      );
+
+      await expectLater(
+        recorder.stopRecord(session),
+        throwsA(isA<ScreenRecorderException>()),
+      );
+      await recorder.discardRecord(session);
+
+      expect(commandRunner.writtenOperations, <String>[
+        'start',
+        'stop',
+        'shutdown',
+      ]);
+      expect(commandRunner.lastProcess?.hasExited, isTrue);
+    });
+
+    test('keeps standalone helper owned when discard fails', () async {
+      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+        ..addSwiftBuild()
+        ..addPhysicalDeviceList(<String, String>{
+          'ios-device-1': 'Drown iPhone',
+        })
+        ..defaultServeOutputBytes = <int>[5, 4, 3, 2];
+      final ScreenRecorder recorder = ScreenRecorder.iosPhysical(
+        commandRunner: commandRunner,
+      );
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_physical_ios_test_')
+          .path;
+      final RecordingSession session = await recorder.startRecord(
+        deviceSelector: 'ios-device-1',
+        outputDirectory: outputDirectory,
+        outputName: 'discard_failure',
+      );
+
+      commandRunner.failNextStop = true;
+      await expectLater(
+        recorder.discardRecord(session),
+        throwsA(isA<ScreenRecorderException>()),
+      );
+      await recorder.discardRecord(session);
+
+      expect(commandRunner.writtenOperations, <String>[
+        'start',
+        'stop',
+        'stop',
+        'shutdown',
+      ]);
       expect(commandRunner.lastProcess?.hasExited, isTrue);
     });
 
@@ -539,6 +643,7 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
   _FakeScreenRecorderProcess? _lastProcess;
   bool autoServeProtocol = false;
   List<int>? defaultServeOutputBytes;
+  bool failNextStop = false;
   int? _nextProcessExitCode;
   String _nextProcessStdout = '';
   String _nextProcessStderr = '';
@@ -653,6 +758,11 @@ class _FakeCommandRunner implements ScreenRecorderCommandRunner {
       writtenLines: writtenLines,
       autoServeProtocol: autoServeProtocol,
       serveOutputBytes: defaultServeOutputBytes,
+      shouldFailStop: () {
+        final bool result = failNextStop;
+        failNextStop = false;
+        return result;
+      },
     );
     _lastProcess = process;
     final int? immediateExitCode = _nextProcessExitCode;
@@ -699,6 +809,7 @@ class _FakeScreenRecorderProcess implements ScreenRecorderProcess {
     this.stderrValue = '',
     required this.writtenLines,
     required this.autoServeProtocol,
+    required this.shouldFailStop,
     this.serveOutputBytes,
   });
 
@@ -708,6 +819,7 @@ class _FakeScreenRecorderProcess implements ScreenRecorderProcess {
   final String stderrValue;
   final List<String> writtenLines;
   final bool autoServeProtocol;
+  final bool Function() shouldFailStop;
   List<int>? serveOutputBytes;
   void Function()? onKill;
 
@@ -748,6 +860,10 @@ class _FakeScreenRecorderProcess implements ScreenRecorderProcess {
       case 'start':
         emitStdoutLine('{"event":"started"}');
       case 'stop':
+        if (shouldFailStop()) {
+          emitStdoutLine('{"event":"error","message":"stop failed"}');
+          return;
+        }
         final String? outputPath = _lastStartOutputPath();
         final List<int>? bytes = serveOutputBytes;
         if (outputPath != null && bytes != null) {

@@ -75,7 +75,13 @@ class IosPhysicalRecordingBackend
     );
     await prepare(capture);
     _standaloneCaptures[session.id] = capture;
-    await startRecord(capture, session, overwrite: overwrite);
+    try {
+      await startRecord(capture, session, overwrite: overwrite);
+    } on Object {
+      _standaloneCaptures.remove(session.id);
+      await _cleanupFailedPrepare(capture, _preparedCaptures[capture.id]);
+      rethrow;
+    }
   }
 
   Future<int?> _probeImmediateExit(ScreenRecorderProcess process) async {
@@ -203,7 +209,7 @@ class IosPhysicalRecordingBackend
 
   @override
   Future<void> stop(RecordingSession session) async {
-    final PreparedCapture? capture = _standaloneCaptures.remove(session.id);
+    final PreparedCapture? capture = _standaloneCaptures[session.id];
     if (capture == null) {
       throw ScreenRecorderException(
         code: ScreenRecorderErrorCode.stopFailed,
@@ -215,11 +221,12 @@ class IosPhysicalRecordingBackend
     }
     await stopRecord(capture, session);
     await dispose(capture);
+    _standaloneCaptures.remove(session.id);
   }
 
   @override
   Future<void> discard(RecordingSession session) async {
-    final PreparedCapture? capture = _standaloneCaptures.remove(session.id);
+    final PreparedCapture? capture = _standaloneCaptures[session.id];
     if (capture == null) {
       throw ScreenRecorderException(
         code: ScreenRecorderErrorCode.discardFailed,
@@ -231,6 +238,7 @@ class IosPhysicalRecordingBackend
     }
     await discardRecord(capture, session);
     await dispose(capture);
+    _standaloneCaptures.remove(session.id);
   }
 
   @override
@@ -259,13 +267,16 @@ class IosPhysicalRecordingBackend
 
   @override
   Future<void> dispose(PreparedCapture capture) async {
-    final _IosPreparedCaptureState? state = _preparedCaptures.remove(
-      capture.id,
-    );
-    if (state == null || state.disposed) {
+    final _IosPreparedCaptureState? state = _preparedCaptures[capture.id];
+    if (state == null) {
+      return;
+    }
+    if (state.disposed) {
+      _preparedCaptures.remove(capture.id);
       return;
     }
     await _shutdownPreparedState(capture, state, throwOnFailure: true);
+    _preparedCaptures.remove(capture.id);
   }
 
   Future<void> _cleanupFailedPrepare(
@@ -291,10 +302,24 @@ class IosPhysicalRecordingBackend
     if (state.disposed) {
       return;
     }
-    state.disposed = true;
-    state.process.writeLine(
-      jsonEncode(<String, String>{'operation': 'shutdown'}),
-    );
+    try {
+      state.process.writeLine(
+        jsonEncode(<String, String>{'operation': 'shutdown'}),
+      );
+    } on Object catch (error) {
+      if (!throwOnFailure) {
+        state.process.kill(ProcessSignal.sigkill);
+        state.disposed = true;
+        return;
+      }
+      throw ScreenRecorderException(
+        code: ScreenRecorderErrorCode.stopFailed,
+        message: 'Physical iOS helper shutdown failed.',
+        backendKind: _backendKind,
+        deviceSelector: capture.device.id,
+        cause: error,
+      );
+    }
     final int exitCode = await state.process.exitCode.timeout(
       _stopTimeout + Duration(seconds: 5),
       onTimeout: () {
@@ -302,6 +327,7 @@ class IosPhysicalRecordingBackend
         return -1;
       },
     );
+    state.disposed = true;
     if (exitCode != 0 && throwOnFailure) {
       throw ScreenRecorderException(
         code: ScreenRecorderErrorCode.stopFailed,

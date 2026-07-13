@@ -32,6 +32,17 @@ RecordingController defaultRecordingControllerFactory({
   );
 }
 
+Future<RecordingException?> _disposeRecordingController(
+  RecordingController? recordingController,
+) async {
+  try {
+    await recordingController?.dispose();
+    return null;
+  } on RecordingException catch (error) {
+    return error;
+  }
+}
+
 /// Starts the shared execution lifetime used by `flutter_pilot test`.
 abstract interface class TestExecutionSessionFactory {
   /// Launch the Target App Package and return a session ready for Scenarios.
@@ -234,7 +245,7 @@ class DefaultTestExecutionSessionFactory
         ),
       );
       await launchHeartbeat?.stop();
-      await recordingController?.dispose();
+      await _disposeRecordingController(recordingController);
       final String stderrContext =
           onLaunchProgress == null && error.stderrLines.isNotEmpty
           ? '\n${error.stderrLines.join('\n')}'
@@ -347,7 +358,12 @@ class _DefaultTestExecutionSession implements TestExecutionSession {
     try {
       await _launch.cleanup();
     } finally {
-      await recordingController?.dispose();
+      final RecordingException? error = await _disposeRecordingController(
+        recordingController,
+      );
+      if (error != null) {
+        throw TestExecutionRecordingException(error.message);
+      }
     }
   }
 }

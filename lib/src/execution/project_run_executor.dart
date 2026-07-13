@@ -183,7 +183,20 @@ class DefaultProjectRunExecutor implements ProjectRunExecutor {
       );
     } finally {
       stopwatch.stop();
-      await session?.close();
+      try {
+        await session?.close();
+      } on TestExecutionRecordingException catch (error) {
+        final bool hasScenarioFailure = scenarioResults.any(
+          (ProjectScenarioRunReport report) =>
+              report.status == ProjectScenarioRunStatus.failed,
+        );
+        if (environmentFailure == null && !hasScenarioFailure) {
+          environmentFailure = ProjectRunEnvironmentFailure(
+            phase: ProjectRunEnvironmentFailurePhase.launch,
+            message: error.message,
+          );
+        }
+      }
     }
     final bool allPassed =
         environmentFailure == null &&

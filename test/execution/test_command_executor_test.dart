@@ -132,6 +132,91 @@ void main() {
   );
 
   test(
+    'default executor reports close recording failure after successful run',
+    () async {
+      final FakeTestExecutionSession session = FakeTestExecutionSession(
+        runtimeTarget: RuntimeTarget(
+          vmServiceUri: Uri.parse('ws://127.0.0.1:1234/token=/ws'),
+          deviceId: 'pixel-8',
+        ),
+        closeException: const TestExecutionRecordingException(
+          'recording dispose failed',
+        ),
+      );
+      final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
+        sessionFactory: FakeTestExecutionSessionFactory(session),
+        runnerFactory: FakeScenarioRunnerFactory(
+          FakeScenarioRunner(passedScenarioRunReport()),
+        ),
+      );
+
+      await expectLater(
+        executor.run(
+          TestCommandOptions(
+            scenario: scenarioFixture('close_recording_failure'),
+            device: null,
+            flavor: null,
+            target: null,
+            stopPoint: null,
+            printDiagnostics: const <PrintDiagnostic>{},
+            jsonOutput: false,
+          ),
+        ),
+        throwsA(
+          isA<TestCommandException>().having(
+            (TestCommandException error) => error.message,
+            'message',
+            'recording dispose failed',
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'default executor preserves primary failure when close recording fails',
+    () async {
+      final FakeTestExecutionSession session = FakeTestExecutionSession(
+        runtimeTarget: RuntimeTarget(
+          vmServiceUri: Uri.parse('ws://127.0.0.1:1234/token=/ws'),
+          deviceId: 'pixel-8',
+        ),
+        closeException: const TestExecutionRecordingException(
+          'recording dispose failed',
+        ),
+      );
+      final DefaultTestCommandExecutor executor = DefaultTestCommandExecutor(
+        sessionFactory: FakeTestExecutionSessionFactory(session),
+        runnerFactory: const ThrowingScenarioRunnerFactory(
+          RuntimeAdapterSelectionException('runtime selection failed'),
+        ),
+      );
+
+      await expectLater(
+        executor.run(
+          TestCommandOptions(
+            scenario: scenarioFixture('primary_failure'),
+            device: null,
+            flavor: null,
+            target: null,
+            stopPoint: null,
+            printDiagnostics: const <PrintDiagnostic>{},
+            jsonOutput: false,
+          ),
+        ),
+        throwsA(
+          isA<TestCommandException>().having(
+            (TestCommandException error) => error.message,
+            'message',
+            'runtime selection failed',
+          ),
+        ),
+      );
+      expect(session.closeCount, 1);
+    },
+  );
+
+  test(
     'default executor reports invalid hidden runtime switch values',
     () async {
       await FileTestkit.runZoned(() async {
