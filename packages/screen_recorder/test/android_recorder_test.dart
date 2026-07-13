@@ -184,6 +184,45 @@ offline-1\toffline
       expect(commandRunner.startedCommands, contains(contains('scrcpy')));
     });
 
+    test('prepared capture disposal discards an active Android session',
+        () async {
+      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+        ..addAndroidDeviceList(<String, String>{'PHK110': 'OnePlus 13'});
+      final ScreenRecorder recorder = ScreenRecorder.android(
+        commandRunner: commandRunner,
+      );
+      final String outputDirectory = Directory.systemTemp
+          .createTempSync('screen_recorder_android_test_')
+          .path;
+      final PreparedCapture capture = await recorder.prepare(
+        deviceSelector: 'PHK110',
+      );
+      final RecordingSession session = await recorder.startRecord(
+        preparedCapture: capture,
+        outputDirectory: outputDirectory,
+        outputName: 'disposed_prepared_android',
+        overwrite: true,
+      );
+
+      await recorder.dispose(capture);
+
+      expect(
+        commandRunner.lastProcess?.killedWithSignal,
+        ProcessSignal.sigterm,
+      );
+      expect(File(session.expectedOutputPath).existsSync(), isFalse);
+      await expectLater(
+        recorder.discardRecord(session),
+        throwsA(
+          isA<ScreenRecorderException>().having(
+            (ScreenRecorderException exception) => exception.code,
+            'code',
+            ScreenRecorderErrorCode.sessionNotFound,
+          ),
+        ),
+      );
+    });
+
     test(
       'falls back to native screenrecord when scrcpy exits immediately',
       () async {

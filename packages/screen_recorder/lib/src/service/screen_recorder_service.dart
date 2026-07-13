@@ -245,6 +245,15 @@ class ScreenRecorderService {
     if (state == null || state.disposed) {
       return;
     }
+    final String? activeSessionId = state.activeSessionId;
+    if (activeSessionId != null) {
+      final RecordingSession? activeSession = _activeSessions[activeSessionId];
+      if (activeSession != null) {
+        await discardRecord(activeSession);
+      } else {
+        state.activeSessionId = null;
+      }
+    }
     state.disposed = true;
     _preparedCaptures.remove(capture.id);
     if (state.backendPrepared) {

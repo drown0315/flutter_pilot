@@ -101,6 +101,7 @@ class IosPhysicalRecordingBackend
       return true;
     }
     final String helperPath = await _ensureHelperBuilt();
+    _IosPreparedCaptureState? state;
     try {
       final ScreenRecorderProcess process =
           await _commandRunner.start(helperPath, <String>[
@@ -108,7 +109,7 @@ class IosPhysicalRecordingBackend
         '--device-id',
         capture.device.id,
       ]);
-      final _IosPreparedCaptureState state = _IosPreparedCaptureState(
+      state = _IosPreparedCaptureState(
         capture: capture,
         process: process,
         events: StreamIterator<String>(process.stdoutLines),
@@ -122,8 +123,10 @@ class IosPhysicalRecordingBackend
       );
       return true;
     } on ScreenRecorderException {
+      await _cleanupFailedPrepare(capture, state);
       rethrow;
     } on Object catch (error) {
+      await _cleanupFailedPrepare(capture, state);
       throw ScreenRecorderException(
         code: ScreenRecorderErrorCode.startFailed,
         message: 'Failed to prepare physical iOS helper capture.',
@@ -262,6 +265,32 @@ class IosPhysicalRecordingBackend
     if (state == null || state.disposed) {
       return;
     }
+    await _shutdownPreparedState(capture, state, throwOnFailure: true);
+  }
+
+  Future<void> _cleanupFailedPrepare(
+    PreparedCapture capture,
+    _IosPreparedCaptureState? state,
+  ) async {
+    if (state == null) {
+      return;
+    }
+    _preparedCaptures.remove(capture.id);
+    try {
+      await _shutdownPreparedState(capture, state, throwOnFailure: false);
+    } on Object {
+      state.process.kill(ProcessSignal.sigkill);
+    }
+  }
+
+  Future<void> _shutdownPreparedState(
+    PreparedCapture capture,
+    _IosPreparedCaptureState state, {
+    required bool throwOnFailure,
+  }) async {
+    if (state.disposed) {
+      return;
+    }
     state.disposed = true;
     state.process.writeLine(
       jsonEncode(<String, String>{'operation': 'shutdown'}),
@@ -273,7 +302,7 @@ class IosPhysicalRecordingBackend
         return -1;
       },
     );
-    if (exitCode != 0) {
+    if (exitCode != 0 && throwOnFailure) {
       throw ScreenRecorderException(
         code: ScreenRecorderErrorCode.stopFailed,
         message: 'Physical iOS helper shutdown failed.',

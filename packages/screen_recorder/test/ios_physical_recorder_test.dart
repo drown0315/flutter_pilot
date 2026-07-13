@@ -287,6 +287,43 @@ iPhone 17 Simulator (26.4) (58CC29EF-4758-4E4E-A79A-398E4A26C91F)
       );
     });
 
+    test('cleans up helper when prepared capture readiness fails', () async {
+      final _FakeCommandRunner commandRunner = _FakeCommandRunner()
+        ..addSwiftBuild()
+        ..addHelperList(
+          const ScreenRecorderCommandResult(
+            exitCode: 0,
+            stdout: '''
+id\tname\tmodel\tmanufacturer
+ios-device-1\tDrown iPhone\tiOS Device\tApple Inc.
+''',
+            stderr: '',
+          ),
+        );
+      final ScreenRecorder recorder = ScreenRecorder.iosPhysical(
+        commandRunner: commandRunner,
+      );
+
+      final Future<PreparedCapture> prepare = recorder.prepare(
+        deviceSelector: 'ios-device-1',
+      );
+      await Future<void>.delayed(Duration.zero);
+      commandRunner.emitStdoutLine('{"event":"notReady"}');
+
+      await expectLater(
+        prepare,
+        throwsA(
+          isA<ScreenRecorderException>().having(
+            (ScreenRecorderException exception) => exception.code,
+            'code',
+            ScreenRecorderErrorCode.startFailed,
+          ),
+        ),
+      );
+      expect(commandRunner.writtenOperations, <String>['shutdown']);
+      expect(commandRunner.lastProcess?.hasExited, isTrue);
+    });
+
     test('process boundary exposes streamed stdout and stdin lines', () async {
       final _FakeCommandRunner commandRunner = _FakeCommandRunner();
       final ScreenRecorderProcess process = await commandRunner.start(
@@ -691,11 +728,20 @@ class _FakeScreenRecorderProcess implements ScreenRecorderProcess {
   @override
   void writeLine(String line) {
     writtenLines.add(line);
-    if (!autoServeProtocol) {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(line);
+    } on FormatException {
       return;
     }
-    final Object? decoded = jsonDecode(line);
     if (decoded is! Map<String, Object?>) {
+      return;
+    }
+    if (decoded['operation'] == 'shutdown') {
+      complete(0);
+      return;
+    }
+    if (!autoServeProtocol) {
       return;
     }
     switch (decoded['operation']) {
@@ -715,8 +761,6 @@ class _FakeScreenRecorderProcess implements ScreenRecorderProcess {
             if (outputPath != null) 'outputPath': outputPath,
           }),
         );
-      case 'shutdown':
-        complete(0);
     }
   }
 
