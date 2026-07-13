@@ -181,7 +181,8 @@ launch flow, not a user-provided command option.
 - If the recording-required device id intersection has exactly one device, `test` auto-selects that Target Device.
 - If the recording-required device id intersection has zero or multiple devices, `test` fails with exit code `64` before launching Flutter.
 - Single-file Target Device resolution failures do not create Scenario Run directories. Project Run Target Device resolution failures create the batch directory and `project_run_report.json` with an environment-level failure.
-- Scenario Recording startup failure after a Runtime Target URI is available is a Scenario Run failure and creates a run report.
+- Scenario Recording preparation happens after Target Device and Recording Device pairing. Backends that need pre-launch capture setup, such as physical iOS, prepare before Flutter app launch.
+- Scenario Recording segment startup failure after a Runtime Target URI is available is a Scenario Run failure and creates a run report.
 - `test` shows the resolved Target Device in Target App Launch Progress when
   one is selected.
 - When no Target Device is resolved because Flutter will choose its default
@@ -202,14 +203,15 @@ launch flow, not a user-provided command option.
 - If launch progress is enabled, startup failure output is rendered by Target
   App Launch Progress with elapsed time and the buffered stderr tail.
 - `test` does not expose a launch timeout option and does not impose its own startup timeout.
-- If `flutter run` exits before producing a VM service URI, `test` fails without starting recording or creating a run directory.
+- If `flutter run` exits before producing a VM service URI, `test` fails without starting a Scenario Recording segment or creating a run directory. Any prepared recording capture is still disposed.
 - If `flutter run` exits unexpectedly while the Scenario is still running, `test` reports the unexpected process exit and includes the last 40 stderr lines.
 - Runtime Adapter failures do not automatically print `flutter run` stderr unless the Flutter process exited unexpectedly.
-- `test` starts Scenario Recording only after `app.debugPort.wsUri` has been received and before the first Scenario Step executes.
-- `test` does not record Flutter build, install, or app cold-start time before the Runtime Target URI is available.
-- `test` stops Scenario Recording before stopping the launched Flutter app during normal cleanup and Ctrl-C cleanup.
-- `test` stops the launched Flutter app process when the Scenario completes or fails.
+- `test` starts the saved Scenario Recording segment only after `app.debugPort.wsUri` has been received and before the first Scenario Step executes.
+- `test` does not include Flutter build, install, or app cold-start time in the saved Device Video Recording segment before the Runtime Target URI is available.
+- `test` stops the Scenario Recording segment during Scenario shutdown so the final video artifact can be attached to the run report.
+- `test` stops the launched Flutter app process when the Scenario completes or fails, then disposes any prepared recording capture. Physical iOS helper disposal must be awaited so native capture indicators do not remain active.
 - A Project Run launches the Target App Package once and reuses that launched app for all selected Project Scenarios.
+- A Project Run reuses one prepared recording capture for the batch and starts one saved segment per recording-enabled Project Scenario.
 - In a Project Run, the first Scenario runs after launch without an extra hot restart.
 - In a Project Run, Flutter Pilot performs a hot restart before every later Scenario, including after a previous Scenario failure.
 - A Scenario execution failure inside a Project Run records that Scenario's artifacts and does not stop later Scenarios.

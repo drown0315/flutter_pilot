@@ -116,7 +116,8 @@ the final extension.
 - The primary contract is a programmatic API, not a CLI-first command surface.
 - Add a thin CLI for manual smoke testing and interactive foreground recording.
 - The CLI must call the same core library API that programmatic callers use.
-- Core API includes `listDevices`, `startRecord`, `stopRecord`, and discard behavior.
+- Core API includes `listDevices`, `startRecord`, `stopRecord`, discard behavior, and an optional prepared capture lifecycle.
+- Prepared capture API includes `prepare`, `startRecord(preparedCapture: ...)`, and `dispose(capture)`. Backends without a separate prepared mode keep direct recording behavior and do not start recording during preparation.
 - `startRecord` returns a Recording Session.
 - `stopRecord` accepts a Recording Session and returns a Recording Result.
 - Discard behavior accepts a Recording Session and cleans up backend artifacts without returning a saved recording.
@@ -156,9 +157,11 @@ the final extension.
 - iOS simulator discard stops the process and removes the local output file.
 - Physical iOS recording uses an in-package Swift helper based on the native AVFoundation/CoreMediaIO capture approach validated in the local prototype.
 - Physical iOS recording does not shell out to or depend on the local prototype directory.
-- The Swift helper lists physical iOS capture devices and records one selected device to `.mov`.
-- Physical iOS recording starts the helper as a long-running process and stops it by signaling the process so the helper can finalize the movie file.
-- Physical iOS discard stops the helper and removes the local output file.
+- The Swift helper lists physical iOS capture devices and can serve one selected device through a line-delimited JSON protocol.
+- Physical iOS prepared recording starts the helper before a segment is requested, waits until AVFoundation has produced a real frame, then starts the `.mov` writer only when `startRecord(preparedCapture: ...)` is called.
+- Physical iOS stop finalizes the active `.mov` segment while keeping the AVFoundation capture session alive for a later segment.
+- Physical iOS dispose sends helper shutdown, waits for process exit, and stops native capture so host/device recording indicators do not remain active.
+- Physical iOS discard finalizes or stops the active segment as needed and removes the local output file.
 - Support simultaneous active recordings on different Recording Devices.
 - Reject starting a second active Recording Session for the same Recording Device.
 - Build deep modules for device resolution, output naming, backend lifecycle, process execution, and CLI interaction.
